@@ -4,6 +4,9 @@ import cors from 'cors'
 import { env } from './config/env'
 import { errorMiddleware } from './middleware/error.middleware'
 import { authRoutes } from './modules/auth/auth.routes'
+import { sourcesRoutes } from './modules/sources/sources.routes'
+import { holdingsRoutes, portfolioRoutes, pricesRoutes } from './modules/portfolio/portfolio.routes'
+import { assetsRoutes } from './modules/assets/assets.routes'
 
 export function createApp() {
   const app = express()
@@ -20,6 +23,11 @@ export function createApp() {
   })
 
   api.use('/auth', authRoutes)
+  api.use('/sources', sourcesRoutes)
+  api.use('/portfolio', portfolioRoutes)
+  api.use('/holdings', holdingsRoutes)
+  api.use('/prices', pricesRoutes)
+  api.use('/assets', assetsRoutes)
 
   app.use((_req, res) => {
     res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route nicht gefunden' } })

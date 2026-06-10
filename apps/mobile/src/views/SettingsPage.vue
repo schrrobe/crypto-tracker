@@ -57,8 +57,12 @@ import {
   type ThemePreference,
 } from '../services/theme.service'
 import { useAuthStore } from '../stores/auth.store'
+import { usePortfolioStore } from '../stores/portfolio.store'
+import { useSourcesStore } from '../stores/sources.store'
 
 const auth = useAuthStore()
+const portfolio = usePortfolioStore()
+const sources = useSourcesStore()
 const router = useRouter()
 const theme = ref<ThemePreference>(getThemePreference())
 
@@ -69,6 +73,8 @@ function onThemeChange(value: ThemePreference) {
 
 async function logout() {
   await auth.logout()
+  portfolio.reset()
+  sources.reset()
   router.replace('/login')
 }
 </script>
