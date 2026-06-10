@@ -3,13 +3,17 @@ import { env } from '../config/env'
 import { AppError } from '../lib/errors'
 import type { ExchangeProvider, Provider, WalletProvider } from './provider.types'
 import { fakeExchangeProvider, fakeWalletProvider } from './fake.providers'
+import { bitcoinProvider } from './wallets/bitcoin'
+import { solanaProvider } from './wallets/solana'
 
 const EXCHANGE_IDS: ProviderId[] = ['COINBASE', 'KRAKEN', 'BITVAVO', 'BITPANDA']
 const WALLET_IDS: ProviderId[] = ['BITCOIN', 'SOLANA']
 
-// Echte Implementierungen werden in Meilenstein 4 (Wallets) und 5 (Exchanges)
-// registriert: exchanges/kraken.ts, wallets/bitcoin.ts, ...
-const realProviders = new Map<ProviderId, Provider>()
+// Exchanges (Kraken, Bitvavo, …) folgen in Meilenstein 5
+const realProviders = new Map<ProviderId, Provider>([
+  ['BITCOIN', bitcoinProvider],
+  ['SOLANA', solanaProvider],
+])
 
 function buildRegistry(): Map<ProviderId, Provider> {
   if (env.FAKE_PROVIDERS) {

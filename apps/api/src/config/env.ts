@@ -20,6 +20,7 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().transform((s) => s.split(',').map((o) => o.trim()).filter(Boolean)),
   COINGECKO_API_KEY: z.string().optional(),
   SOLANA_RPC_URL: z.string().url().default('https://api.mainnet-beta.solana.com'),
+  MEMPOOL_API_URL: z.string().url().default('https://mempool.space/api'),
   // Nur für Tests/lokale Entwicklung: deterministische Preise und Provider statt echter APIs
   FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   FAKE_PROVIDERS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
