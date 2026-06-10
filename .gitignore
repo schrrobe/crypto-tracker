@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+coverage/
+
+# Env-Dateien — nur *.example wird committed
+.env
+.env.local
+.env.dev
+.env.prod
+
+# Prisma
+apps/api/src/generated/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Capacitor (später)
+apps/mobile/ios/
+apps/mobile/android/

@@ -1,0 +1,49 @@
+import 'dotenv/config'
+import { z } from 'zod'
+
+const LOCAL_DEFAULT_SECRETS = [
+  'local-jwt-secret-change-me',
+  'local-refresh-secret-change-me',
+  // ENCRYPTION_KEY-Default aus .env.example
+  '0000000000000000000000000000000000000000000000000000000000000000',
+]
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  APP_ENV: z.enum(['local', 'dev', 'prod']).default('local'),
+  PORT: z.coerce.number().int().positive().default(3000),
+  DATABASE_URL: z.string().url(),
+  JWT_SECRET: z.string().min(16),
+  JWT_REFRESH_SECRET: z.string().min(16),
+  // AES-256-Schlüssel: 32 Bytes als Hex (64 Zeichen)
+  ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, 'ENCRYPTION_KEY muss 32 Bytes hex sein (64 Zeichen)'),
+  CORS_ORIGINS: z.string().transform((s) => s.split(',').map((o) => o.trim()).filter(Boolean)),
+  COINGECKO_API_KEY: z.string().optional(),
+  SOLANA_RPC_URL: z.string().url().default('https://api.mainnet-beta.solana.com'),
+})
+
+const parsed = envSchema.safeParse(process.env)
+if (!parsed.success) {
+  console.error('Ungültige Environment-Konfiguration:')
+  for (const issue of parsed.error.issues) {
+    console.error(`  ${issue.path.join('.')}: ${issue.message}`)
+  }
+  process.exit(1)
+}
+
+export const env = parsed.data
+
+// In dev/prod sind die local-Defaults verboten — Start wird verweigert.
+if (env.APP_ENV !== 'local') {
+  const usedDefaults = [env.JWT_SECRET, env.JWT_REFRESH_SECRET, env.ENCRYPTION_KEY].filter((s) =>
+    LOCAL_DEFAULT_SECRETS.includes(s),
+  )
+  if (usedDefaults.length > 0) {
+    console.error(`APP_ENV=${env.APP_ENV}: Default-Secrets aus .env.example sind hier nicht erlaubt.`)
+    process.exit(1)
+  }
+  if (env.CORS_ORIGINS.some((o) => o.includes('localhost'))) {
+    console.error(`APP_ENV=${env.APP_ENV}: localhost-Origins sind in CORS_ORIGINS nicht erlaubt.`)
+    process.exit(1)
+  }
+}

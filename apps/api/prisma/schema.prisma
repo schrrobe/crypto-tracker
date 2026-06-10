@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SourceType {
+  EXCHANGE
+  WALLET
+  CSV_IMPORT
+  MANUAL
+}
+
+enum ProviderId {
+  COINBASE
+  KRAKEN
+  BITVAVO
+  BITPANDA
+  BITCOIN
+  SOLANA
+  GENERIC_CSV
+  MANUAL
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  ERROR
+}
+
+enum ImportStatus {
+  PENDING_MAPPING
+  COMPLETED
+  FAILED
+}
+
+enum ImportKind {
+  BALANCES
+  TRANSACTIONS
+}
+
+enum TxType {
+  BUY
+  SELL
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  OTHER
+}
+
+model User {
+  id            String            @id @default(uuid())
+  email         String            @unique
+  passwordHash  String
+  baseCurrency  String            @default("EUR")
+  createdAt     DateTime          @default(now())
+  sources       PortfolioSource[]
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Zentrale Abstraktion: jede Verbindung, jeder Import und jeder manuelle Topf
+// ist eine PortfolioSource. Holdings hängen immer an genau einer Quelle.
+model PortfolioSource {
+  id           String              @id @default(uuid())
+  userId       String
+  type         SourceType
+  provider     ProviderId
+  label        String
+  lastSyncAt   DateTime?
+  createdAt    DateTime            @default(now())
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential   ExchangeCredential?
+  wallet       WalletAddress?
+  holdings     Holding[]
+  syncRuns     SyncRun[]
+  imports      CsvImport[]
+  transactions Transaction[]
+
+  @@index([userId])
+}
+
+model ExchangeCredential {
+  id                  String          @id @default(uuid())
+  sourceId            String          @unique
+  encryptedApiKey     String
+  encryptedApiSecret  String
+  encryptedPassphrase String?
+  keyPreview          String
+  source              PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model WalletAddress {
+  id       String          @id @default(uuid())
+  sourceId String          @unique
+  chain    String
+  address  String
+  source   PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model Asset {
+  id          String       @id @default(uuid())
+  // Symbol ist bewusst NICHT unique — Ticker-Kollisionen existieren.
+  symbol      String
+  name        String
+  // null = unmapped: kein Preis abrufbar, UI zeigt Hinweis
+  coingeckoId String?      @unique
+  iconUrl     String?
+  holdings    Holding[]
+  prices      AssetPrice[]
+
+  @@index([symbol])
+}
+
+model Holding {
+  id        String          @id @default(uuid())
+  sourceId  String
+  assetId   String
+  quantity  Decimal         @db.Decimal(38, 18)
+  updatedAt DateTime        @updatedAt
+  source    PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  asset     Asset           @relation(fields: [assetId], references: [id])
+
+  @@unique([sourceId, assetId])
+}
+
+model Transaction {
+  id           String          @id @default(uuid())
+  sourceId     String
+  importId     String?
+  assetId      String
+  type         TxType
+  quantity     Decimal         @db.Decimal(38, 18)
+  pricePerUnit Decimal?        @db.Decimal(38, 18)
+  feeAmount    Decimal?        @db.Decimal(38, 18)
+  currency     String?
+  timestamp    DateTime
+  source       PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, timestamp])
+}
+
+model CsvImport {
+  id            String          @id @default(uuid())
+  sourceId      String
+  filename      String
+  kind          ImportKind
+  status        ImportStatus    @default(PENDING_MAPPING)
+  columnMapping Json?
+  rawPreview    Json
+  rawRows       Json?
+  totalRows     Int             @default(0)
+  importedRows  Int             @default(0)
+  errorRows     Json?
+  createdAt     DateTime        @default(now())
+  source        PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId])
+}
+
+model SyncRun {
+  id           String          @id @default(uuid())
+  sourceId     String
+  status       SyncStatus
+  startedAt    DateTime        @default(now())
+  finishedAt   DateTime?
+  errorCode    String?
+  errorMessage String?
+  source       PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, startedAt])
+}
+
+// Append-only: jüngste Zeile je Asset = aktueller Preis, ältere = Historie
+model AssetPrice {
+  id        String   @id @default(uuid())
+  assetId   String
+  priceEur  Decimal  @db.Decimal(24, 8)
+  priceUsd  Decimal  @db.Decimal(24, 8)
+  fetchedAt DateTime @default(now())
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, fetchedAt])
+}

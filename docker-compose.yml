@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: crypto-tracker-postgres
+    # 5432/5433 sind auf diesem Host bereits belegt (club_member_postgres, shop3d-postgres)
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: crypto
+      POSTGRES_PASSWORD: crypto
+      POSTGRES_DB: crypto_tracker
+    volumes:
+      - crypto_tracker_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crypto -d crypto_tracker"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  adminer:
+    image: adminer:latest
+    container_name: crypto-tracker-adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+    profiles:
+      - tools
+
+volumes:
+  crypto_tracker_pgdata:
