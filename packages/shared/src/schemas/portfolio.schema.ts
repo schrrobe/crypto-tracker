@@ -13,6 +13,32 @@ export const createManualSourceSchema = z.object({
   label: z.string().trim().min(1).max(60),
 })
 
+export const EXCHANGE_PROVIDERS = ['COINBASE', 'KRAKEN', 'BITVAVO', 'BITPANDA'] as const
+export const WALLET_PROVIDERS = ['BITCOIN', 'SOLANA'] as const
+
+export const createExchangeSourceSchema = z.object({
+  type: z.literal('EXCHANGE'),
+  provider: z.enum(EXCHANGE_PROVIDERS),
+  label: z.string().trim().min(1).max(60),
+  apiKey: z.string().trim().min(4).max(500),
+  apiSecret: z.string().trim().min(4).max(500),
+  passphrase: z.string().trim().max(200).optional(),
+})
+
+export const createWalletSourceSchema = z.object({
+  type: z.literal('WALLET'),
+  provider: z.enum(WALLET_PROVIDERS),
+  label: z.string().trim().min(1).max(60),
+  address: z.string().trim().min(10).max(120),
+})
+
+export const createSourceSchema = z.discriminatedUnion('type', [
+  createManualSourceSchema,
+  createExchangeSourceSchema,
+  createWalletSourceSchema,
+])
+export type CreateSourceInput = z.infer<typeof createSourceSchema>
+
 export const updateSourceSchema = z.object({
   label: z.string().trim().min(1).max(60),
 })
@@ -45,6 +71,15 @@ export interface HoldingDto {
   valueUsd: string | null
 }
 
+export interface SyncRunDto {
+  id: string
+  status: 'RUNNING' | 'SUCCESS' | 'ERROR'
+  startedAt: string
+  finishedAt: string | null
+  errorCode: string | null
+  errorMessage: string | null
+}
+
 export interface SourceDto {
   id: string
   type: SourceType
@@ -52,6 +87,12 @@ export interface SourceDto {
   label: string
   lastSyncAt: string | null
   createdAt: string
+  // nur bei EXCHANGE: maskierter Key (…1234) — niemals Key/Secret selbst
+  keyPreview: string | null
+  // nur bei WALLET
+  address: string | null
+  chain: string | null
+  lastSyncRun: SyncRunDto | null
 }
 
 export interface PortfolioAssetPosition {

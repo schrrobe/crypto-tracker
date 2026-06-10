@@ -1,0 +1,257 @@
+<template>
+  <ion-modal :is-open="isOpen" @didDismiss="$emit('close')">
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Quelle verbinden</ion-title>
+        <ion-buttons slot="end">
+          <ion-button data-testid="source-modal-cancel" @click="$emit('close')">Abbrechen</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="ion-padding">
+      <!-- Schritt 1: Typ -->
+      <ion-segment :value="type" @ionChange="type = $event.detail.value as SourceKind">
+        <ion-segment-button value="EXCHANGE" data-testid="source-type-exchange">
+          <ion-label>Exchange</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="WALLET" data-testid="source-type-wallet">
+          <ion-label>Wallet</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="MANUAL" data-testid="source-type-manual">
+          <ion-label>Manuell</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
+      <ion-list inset>
+        <!-- Provider-Wahl -->
+        <ion-item v-if="type === 'EXCHANGE'">
+          <ion-select
+            label="Exchange"
+            interface="popover"
+            :value="exchangeProvider"
+            data-testid="exchange-provider"
+            @ionChange="exchangeProvider = $event.detail.value"
+          >
+            <ion-select-option v-for="p in EXCHANGE_PROVIDERS" :key="p" :value="p">
+              {{ PROVIDER_LABELS[p] }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+        <ion-item v-if="type === 'WALLET'">
+          <ion-select
+            label="Netzwerk"
+            interface="popover"
+            :value="walletProvider"
+            data-testid="wallet-provider"
+            @ionChange="walletProvider = $event.detail.value"
+          >
+            <ion-select-option v-for="p in WALLET_PROVIDERS" :key="p" :value="p">
+              {{ PROVIDER_LABELS[p] }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+
+        <ion-item>
+          <ion-input
+            v-model="label"
+            label="Bezeichnung"
+            label-placement="floating"
+            :placeholder="labelPlaceholder"
+            data-testid="source-label"
+          />
+        </ion-item>
+
+        <!-- Exchange: read-only API-Key -->
+        <template v-if="type === 'EXCHANGE'">
+          <ion-item>
+            <ion-input
+              v-model="apiKey"
+              label="API-Key (nur Lese-Rechte!)"
+              label-placement="floating"
+              data-testid="source-api-key"
+            />
+          </ion-item>
+          <ion-item>
+            <ion-input
+              v-model="apiSecret"
+              label="API-Secret"
+              label-placement="floating"
+              type="password"
+              data-testid="source-api-secret"
+            />
+          </ion-item>
+          <ion-item v-if="exchangeProvider === 'COINBASE'">
+            <ion-input
+              v-model="passphrase"
+              label="Passphrase (optional)"
+              label-placement="floating"
+              type="password"
+              data-testid="source-passphrase"
+            />
+          </ion-item>
+        </template>
+
+        <!-- Wallet: öffentliche Adresse -->
+        <ion-item v-if="type === 'WALLET'">
+          <ion-input
+            v-model="address"
+            label="Öffentliche Wallet-Adresse"
+            label-placement="floating"
+            data-testid="source-address"
+          />
+        </ion-item>
+      </ion-list>
+
+      <ion-text v-if="type === 'EXCHANGE'" color="medium">
+        <p class="hint">
+          Erstelle beim Anbieter einen API-Key mit ausschließlich Lese-Berechtigung. Der Key wird
+          verschlüsselt im Backend gespeichert und nie im Klartext angezeigt.
+        </p>
+      </ion-text>
+
+      <ion-text v-if="error" color="danger">
+        <p class="error" data-testid="source-error">{{ error }}</p>
+      </ion-text>
+
+      <ion-button
+        expand="block"
+        :disabled="saving || !valid"
+        data-testid="source-save"
+        @click="save"
+      >
+        <ion-spinner v-if="saving" name="crescent" />
+        <span v-else>Verbinden</span>
+      </ion-button>
+    </ion-content>
+  </ion-modal>
+</template>
+
+<script setup lang="ts">
+import {
+  IonButton,
+  IonButtons,
+  IonContent,
+  IonHeader,
+  IonInput,
+  IonItem,
+  IonLabel,
+  IonList,
+  IonModal,
+  IonSegment,
+  IonSegmentButton,
+  IonSelect,
+  IonSelectOption,
+  IonSpinner,
+  IonText,
+  IonTitle,
+  IonToolbar,
+} from '@ionic/vue'
+import { computed, ref, watch } from 'vue'
+import {
+  EXCHANGE_PROVIDERS,
+  WALLET_PROVIDERS,
+  type CreateSourceInput,
+} from '@crypto-tracker/shared'
+import { ApiError } from '../../services/api.client'
+import { useSourcesStore } from '../../stores/sources.store'
+
+type SourceKind = 'EXCHANGE' | 'WALLET' | 'MANUAL'
+
+const PROVIDER_LABELS: Record<string, string> = {
+  COINBASE: 'Coinbase',
+  KRAKEN: 'Kraken',
+  BITVAVO: 'Bitvavo',
+  BITPANDA: 'Bitpanda',
+  BITCOIN: 'Bitcoin',
+  SOLANA: 'Solana',
+}
+
+const props = defineProps<{ isOpen: boolean }>()
+const emit = defineEmits<{ close: []; created: [] }>()
+
+const sourcesStore = useSourcesStore()
+
+const type = ref<SourceKind>('EXCHANGE')
+const exchangeProvider = ref<(typeof EXCHANGE_PROVIDERS)[number]>('KRAKEN')
+const walletProvider = ref<(typeof WALLET_PROVIDERS)[number]>('BITCOIN')
+const label = ref('')
+const apiKey = ref('')
+const apiSecret = ref('')
+const passphrase = ref('')
+const address = ref('')
+const error = ref('')
+const saving = ref(false)
+
+const labelPlaceholder = computed(() =>
+  type.value === 'EXCHANGE'
+    ? 'z.B. Kraken Hauptaccount'
+    : type.value === 'WALLET'
+      ? 'z.B. Hardware-Wallet'
+      : 'z.B. Sonstige Bestände',
+)
+
+const valid = computed(() => {
+  if (!label.value.trim()) return false
+  if (type.value === 'EXCHANGE') return apiKey.value.trim().length >= 4 && apiSecret.value.trim().length >= 4
+  if (type.value === 'WALLET') return address.value.trim().length >= 10
+  return true
+})
+
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (!open) return
+    error.value = ''
+    saving.value = false
+    label.value = ''
+    apiKey.value = ''
+    apiSecret.value = ''
+    passphrase.value = ''
+    address.value = ''
+  },
+)
+
+function buildInput(): CreateSourceInput {
+  if (type.value === 'EXCHANGE') {
+    return {
+      type: 'EXCHANGE',
+      provider: exchangeProvider.value,
+      label: label.value.trim(),
+      apiKey: apiKey.value.trim(),
+      apiSecret: apiSecret.value.trim(),
+      passphrase: passphrase.value.trim() || undefined,
+    }
+  }
+  if (type.value === 'WALLET') {
+    return {
+      type: 'WALLET',
+      provider: walletProvider.value,
+      label: label.value.trim(),
+      address: address.value.trim(),
+    }
+  }
+  return { type: 'MANUAL', label: label.value.trim() }
+}
+
+async function save() {
+  error.value = ''
+  saving.value = true
+  try {
+    await sourcesStore.create(buildInput())
+    emit('created')
+    emit('close')
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Verbinden fehlgeschlagen'
+  } finally {
+    saving.value = false
+  }
+}
+</script>
+
+<style scoped>
+.hint,
+.error {
+  margin: 8px 16px;
+  font-size: 0.9em;
+}
+</style>
