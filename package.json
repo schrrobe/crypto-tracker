@@ -15,6 +15,7 @@
     "db:studio": "pnpm --filter @crypto-tracker/api db:studio",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @crypto-tracker/e2e test:e2e",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,vue,css,md,json}\"",
     "typecheck": "pnpm -r typecheck"
@@ -24,11 +25,13 @@
     "concurrently": "^9.1.2",
     "eslint": "^10.4.1",
     "eslint-plugin-vue": "^10.9.2",
+    "globals": "^17.6.0",
     "prettier": "^3.8.4",
     "typescript-eslint": "^8.61.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "argon2",
       "@prisma/client",
       "@prisma/engines",
       "prisma",

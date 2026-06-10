@@ -1,6 +1,7 @@
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import vue from 'eslint-plugin-vue'
+import globals from 'globals'
 
 export default tseslint.config(
   { ignores: ['**/dist/**', '**/node_modules/**', '**/*.d.ts', '**/coverage/**'] },
@@ -10,6 +11,14 @@ export default tseslint.config(
   {
     files: ['**/*.vue'],
     languageOptions: { parserOptions: { parser: tseslint.parser } },
+  },
+  {
+    files: ['apps/mobile/**'],
+    languageOptions: { globals: globals.browser },
+  },
+  {
+    files: ['apps/api/**', 'e2e/**'],
+    languageOptions: { globals: globals.node },
   },
   {
     rules: {

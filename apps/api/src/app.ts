@@ -3,6 +3,7 @@ import helmet from 'helmet'
 import cors from 'cors'
 import { env } from './config/env'
 import { errorMiddleware } from './middleware/error.middleware'
+import { authRoutes } from './modules/auth/auth.routes'
 
 export function createApp() {
   const app = express()
@@ -18,7 +19,7 @@ export function createApp() {
     res.json({ status: 'ok', env: env.APP_ENV })
   })
 
-  // Module werden hier registriert (auth, sources, portfolio, ...)
+  api.use('/auth', authRoutes)
 
   app.use((_req, res) => {
     res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route nicht gefunden' } })

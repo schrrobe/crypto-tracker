@@ -20,6 +20,9 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().transform((s) => s.split(',').map((o) => o.trim()).filter(Boolean)),
   COINGECKO_API_KEY: z.string().optional(),
   SOLANA_RPC_URL: z.string().url().default('https://api.mainnet-beta.solana.com'),
+  // Nur für Tests/lokale Entwicklung: deterministische Preise und Provider statt echter APIs
+  FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  FAKE_PROVIDERS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -44,6 +47,10 @@ if (env.APP_ENV !== 'local') {
   }
   if (env.CORS_ORIGINS.some((o) => o.includes('localhost'))) {
     console.error(`APP_ENV=${env.APP_ENV}: localhost-Origins sind in CORS_ORIGINS nicht erlaubt.`)
+    process.exit(1)
+  }
+  if (env.FAKE_PRICES || env.FAKE_PROVIDERS) {
+    console.error(`APP_ENV=${env.APP_ENV}: FAKE_PRICES/FAKE_PROVIDERS sind nur in local erlaubt.`)
     process.exit(1)
   }
 }

@@ -20,6 +20,18 @@
           </ion-select>
         </ion-item>
       </ion-list>
+
+      <ion-list inset>
+        <ion-item>
+          <ion-label>
+            <p>Angemeldet als</p>
+            <h3 data-testid="settings-email">{{ auth.user?.email }}</h3>
+          </ion-label>
+        </ion-item>
+        <ion-item button :detail="false" data-testid="logout-button" @click="logout">
+          <ion-label color="danger">Abmelden</ion-label>
+        </ion-item>
+      </ion-list>
     </ion-content>
   </ion-page>
 </template>
@@ -29,6 +41,7 @@ import {
   IonContent,
   IonHeader,
   IonItem,
+  IonLabel,
   IonList,
   IonPage,
   IonSelect,
@@ -37,16 +50,25 @@ import {
   IonToolbar,
 } from '@ionic/vue'
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   getThemePreference,
   setThemePreference,
   type ThemePreference,
 } from '../services/theme.service'
+import { useAuthStore } from '../stores/auth.store'
 
+const auth = useAuthStore()
+const router = useRouter()
 const theme = ref<ThemePreference>(getThemePreference())
 
 function onThemeChange(value: ThemePreference) {
   theme.value = value
   setThemePreference(value)
+}
+
+async function logout() {
+  await auth.logout()
+  router.replace('/login')
 }
 </script>
