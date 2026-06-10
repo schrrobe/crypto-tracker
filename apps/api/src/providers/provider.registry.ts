@@ -5,14 +5,18 @@ import type { ExchangeProvider, Provider, WalletProvider } from './provider.type
 import { fakeExchangeProvider, fakeWalletProvider } from './fake.providers'
 import { bitcoinProvider } from './wallets/bitcoin'
 import { solanaProvider } from './wallets/solana'
+import { krakenProvider } from './exchanges/kraken'
+import { bitvavoProvider } from './exchanges/bitvavo'
 
 const EXCHANGE_IDS: ProviderId[] = ['COINBASE', 'KRAKEN', 'BITVAVO', 'BITPANDA']
 const WALLET_IDS: ProviderId[] = ['BITCOIN', 'SOLANA']
 
-// Exchanges (Kraken, Bitvavo, …) folgen in Meilenstein 5
+// Coinbase und Bitpanda folgen in Meilenstein 8
 const realProviders = new Map<ProviderId, Provider>([
   ['BITCOIN', bitcoinProvider],
   ['SOLANA', solanaProvider],
+  ['KRAKEN', krakenProvider],
+  ['BITVAVO', bitvavoProvider],
 ])
 
 function buildRegistry(): Map<ProviderId, Provider> {
