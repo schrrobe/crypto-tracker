@@ -14,7 +14,9 @@ Ein persönlicher Krypto-Portfolio-Tracker: Nutzer registrieren sich per E-Mail/
 
 **In Scope:** Auth, Quellen-Verwaltung, manueller Sync, Bestands-Aggregation, CSV-Import mit Spalten-Mapping, CoinGecko-Preise (EUR/USD), Sync-Historie, Dark/Light Mode, native iOS/Android + Web.
 
-**Out of Scope (bewusst nicht Teil der App):** Trading, Withdrawals, Custody/Private Keys, Steuer-Reports, Schreibzugriff auf Exchanges, Social Features, Echtzeit-Kurse/Websockets.
+**Out of Scope (bewusst nicht Teil der App):** Trading, Withdrawals, Custody/Private Keys, Schreibzugriff auf Exchanges, Social Features, Echtzeit-Kurse/Websockets.
+
+**Nachträglich in den Scope geholt (Juni 2026):** Steuer-Reports für Deutschland (§23 EStG, FIFO) und Österreich (§27b EStG, Alt-/Neuvermögen) auf Basis von Transaktionshistorien (CSV-Import + manuelle Erfassung) — siehe IMPLEMENTATION-STATE.md.
 
 ## 3. MVP-Abgrenzung
 

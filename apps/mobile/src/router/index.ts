@@ -17,7 +17,9 @@ const routes: Array<RouteRecordRaw> = [
       { path: 'holdings', component: () => import('../views/HoldingsPage.vue') },
       { path: 'sources', component: () => import('../views/sources/SourcesPage.vue') },
       { path: 'sources/imports', component: () => import('../views/sources/csv/ImportsPage.vue') },
+      { path: 'sources/transactions', component: () => import('../views/transactions/TransactionsPage.vue') },
       { path: 'settings', component: () => import('../views/SettingsPage.vue') },
+      { path: 'settings/tax-report', component: () => import('../views/tax/TaxReportPage.vue') },
     ],
   },
 ]

@@ -2,6 +2,8 @@
 // Formate folgen der gewählten App-Sprache.
 import { intlLocale, t } from '../i18n'
 
+export { intlLocale }
+
 export function formatCurrency(value: string | null, currency: 'EUR' | 'USD'): string {
   if (value === null) return '–'
   return new Intl.NumberFormat(intlLocale(), { style: 'currency', currency }).format(Number(value))

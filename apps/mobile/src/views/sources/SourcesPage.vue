@@ -74,6 +74,16 @@
         {{ $t('sources.importHistory') }}
       </ion-button>
 
+      <ion-button
+        expand="block"
+        fill="clear"
+        size="small"
+        router-link="/tabs/sources/transactions"
+        data-testid="open-transactions"
+      >
+        {{ $t('sources.transactions') }}
+      </ion-button>
+
       <ion-fab slot="fixed" vertical="bottom" horizontal="end">
         <ion-fab-button data-testid="add-source" @click="modalOpen = true">
           <ion-icon :icon="addOutline" />

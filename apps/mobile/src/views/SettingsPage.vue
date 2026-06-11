@@ -47,6 +47,12 @@
       </ion-list>
 
       <ion-list inset>
+        <ion-item button data-testid="open-tax-report" @click="router.push('/tabs/settings/tax-report')">
+          <ion-label>{{ $t('tax.settingsEntry') }}</ion-label>
+        </ion-item>
+      </ion-list>
+
+      <ion-list inset>
         <ion-item>
           <ion-label>
             <p>{{ $t('settings.signedInAs') }}</p>

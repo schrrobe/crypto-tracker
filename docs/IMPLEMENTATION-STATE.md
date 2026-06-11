@@ -31,7 +31,8 @@ bewertet in EUR/USD über CoinGecko.
 | 7 | Polish: Onboarding-Einstiege, lokalisierte API-Fehler-Codes, Basiswährung EUR/USD, Loading-/Error-States, Spam-Token-Collapse | `acb2142` |
 | 8 | Coinbase (CDP-Keys, ES256-JWT) + Bitpanda (nur API-Key), CSV-Transaktions-Import mit Netto-Beständen, Allocation-Donut, manuelles CoinGecko-Mapping | `002e6ae` |
 | — | Testlücken: Tenant-Isolation (Supertest), Sync-/Import-Integrationstests, Frontend-Unit-Tests (api.client) | `f47cf75` |
-| — | Wertverlauf-Chart: `GET /portfolio/history` (24h/7d/30d, EUR/USD, CoinGecko market_chart on-demand mit 30-min-Cache, Top-10-Assets), SVG-Chart mit Range-Umschalter und Delta-Prozent | `HEAD` |
+| — | Wertverlauf-Chart: `GET /portfolio/history` (24h/7d/30d, EUR/USD, CoinGecko market_chart on-demand mit 30-min-Cache, Top-10-Assets), SVG-Chart mit Range-Umschalter und Delta-Prozent | `f48ff7c` |
+| — | Steuerreport DE/AT: manuelle Transaktionen (CRUD, auto-verwaltete MANUAL-Quelle, Netto-Bestände), historische EUR-Tagespreise (CoinGecko /history, DB-/Negativ-Cache, Lookup-Cap), reine Tax-Engine (DE: globales FIFO, Haltefrist, Freigrenze 600/1000 €; AT: Stichtag 1.3.2021, Altvermögen-FIFO + 440 €, Neuvermögen-Durchschnittspreis 27,5 %), `GET /tax/report`, Report-Seite mit Disclaimer/Warnungen/CSV-Export | `HEAD` |
 
 ## Architektur-Eckpunkte
 
@@ -45,7 +46,8 @@ bewertet in EUR/USD über CoinGecko.
 ## Bekannte Einschränkungen / bewusste Entscheidungen
 
 - **Live-Happy-Path der Exchanges ungetestet** — Kraken/Bitvavo/Coinbase/Bitpanda sind per Fixtures + Live-Fehlerpfad verifiziert; der Erfolgsfall braucht echte read-only Keys
-- **Transaktions-Importe**: gespeichert + Netto-Bestände (BUY/DEPOSIT − SELL/WITHDRAWAL); keine PnL-/Kostenbasis-Berechnung; keine Transaktions-Liste in der UI
+- **Transaktions-Importe**: gespeichert + Netto-Bestände (BUY/DEPOSIT − SELL/WITHDRAWAL); Kostenbasis/Gewinne rechnet der Steuerreport (`/tax/report`), laufende PnL-Anzeige im Portfolio fehlt weiterhin
+- **Steuerreport**: nur Quellen mit Transaktionshistorie (CSV-Transaktionen + manuelle Transaktionen); Quellen mit reinen Bestands-Snapshots werden als „nicht enthalten" ausgewiesen. Dokumentierte Annahmen: globales FIFO über alle Quellen (DE), Altvermögen zuerst (AT); Crypto-zu-Crypto-Swaps, Staking/Lending/Airdrops und FX-Umrechnung nicht abgebildet. CoinGecko-Backfill historischer Kurse nur ~365 Tage zurück (Free Tier), Cap pro Lauf mit Hinweis-Warnung
 - **Asset-Mapping ist global** (Assets nutzerübergreifend); deshalb nur für unmapped Assets erlaubt
 - **Refresh-Token im localStorage (Web)** — für local ok; vor prod-Deployment auf httpOnly-Cookies (Web) bzw. Capacitor Secure Storage (nativ) umstellen
 - **Quellen-Umbenennen**: Backend (`PATCH /sources/:id`) existiert, UI fehlt
