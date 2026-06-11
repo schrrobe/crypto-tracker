@@ -160,6 +160,21 @@ export interface CsvUploadResponse {
   suggestedMapping: MappingSuggestionDto
 }
 
+export type HistoryRange = '24h' | '7d' | '30d'
+
+export interface PortfolioHistoryPoint {
+  t: string // ISO-Zeitstempel
+  value: string
+}
+
+export interface PortfolioHistoryDto {
+  range: HistoryRange
+  currency: 'EUR' | 'USD'
+  points: PortfolioHistoryPoint[]
+  // Anzahl der Assets, die mangels Mapping/Top-N nicht im Verlauf stecken
+  excludedAssets: number
+}
+
 export interface PortfolioSummaryDto {
   totalEur: string
   totalUsd: string

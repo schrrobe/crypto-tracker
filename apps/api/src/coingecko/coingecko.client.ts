@@ -49,6 +49,50 @@ export async function searchCoins(query: string): Promise<CoinSearchResult[]> {
   return (json.coins ?? []).slice(0, 10).map((c) => ({ id: c.id, symbol: c.symbol, name: c.name }))
 }
 
+// [timestampMs, price] — wie von CoinGecko market_chart geliefert
+export type MarketChartPoint = [number, number]
+
+const chartCache = new Map<string, { at: number; data: MarketChartPoint[] }>()
+const CHART_CACHE_TTL_MS = 30 * 60 * 1000
+
+// Historische Preise für den Wertverlauf — on-demand statt lokaler Snapshots,
+// damit das Chart auch ohne Background-Sync sofort gefüllt ist. 30-min-Cache
+// pro Asset/Währung/Zeitraum schont das CoinGecko-Rate-Limit.
+export async function fetchMarketChart(
+  coingeckoId: string,
+  currency: 'eur' | 'usd',
+  days: 1 | 7 | 30,
+): Promise<MarketChartPoint[]> {
+  const cacheKey = `${coingeckoId}:${currency}:${days}`
+  const cached = chartCache.get(cacheKey)
+  if (cached && cached.at > Date.now() - CHART_CACHE_TTL_MS) return cached.data
+
+  let data: MarketChartPoint[]
+  if (env.FAKE_PRICES) {
+    // Deterministisch: linear von 90 % auf 100 % des Fake-Preises, Endpunkt = jetzt
+    const current = (FAKE_PRICES[coingeckoId] ?? { eur: 1, usd: 1.1 })[currency]
+    const points = 24
+    const now = Date.now()
+    const span = days * 24 * 60 * 60 * 1000
+    data = Array.from({ length: points + 1 }, (_, i) => {
+      const fraction = i / points
+      return [now - span + span * fraction, current * (0.9 + 0.1 * fraction)] as MarketChartPoint
+    })
+  } else {
+    const url = `${BASE}/coins/${encodeURIComponent(coingeckoId)}/market_chart?vs_currency=${currency}&days=${days}`
+    const res = await fetch(url, {
+      headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
+    })
+    if (!res.ok) {
+      throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
+    }
+    data = ((await res.json()) as { prices?: MarketChartPoint[] }).prices ?? []
+  }
+
+  chartCache.set(cacheKey, { at: Date.now(), data })
+  return data
+}
+
 export async function fetchSimplePrices(coingeckoIds: string[]): Promise<SimplePrices> {
   if (coingeckoIds.length === 0) return {}
 

@@ -39,6 +39,11 @@ const de = {
     unmapped: '{n} Asset(s) ohne Preis-Mapping — Werte unvollständig.',
     allocation: 'Verteilung',
     others: 'Andere',
+    history: 'Wertverlauf',
+    range24h: '24h',
+    range7d: '7T',
+    range30d: '30T',
+    historyExcluded: '{n} Asset(s) ohne Verlauf (kein Mapping)',
   },
   holdings: {
     empty: 'Noch keine Bestände erfasst.',

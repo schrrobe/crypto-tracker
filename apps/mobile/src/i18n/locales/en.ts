@@ -41,6 +41,11 @@ const en: MessageSchema = {
     unmapped: '{n} asset(s) without price mapping — values incomplete.',
     allocation: 'Allocation',
     others: 'Others',
+    history: 'Value history',
+    range24h: '24h',
+    range7d: '7d',
+    range30d: '30d',
+    historyExcluded: '{n} asset(s) without history (no mapping)',
   },
   holdings: {
     empty: 'No holdings recorded yet.',

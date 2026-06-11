@@ -41,6 +41,11 @@ const ru: MessageSchema = {
     unmapped: 'Активов без сопоставления цены: {n} — данные неполные.',
     allocation: 'Распределение',
     others: 'Прочие',
+    history: 'Динамика стоимости',
+    range24h: '24ч',
+    range7d: '7д',
+    range30d: '30д',
+    historyExcluded: 'Активы без истории (нет сопоставления): {n}',
   },
   holdings: {
     empty: 'Активы ещё не добавлены.',

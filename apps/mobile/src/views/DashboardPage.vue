@@ -38,6 +38,8 @@
         </ion-card-content>
       </ion-card>
 
+      <PortfolioChart :currency="currency" :has-holdings="topAssets.length > 0" />
+
       <AllocationDonut :positions="portfolio.summary?.byAsset ?? []" />
 
       <ion-list v-if="topAssets.length > 0" inset>
@@ -110,6 +112,7 @@ import {
 import { refreshOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import AllocationDonut from '../components/AllocationDonut.vue'
+import PortfolioChart from '../components/PortfolioChart.vue'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'

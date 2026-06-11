@@ -41,6 +41,11 @@ const pl: MessageSchema = {
     unmapped: '{n} aktywo/aktywa bez przypisanej ceny — wartości niepełne.',
     allocation: 'Podział',
     others: 'Inne',
+    history: 'Przebieg wartości',
+    range24h: '24h',
+    range7d: '7d',
+    range30d: '30d',
+    historyExcluded: 'Aktywa bez historii (brak przypisania): {n}',
   },
   holdings: {
     empty: 'Nie dodano jeszcze żadnych aktywów.',

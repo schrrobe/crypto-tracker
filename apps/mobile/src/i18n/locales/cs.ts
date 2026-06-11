@@ -41,6 +41,11 @@ const cs: MessageSchema = {
     unmapped: '{n} aktiv bez přiřazené ceny — hodnoty nejsou úplné.',
     allocation: 'Rozložení',
     others: 'Ostatní',
+    history: 'Vývoj hodnoty',
+    range24h: '24h',
+    range7d: '7d',
+    range30d: '30d',
+    historyExcluded: 'Aktiva bez historie (bez přiřazení): {n}',
   },
   holdings: {
     empty: 'Zatím nebyla zaznamenána žádná aktiva.',

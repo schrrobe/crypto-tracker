@@ -1,6 +1,6 @@
 # Implementierungs-Stand
 
-> Stand: 11.06.2026 · Commit `f47cf75` · Plan: [PLAN.md](./PLAN.md)
+> Stand: 11.06.2026 · Commit `siehe git log` · Plan: [PLAN.md](./PLAN.md)
 
 Krypto-Portfolio-Tracker (kein Trading, keine Withdrawals): Bestände aus Exchanges
 (read-only API-Keys), Wallets (öffentliche Adressen), CSV-Importen und manueller Eingabe,
@@ -13,7 +13,7 @@ bewertet in EUR/USD über CoinGecko.
 | V1 „Muss" (Meilensteine 0–7) | ✅ komplett |
 | V1 „Sollte" (Meilenstein 8) | ✅ komplett |
 | Meilenstein 9 (Capacitor/Native) | ⬜ offen |
-| Tests | 116 grün: 58 Unit + 21 Integration (API), 11 Unit (Frontend), 26 E2E (Playwright) |
+| Tests | 120 grün: 58 Unit + 24 Integration (API), 11 Unit (Frontend), 27 E2E (Playwright) |
 | Deployment | nur local lauffähig; dev/prod per Env-Konzept vorbereitet, nicht deployed |
 
 ## Umgesetzte Meilensteine
@@ -31,6 +31,7 @@ bewertet in EUR/USD über CoinGecko.
 | 7 | Polish: Onboarding-Einstiege, lokalisierte API-Fehler-Codes, Basiswährung EUR/USD, Loading-/Error-States, Spam-Token-Collapse | `acb2142` |
 | 8 | Coinbase (CDP-Keys, ES256-JWT) + Bitpanda (nur API-Key), CSV-Transaktions-Import mit Netto-Beständen, Allocation-Donut, manuelles CoinGecko-Mapping | `002e6ae` |
 | — | Testlücken: Tenant-Isolation (Supertest), Sync-/Import-Integrationstests, Frontend-Unit-Tests (api.client) | `f47cf75` |
+| — | Wertverlauf-Chart: `GET /portfolio/history` (24h/7d/30d, EUR/USD, CoinGecko market_chart on-demand mit 30-min-Cache, Top-10-Assets), SVG-Chart mit Range-Umschalter und Delta-Prozent | `HEAD` |
 
 ## Architektur-Eckpunkte
 
@@ -67,15 +68,11 @@ BullMQ/Redis-Worker ruft `SyncService.syncSource()` unverändert auf; Endpoint e
 nur noch, Frontend pollt den Run-Status (UI dafür existiert). Dazu Cron für
 Preis-Refresh (`price.service.refreshPrices()` ist cron-ready).
 
-**4. Preis-Historie + Portfolio-Chart**
-`AssetPrice` ist bereits append-only — ein Wertverlauf-Chart (24h/7d/30d) braucht nur
-regelmäßige Preis-Snapshots (→ Punkt 3) und eine Chart-Komponente.
-
-**5. Kleinere sinnvolle Lücken**
+**4. Kleinere sinnvolle Lücken**
 Quellen-Umbenennen-UI, Transaktions-Liste pro CSV-Quelle, Dust-Filter für Solana,
 provider-spezifische CSV-Formate (Kraken-/Bitpanda-Export ohne manuelles Mapping).
 
-**6. Deployment dev/prod**
+**5. Deployment dev/prod**
 Env-Konzept und `migrate deploy` sind vorbereitet; es fehlen Hosting-Entscheidung,
 Secret Manager, CI (Lint/Tests/E2E) und die Cookie-Umstellung aus den Einschränkungen.
 

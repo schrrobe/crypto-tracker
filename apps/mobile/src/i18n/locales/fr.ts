@@ -41,6 +41,11 @@ const fr: MessageSchema = {
     unmapped: '{n} actif(s) sans correspondance de prix — valeurs incomplètes.',
     allocation: 'Répartition',
     others: 'Autres',
+    history: 'Évolution de la valeur',
+    range24h: '24h',
+    range7d: '7j',
+    range30d: '30j',
+    historyExcluded: '{n} actif(s) sans historique (pas de correspondance)',
   },
   holdings: {
     empty: 'Aucun avoir enregistré.',
