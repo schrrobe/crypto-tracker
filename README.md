@@ -4,7 +4,8 @@ Persönlicher Krypto-Portfolio-Tracker (kein Trading, keine Withdrawals): Bestä
 (read-only API-Keys), Wallets (öffentliche Adressen), CSV-Importen und manueller Eingabe —
 aggregiert in EUR/USD über CoinGecko-Preise.
 
-Vollständiger Architektur- und Umsetzungsplan: siehe `docs/PLAN.md`.
+Vollständiger Architektur- und Umsetzungsplan: siehe `docs/PLAN.md` ·
+Aktueller Implementierungs-Stand: `docs/IMPLEMENTATION-STATE.md`
 
 ## Stack
 
