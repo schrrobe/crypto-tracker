@@ -8,6 +8,7 @@ import { sourcesRoutes } from './modules/sources/sources.routes'
 import { holdingsRoutes, portfolioRoutes, pricesRoutes } from './modules/portfolio/portfolio.routes'
 import { assetsRoutes } from './modules/assets/assets.routes'
 import { importsRoutes } from './modules/imports/imports.routes'
+import { transactionsRoutes } from './modules/transactions/transactions.routes'
 
 export function createApp() {
   const app = express()
@@ -30,6 +31,7 @@ export function createApp() {
   api.use('/prices', pricesRoutes)
   api.use('/assets', assetsRoutes)
   api.use('/imports', importsRoutes)
+  api.use('/transactions', transactionsRoutes)
 
   app.use((_req, res) => {
     res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route nicht gefunden' } })

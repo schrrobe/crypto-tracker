@@ -1,3 +1,5 @@
 export * from './enums'
 export * from './schemas/auth.schema'
 export * from './schemas/portfolio.schema'
+export * from './schemas/transactions.schema'
+export * from './schemas/tax.schema'

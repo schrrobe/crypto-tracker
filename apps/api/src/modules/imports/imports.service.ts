@@ -11,6 +11,7 @@ import {
 } from '../../csv/csv.mapper'
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
+import { computeNetBalances } from '../transactions/tx-net-balance'
 
 const PREVIEW_ROWS = 10
 
@@ -159,32 +160,28 @@ async function confirmTransactionImport(
   const { valid, errors } = applyTransactionMapping(rows, mapping)
 
   const assetMap = await resolveAssetsBySymbol(valid.map((r) => r.symbol))
-  const ZERO = new Prisma.Decimal(0)
-  const net = new Map<string, Prisma.Decimal>()
+  const netInput: Array<{ assetId: string; type: typeof valid[number]['type']; quantity: Prisma.Decimal }> = []
   const txRows: Prisma.TransactionCreateManyInput[] = []
 
   for (const row of valid) {
     const asset = assetMap.get(row.symbol)
     if (!asset) continue
+    const quantity = new Prisma.Decimal(row.quantity)
     txRows.push({
       sourceId: record.sourceId,
       importId: record.id,
       assetId: asset.id,
       type: row.type,
-      quantity: new Prisma.Decimal(row.quantity),
+      quantity,
       pricePerUnit: row.price ? new Prisma.Decimal(row.price) : null,
       feeAmount: row.fee ? new Prisma.Decimal(row.fee) : null,
       currency: row.currency ?? null,
       timestamp: row.timestamp,
     })
-    const sign = row.type === 'BUY' || row.type === 'DEPOSIT' ? 1 : row.type === 'SELL' || row.type === 'WITHDRAWAL' ? -1 : 0
-    if (sign !== 0) {
-      const delta = new Prisma.Decimal(row.quantity).mul(sign)
-      net.set(asset.id, (net.get(asset.id) ?? ZERO).add(delta))
-    }
+    netInput.push({ assetId: asset.id, type: row.type, quantity })
   }
 
-  const holdings = [...net.entries()].filter(([, quantity]) => quantity.gt(0))
+  const holdings = computeNetBalances(netInput)
 
   const [, , , updated] = await prisma.$transaction([
     prisma.transaction.deleteMany({ where: { sourceId: record.sourceId } }),
@@ -204,11 +201,11 @@ async function confirmTransactionImport(
   ])
   if (holdings.length > 0) {
     await prisma.holding.createMany({
-      data: holdings.map(([assetId, quantity]) => ({ sourceId: record.sourceId, assetId, quantity })),
+      data: holdings.map((h) => ({ sourceId: record.sourceId, assetId: h.assetId, quantity: h.quantity })),
     })
   }
 
-  await refreshPrices(holdings.map(([assetId]) => assetId))
+  await refreshPrices(holdings.map((h) => h.assetId))
   return toImportDto(updated)
 }
 

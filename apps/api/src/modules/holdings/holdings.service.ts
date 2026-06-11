@@ -48,6 +48,15 @@ async function getManualSource(userId: string, sourceId: string) {
       'Bestände können nur in manuellen Quellen direkt bearbeitet werden',
     )
   }
+  // Quellen mit Transaktionen leiten ihre Bestände aus diesen ab — direkte
+  // Holding-Edits würden mit dem Recompute kollidieren
+  const txCount = await prisma.transaction.count({ where: { sourceId } })
+  if (txCount > 0) {
+    throw AppError.conflict(
+      'SOURCE_HAS_TRANSACTIONS',
+      'Bestände dieser Quelle werden aus Transaktionen berechnet — bitte die Transaktionen bearbeiten',
+    )
+  }
   return source
 }
 

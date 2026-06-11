@@ -122,6 +122,8 @@ model Asset {
   iconUrl     String?
   holdings    Holding[]
   prices      AssetPrice[]
+  transactions     Transaction[]
+  historicalPrices HistoricalAssetPrice[]
 
   @@index([symbol])
 }
@@ -150,6 +152,7 @@ model Transaction {
   currency     String?
   timestamp    DateTime
   source       PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  asset        Asset           @relation(fields: [assetId], references: [id])
 
   @@index([sourceId, timestamp])
 }
@@ -183,6 +186,19 @@ model SyncRun {
   source       PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@index([sourceId, startedAt])
+}
+
+// Tagespreise (00:00 UTC) für die Steuer-Kostenbasis — Cache für CoinGecko /history.
+// priceEur = null heißt: Lookup wurde versucht, CoinGecko hat keinen Preis
+// (z.B. älter als 365 Tage im Free Tier) — Negativ-Cache gegen Rate-Limit-Verschwendung.
+model HistoricalAssetPrice {
+  id       String   @id @default(uuid())
+  assetId  String
+  date     DateTime @db.Date
+  priceEur Decimal? @db.Decimal(24, 8)
+  asset    Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, date])
 }
 
 // Append-only: jüngste Zeile je Asset = aktueller Preis, ältere = Historie
