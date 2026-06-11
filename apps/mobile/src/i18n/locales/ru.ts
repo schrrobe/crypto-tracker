@@ -39,6 +39,8 @@ const ru: MessageSchema = {
     empty: 'Пока нет активов.',
     addHolding: 'Добавить актив',
     unmapped: 'Активов без сопоставления цены: {n} — данные неполные.',
+    allocation: 'Распределение',
+    others: 'Прочие',
   },
   holdings: {
     empty: 'Активы ещё не добавлены.',
@@ -52,6 +54,11 @@ const ru: MessageSchema = {
     saveFailed: 'Не удалось сохранить',
     showUnpriced: 'Показать токены без цены: {n}',
     hideUnpriced: 'Скрыть токены без цены',
+    mapPrice: 'Назначить цену',
+    mapTitle: 'Сопоставление цены для {symbol}',
+    mapSearch: 'Поиск на CoinGecko…',
+    mapEmpty: 'Ничего не найдено',
+    mapFailed: 'Не удалось сопоставить',
   },
   sync: {
     running: 'синхронизация…',
@@ -79,6 +86,7 @@ const ru: MessageSchema = {
     labelPlaceholderManual: 'напр. прочие активы',
     apiKey: 'API-ключ (только чтение!)',
     apiSecret: 'API-секрет',
+    privateKey: 'Приватный ключ CDP (PEM)',
     passphrase: 'Кодовая фраза (необязательно)',
     address: 'Публичный адрес кошелька',
     readOnlyHint:
@@ -106,6 +114,14 @@ const ru: MessageSchema = {
     result: 'Импортировано {imported} из {total} строк',
     errorRowsTitle: 'Ошибочные строки (не импортированы):',
     errorLine: 'Строка {line}: {error}',
+    kindBalances: 'Балансы',
+    kindTransactions: 'Транзакции',
+    typeColumn: 'Столбец типа',
+    timestampColumn: 'Столбец даты',
+    priceColumn: 'Столбец цены (необязательно)',
+    feeColumn: 'Столбец комиссии (необязательно)',
+    currencyColumn: 'Столбец валюты (необязательно)',
+    noColumn: '— нет —',
   },
   imports: {
     title: 'История импортов',
@@ -144,6 +160,8 @@ const ru: MessageSchema = {
     UNKNOWN_COLUMN: 'Выбранный столбец отсутствует в файле',
     IMPORT_ALREADY_DONE: 'Этот импорт уже выполнен',
     PROVIDER_NOT_IMPLEMENTED: 'Этот провайдер пока недоступен',
+    ASSET_ALREADY_MAPPED: 'Этому активу уже назначена цена',
+    COINGECKO_ID_TAKEN: 'Этот CoinGecko ID уже назначен другому активу',
   },
   relative: {
     never: 'никогда',

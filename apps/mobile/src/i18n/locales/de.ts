@@ -37,6 +37,8 @@ const de = {
     empty: 'Noch keine Bestände.',
     addHolding: 'Bestand erfassen',
     unmapped: '{n} Asset(s) ohne Preis-Mapping — Werte unvollständig.',
+    allocation: 'Verteilung',
+    others: 'Andere',
   },
   holdings: {
     empty: 'Noch keine Bestände erfasst.',
@@ -50,6 +52,11 @@ const de = {
     saveFailed: 'Speichern fehlgeschlagen',
     showUnpriced: '{n} Token ohne Preis anzeigen',
     hideUnpriced: 'Token ohne Preis ausblenden',
+    mapPrice: 'Preis zuordnen',
+    mapTitle: 'Preis-Mapping für {symbol}',
+    mapSearch: 'Auf CoinGecko suchen…',
+    mapEmpty: 'Keine Treffer',
+    mapFailed: 'Zuordnen fehlgeschlagen',
   },
   sync: {
     running: 'synchronisiert…',
@@ -77,6 +84,7 @@ const de = {
     labelPlaceholderManual: 'z.B. Sonstige Bestände',
     apiKey: 'API-Key (nur Lese-Rechte!)',
     apiSecret: 'API-Secret',
+    privateKey: 'CDP Private Key (PEM)',
     passphrase: 'Passphrase (optional)',
     address: 'Öffentliche Wallet-Adresse',
     readOnlyHint:
@@ -104,6 +112,14 @@ const de = {
     result: '{imported} von {total} Zeilen importiert',
     errorRowsTitle: 'Fehlerhafte Zeilen (nicht importiert):',
     errorLine: 'Zeile {line}: {error}',
+    kindBalances: 'Bestände',
+    kindTransactions: 'Transaktionen',
+    typeColumn: 'Typ-Spalte',
+    timestampColumn: 'Datums-Spalte',
+    priceColumn: 'Preis-Spalte (optional)',
+    feeColumn: 'Gebühren-Spalte (optional)',
+    currencyColumn: 'Währungs-Spalte (optional)',
+    noColumn: '— keine —',
   },
   imports: {
     title: 'Import-Historie',
@@ -142,6 +158,8 @@ const de = {
     UNKNOWN_COLUMN: 'Die gewählte Spalte existiert nicht in der Datei',
     IMPORT_ALREADY_DONE: 'Dieser Import wurde bereits ausgeführt',
     PROVIDER_NOT_IMPLEMENTED: 'Dieser Anbieter ist noch nicht verfügbar',
+    ASSET_ALREADY_MAPPED: 'Dieses Asset hat bereits ein Preis-Mapping',
+    COINGECKO_ID_TAKEN: 'Diese CoinGecko-ID ist bereits einem Asset zugeordnet',
   },
   relative: {
     never: 'noch nie',

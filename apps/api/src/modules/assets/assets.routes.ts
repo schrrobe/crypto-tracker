@@ -1,7 +1,13 @@
 import { Router } from 'express'
+import { z } from 'zod'
 import { requireAuth } from '../../middleware/auth.middleware'
+import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
+import { AppError } from '../../lib/errors'
+import { routeParam } from '../../lib/params'
 import { prisma } from '../../lib/prisma'
+import { searchCoins } from '../../coingecko/coingecko.client'
+import { refreshPrices } from '../../coingecko/price.service'
 
 export const assetsRoutes = Router()
 assetsRoutes.use(requireAuth)
@@ -31,6 +37,55 @@ assetsRoutes.get(
         coingeckoId: a.coingeckoId,
         iconUrl: a.iconUrl,
       })),
+    })
+  }),
+)
+
+// CoinGecko-Suche für das manuelle Preis-Mapping unmapped Assets
+assetsRoutes.get(
+  '/coingecko-search',
+  asyncHandler(async (req, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : ''
+    if (!q) {
+      res.json({ coins: [] })
+      return
+    }
+    res.json({ coins: await searchCoins(q) })
+  }),
+)
+
+const mappingSchema = z.object({ coingeckoId: z.string().trim().min(1).max(120) })
+
+// Mapping wirkt global (Assets sind nutzerübergreifend) — deshalb nur für
+// bisher unmapped Assets erlaubt; bestehende Zuordnungen bleiben unantastbar.
+assetsRoutes.post(
+  '/:id/mapping',
+  validate(mappingSchema),
+  asyncHandler(async (req, res) => {
+    const assetId = routeParam(req, 'id')
+    const asset = await prisma.asset.findUnique({ where: { id: assetId } })
+    if (!asset) throw AppError.notFound('Asset nicht gefunden')
+    if (asset.coingeckoId) {
+      throw AppError.conflict('ASSET_ALREADY_MAPPED', 'Dieses Asset hat bereits ein Preis-Mapping')
+    }
+    const taken = await prisma.asset.findUnique({ where: { coingeckoId: req.body.coingeckoId } })
+    if (taken) {
+      throw AppError.conflict('COINGECKO_ID_TAKEN', 'Diese CoinGecko-ID ist bereits einem Asset zugeordnet')
+    }
+
+    const updated = await prisma.asset.update({
+      where: { id: assetId },
+      data: { coingeckoId: req.body.coingeckoId },
+    })
+    await refreshPrices([assetId])
+    res.json({
+      asset: {
+        id: updated.id,
+        symbol: updated.symbol,
+        name: updated.name,
+        coingeckoId: updated.coingeckoId,
+        iconUrl: updated.iconUrl,
+      },
     })
   }),
 )

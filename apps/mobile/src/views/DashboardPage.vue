@@ -38,6 +38,8 @@
         </ion-card-content>
       </ion-card>
 
+      <AllocationDonut :positions="portfolio.summary?.byAsset ?? []" />
+
       <ion-list v-if="topAssets.length > 0" inset>
         <ion-list-header>
           <ion-label>{{ $t('dashboard.topPositions') }}</ion-label>
@@ -107,6 +109,7 @@ import {
 } from '@ionic/vue'
 import { refreshOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
+import AllocationDonut from '../components/AllocationDonut.vue'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'

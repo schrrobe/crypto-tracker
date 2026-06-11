@@ -71,22 +71,22 @@
               data-testid="source-api-key"
             />
           </ion-item>
-          <ion-item>
+          <ion-item v-if="exchangeProvider === 'COINBASE'">
+            <ion-textarea
+              v-model="apiSecret"
+              :label="$t('sources.privateKey')"
+              label-placement="floating"
+              :rows="4"
+              data-testid="source-api-secret"
+            />
+          </ion-item>
+          <ion-item v-else-if="exchangeProvider !== 'BITPANDA'">
             <ion-input
               v-model="apiSecret"
               :label="$t('sources.apiSecret')"
               label-placement="floating"
               type="password"
               data-testid="source-api-secret"
-            />
-          </ion-item>
-          <ion-item v-if="exchangeProvider === 'COINBASE'">
-            <ion-input
-              v-model="passphrase"
-              :label="$t('sources.passphrase')"
-              label-placement="floating"
-              type="password"
-              data-testid="source-passphrase"
             />
           </ion-item>
         </template>
@@ -140,6 +140,7 @@ import {
   IonSelectOption,
   IonSpinner,
   IonText,
+  IonTextarea,
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
@@ -190,7 +191,10 @@ const labelPlaceholder = computed(() =>
 
 const valid = computed(() => {
   if (!label.value.trim()) return false
-  if (type.value === 'EXCHANGE') return apiKey.value.trim().length >= 4 && apiSecret.value.trim().length >= 4
+  if (type.value === 'EXCHANGE') {
+    const secretOk = exchangeProvider.value === 'BITPANDA' || apiSecret.value.trim().length >= 4
+    return apiKey.value.trim().length >= 4 && secretOk
+  }
   if (type.value === 'WALLET') return address.value.trim().length >= 10
   return true
 })
@@ -216,7 +220,7 @@ function buildInput(): CreateSourceInput {
       provider: exchangeProvider.value,
       label: label.value.trim(),
       apiKey: apiKey.value.trim(),
-      apiSecret: apiSecret.value.trim(),
+      apiSecret: apiSecret.value.trim() || undefined,
       passphrase: passphrase.value.trim() || undefined,
     }
   }

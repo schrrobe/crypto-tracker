@@ -7,16 +7,19 @@ import { bitcoinProvider } from './wallets/bitcoin'
 import { solanaProvider } from './wallets/solana'
 import { krakenProvider } from './exchanges/kraken'
 import { bitvavoProvider } from './exchanges/bitvavo'
+import { coinbaseProvider } from './exchanges/coinbase'
+import { bitpandaProvider } from './exchanges/bitpanda'
 
 const EXCHANGE_IDS: ProviderId[] = ['COINBASE', 'KRAKEN', 'BITVAVO', 'BITPANDA']
 const WALLET_IDS: ProviderId[] = ['BITCOIN', 'SOLANA']
 
-// Coinbase und Bitpanda folgen in Meilenstein 8
 const realProviders = new Map<ProviderId, Provider>([
   ['BITCOIN', bitcoinProvider],
   ['SOLANA', solanaProvider],
   ['KRAKEN', krakenProvider],
   ['BITVAVO', bitvavoProvider],
+  ['COINBASE', coinbaseProvider],
+  ['BITPANDA', bitpandaProvider],
 ])
 
 function buildRegistry(): Map<ProviderId, Provider> {

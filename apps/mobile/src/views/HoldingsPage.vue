@@ -21,6 +21,14 @@
           <ion-note slot="end" class="amount">{{ formatCurrency(holding.valueEur, 'EUR') }}</ion-note>
           <ion-buttons slot="end">
             <ion-button
+              v-if="holding.valueEur === null && holding.asset.coingeckoId === null"
+              color="warning"
+              :data-testid="`holding-map-${holding.asset.symbol}`"
+              @click="openMapping(holding)"
+            >
+              <ion-icon :icon="pricetagOutline" slot="icon-only" />
+            </ion-button>
+            <ion-button
               v-if="holding.sourceType === 'MANUAL'"
               :data-testid="`holding-edit-${holding.asset.symbol}`"
               @click="openEdit(holding)"
@@ -70,6 +78,12 @@
         :edit-holding="editing"
         @close="modalOpen = false"
       />
+      <AssetMappingModal
+        :is-open="mappingOpen"
+        :asset="mappingAsset"
+        @close="mappingOpen = false"
+        @saved="onMapped"
+      />
     </ion-content>
   </ion-page>
 </template>
@@ -93,11 +107,12 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { addOutline, createOutline, trashOutline } from 'ionicons/icons'
+import { addOutline, createOutline, pricetagOutline, trashOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { HoldingDto } from '@crypto-tracker/shared'
 import AddHoldingModal from '../components/AddHoldingModal.vue'
+import AssetMappingModal from '../components/AssetMappingModal.vue'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
@@ -113,6 +128,18 @@ const editing = ref<HoldingDto | null>(null)
 const pageLoading = ref(false)
 const pageError = ref(false)
 const showUnpriced = ref(false)
+const mappingOpen = ref(false)
+const mappingAsset = ref<HoldingDto['asset'] | null>(null)
+
+function openMapping(holding: HoldingDto) {
+  mappingAsset.value = holding.asset
+  mappingOpen.value = true
+}
+
+async function onMapped() {
+  await loadData()
+  await usePortfolioStore().loadSummary()
+}
 
 // Spam-/unbekannte Tokens (ohne Preis) sind standardmäßig eingeklappt
 const pricedHoldings = computed(() => portfolio.holdings.filter((h) => h.valueEur !== null))

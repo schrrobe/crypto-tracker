@@ -39,6 +39,8 @@ const fr: MessageSchema = {
     empty: 'Aucun avoir pour le moment.',
     addHolding: 'Ajouter un avoir',
     unmapped: '{n} actif(s) sans correspondance de prix — valeurs incomplètes.',
+    allocation: 'Répartition',
+    others: 'Autres',
   },
   holdings: {
     empty: 'Aucun avoir enregistré.',
@@ -52,6 +54,11 @@ const fr: MessageSchema = {
     saveFailed: "Échec de l'enregistrement",
     showUnpriced: 'Afficher {n} jetons sans prix',
     hideUnpriced: 'Masquer les jetons sans prix',
+    mapPrice: 'Associer un prix',
+    mapTitle: 'Association de prix pour {symbol}',
+    mapSearch: 'Rechercher sur CoinGecko…',
+    mapEmpty: 'Aucun résultat',
+    mapFailed: 'Échec de l\'association',
   },
   sync: {
     running: 'synchronisation…',
@@ -79,6 +86,7 @@ const fr: MessageSchema = {
     labelPlaceholderManual: 'p. ex. autres avoirs',
     apiKey: 'Clé API (lecture seule !)',
     apiSecret: 'Secret API',
+    privateKey: 'Clé privée CDP (PEM)',
     passphrase: 'Phrase secrète (optionnel)',
     address: 'Adresse publique du portefeuille',
     readOnlyHint:
@@ -106,6 +114,14 @@ const fr: MessageSchema = {
     result: '{imported} lignes sur {total} importées',
     errorRowsTitle: 'Lignes invalides (non importées) :',
     errorLine: 'Ligne {line} : {error}',
+    kindBalances: 'Soldes',
+    kindTransactions: 'Transactions',
+    typeColumn: 'Colonne type',
+    timestampColumn: 'Colonne date',
+    priceColumn: 'Colonne prix (optionnel)',
+    feeColumn: 'Colonne frais (optionnel)',
+    currencyColumn: 'Colonne devise (optionnel)',
+    noColumn: '— aucune —',
   },
   imports: {
     title: 'Historique des imports',
@@ -144,6 +160,8 @@ const fr: MessageSchema = {
     UNKNOWN_COLUMN: 'La colonne sélectionnée n\'existe pas dans le fichier',
     IMPORT_ALREADY_DONE: 'Cet import a déjà été exécuté',
     PROVIDER_NOT_IMPLEMENTED: 'Ce fournisseur n\'est pas encore disponible',
+    ASSET_ALREADY_MAPPED: 'Cet actif a déjà une association de prix',
+    COINGECKO_ID_TAKEN: 'Cet identifiant CoinGecko est déjà associé à un autre actif',
   },
   relative: {
     never: 'jamais',

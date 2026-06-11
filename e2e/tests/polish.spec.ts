@@ -47,13 +47,17 @@ test('Basiswährung USD wird als Dashboard-Standard übernommen', async ({ page 
 test('Tokens ohne Preis sind standardmäßig eingeklappt', async ({ page }) => {
   await register(page, uniqueEmail('unpriced'))
 
-  // CSV mit BTC (gemappt) und FOO (unbekannt, kein Preis)
+  // Lauf-eindeutiges unbekanntes Symbol — Assets sind global und die E2E-DB
+  // persistiert; ein einmal gemapptes Symbol bliebe sonst dauerhaft bepreist
+  const symbol = `U${process.pid % 10000}X${Math.floor(Math.random() * 10000)}`
+
+  // CSV mit BTC (gemappt) und einem unbekannten Symbol (kein Preis)
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('open-csv-import').click()
   await page.getByTestId('csv-file').setInputFiles({
     name: 'mix.csv',
     mimeType: 'text/csv',
-    buffer: Buffer.from('Coin,Amount\nBTC,1\nFOO,5\n', 'utf8'),
+    buffer: Buffer.from(`Coin,Amount\nBTC,1\n${symbol},5\n`, 'utf8'),
   })
   await page.getByTestId('csv-upload').click()
   await page.getByTestId('csv-import-run').click()
@@ -62,13 +66,13 @@ test('Tokens ohne Preis sind standardmäßig eingeklappt', async ({ page }) => {
 
   await page.getByRole('tab', { name: 'Bestände' }).click()
   await expect(page.getByTestId('holding-BTC')).toBeVisible()
-  // FOO ist eingeklappt
-  await expect(page.getByTestId('holding-FOO')).toHaveCount(0)
+  // Unbekanntes Symbol ist eingeklappt
+  await expect(page.getByTestId(`holding-${symbol}`)).toHaveCount(0)
 
   await page.getByTestId('toggle-unpriced').click()
-  await expect(page.getByTestId('holding-FOO')).toBeVisible()
+  await expect(page.getByTestId(`holding-${symbol}`)).toBeVisible()
   await page.getByTestId('toggle-unpriced').click()
-  await expect(page.getByTestId('holding-FOO')).toHaveCount(0)
+  await expect(page.getByTestId(`holding-${symbol}`)).toHaveCount(0)
 })
 
 test('lokalisierter API-Fehler: doppelte E-Mail bei Registrierung', async ({ page }) => {

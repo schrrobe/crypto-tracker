@@ -31,7 +31,9 @@ async function fetchBalancesForSource(source: PortfolioSource): Promise<RawBalan
     return withTimeout(
       provider.fetchBalances({
         apiKey: decryptSecret(credential.encryptedApiKey),
-        apiSecret: decryptSecret(credential.encryptedApiSecret),
+        apiSecret: credential.encryptedApiSecret
+          ? decryptSecret(credential.encryptedApiSecret)
+          : undefined,
         passphrase: credential.encryptedPassphrase
           ? decryptSecret(credential.encryptedPassphrase)
           : undefined,

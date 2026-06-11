@@ -97,7 +97,8 @@ model ExchangeCredential {
   id                  String          @id @default(uuid())
   sourceId            String          @unique
   encryptedApiKey     String
-  encryptedApiSecret  String
+  // nullable: Bitpanda braucht nur einen API-Key, kein Secret
+  encryptedApiSecret  String?
   encryptedPassphrase String?
   keyPreview          String
   source              PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)

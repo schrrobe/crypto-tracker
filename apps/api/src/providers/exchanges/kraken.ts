@@ -71,6 +71,7 @@ function classifyKrakenError(messages: string[]): ProviderError {
 }
 
 async function fetchKrakenBalances(creds: ExchangeCredentials): Promise<RawBalance[]> {
+  if (!creds.apiSecret) throw new ProviderError('INVALID_API_KEY', 'Kraken: API-Secret fehlt')
   const nonce = Date.now().toString()
   const postData = `nonce=${nonce}`
 

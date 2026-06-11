@@ -2,8 +2,13 @@ import { Prisma, type CsvImport } from '@prisma/client'
 import type { CsvImportDto, CsvUploadResponse, ImportErrorRow } from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
-import { parseCsv, suggestBalanceMapping } from '../../csv/csv.parser'
-import { applyBalanceMapping, type BalanceMapping } from '../../csv/csv.mapper'
+import { parseCsv, suggestMapping } from '../../csv/csv.parser'
+import {
+  applyBalanceMapping,
+  applyTransactionMapping,
+  type BalanceMapping,
+  type TransactionMapping,
+} from '../../csv/csv.mapper'
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 
@@ -31,6 +36,7 @@ function toImportDto(record: ImportWithSource): CsvImportDto {
 export async function uploadCsv(
   userId: string,
   file: { originalname: string; buffer: Buffer },
+  kind: 'BALANCES' | 'TRANSACTIONS',
   label?: string,
 ): Promise<CsvUploadResponse> {
   const { headers, rows } = parseCsv(file.buffer.toString('utf8'))
@@ -47,7 +53,7 @@ export async function uploadCsv(
     data: {
       sourceId: source.id,
       filename: file.originalname,
-      kind: 'BALANCES',
+      kind,
       status: 'PENDING_MAPPING',
       rawPreview: { headers, rows: rows.slice(0, PREVIEW_ROWS) },
       rawRows: rows,
@@ -60,16 +66,18 @@ export async function uploadCsv(
     import: toImportDto(record),
     headers,
     preview: rows.slice(0, PREVIEW_ROWS),
-    suggestedMapping: suggestBalanceMapping(headers),
+    suggestedMapping: suggestMapping(headers, kind),
   }
 }
 
 // Schritt 2: Mapping bestätigen → Zeilen validieren, Holdings der CSV-Quelle ersetzen.
 // Fehlerzeilen brechen den Import nicht ab — sie landen nachvollziehbar in errorRows.
+type AnyMapping = BalanceMapping & Partial<TransactionMapping>
+
 export async function confirmMapping(
   userId: string,
   importId: string,
-  mapping: BalanceMapping,
+  mapping: AnyMapping,
 ): Promise<CsvImportDto> {
   const record = await prisma.csvImport.findFirst({
     where: { id: importId, source: { userId } },
@@ -82,10 +90,25 @@ export async function confirmMapping(
 
   const rows = (record.rawRows as Array<Record<string, string>> | null) ?? []
   const headers = ((record.rawPreview as { headers?: string[] }).headers ?? [])
-  for (const column of [mapping.symbol, mapping.quantity]) {
-    if (!headers.includes(column)) {
+
+  const requiredColumns =
+    record.kind === 'TRANSACTIONS'
+      ? [mapping.symbol, mapping.quantity, mapping.type, mapping.timestamp]
+      : [mapping.symbol, mapping.quantity]
+  const optionalColumns = [mapping.price, mapping.fee, mapping.currency]
+  for (const column of requiredColumns) {
+    if (!column || !headers.includes(column)) {
       throw AppError.badRequest('UNKNOWN_COLUMN', `Spalte „${column}" existiert nicht in der Datei`)
     }
+  }
+  for (const column of optionalColumns) {
+    if (column && !headers.includes(column)) {
+      throw AppError.badRequest('UNKNOWN_COLUMN', `Spalte „${column}" existiert nicht in der Datei`)
+    }
+  }
+
+  if (record.kind === 'TRANSACTIONS') {
+    return confirmTransactionImport(record, rows, mapping as TransactionMapping)
   }
 
   const { valid, errors } = applyBalanceMapping(rows, mapping)
@@ -122,6 +145,70 @@ export async function confirmMapping(
   ])
 
   await refreshPrices([...byAsset.keys()])
+  return toImportDto(updated)
+}
+
+// Transaktionen werden gespeichert (Nachvollziehbarkeit) und zu Netto-Beständen
+// verdichtet: BUY/DEPOSIT zählen positiv, SELL/WITHDRAWAL negativ, TRANSFER/OTHER neutral.
+// Keine PnL-/Kostenbasis-Berechnung in V1.
+async function confirmTransactionImport(
+  record: ImportWithSource,
+  rows: Array<Record<string, string>>,
+  mapping: TransactionMapping,
+): Promise<CsvImportDto> {
+  const { valid, errors } = applyTransactionMapping(rows, mapping)
+
+  const assetMap = await resolveAssetsBySymbol(valid.map((r) => r.symbol))
+  const ZERO = new Prisma.Decimal(0)
+  const net = new Map<string, Prisma.Decimal>()
+  const txRows: Prisma.TransactionCreateManyInput[] = []
+
+  for (const row of valid) {
+    const asset = assetMap.get(row.symbol)
+    if (!asset) continue
+    txRows.push({
+      sourceId: record.sourceId,
+      importId: record.id,
+      assetId: asset.id,
+      type: row.type,
+      quantity: new Prisma.Decimal(row.quantity),
+      pricePerUnit: row.price ? new Prisma.Decimal(row.price) : null,
+      feeAmount: row.fee ? new Prisma.Decimal(row.fee) : null,
+      currency: row.currency ?? null,
+      timestamp: row.timestamp,
+    })
+    const sign = row.type === 'BUY' || row.type === 'DEPOSIT' ? 1 : row.type === 'SELL' || row.type === 'WITHDRAWAL' ? -1 : 0
+    if (sign !== 0) {
+      const delta = new Prisma.Decimal(row.quantity).mul(sign)
+      net.set(asset.id, (net.get(asset.id) ?? ZERO).add(delta))
+    }
+  }
+
+  const holdings = [...net.entries()].filter(([, quantity]) => quantity.gt(0))
+
+  const [, , , updated] = await prisma.$transaction([
+    prisma.transaction.deleteMany({ where: { sourceId: record.sourceId } }),
+    prisma.transaction.createMany({ data: txRows }),
+    prisma.holding.deleteMany({ where: { sourceId: record.sourceId } }),
+    prisma.csvImport.update({
+      where: { id: record.id },
+      data: {
+        status: valid.length > 0 ? 'COMPLETED' : 'FAILED',
+        columnMapping: JSON.parse(JSON.stringify(mapping)),
+        importedRows: valid.length,
+        errorRows: errors as unknown as Prisma.InputJsonValue,
+        rawRows: Prisma.DbNull,
+      },
+      include: { source: { select: { label: true } } },
+    }),
+  ])
+  if (holdings.length > 0) {
+    await prisma.holding.createMany({
+      data: holdings.map(([assetId, quantity]) => ({ sourceId: record.sourceId, assetId, quantity })),
+    })
+  }
+
+  await refreshPrices(holdings.map(([assetId]) => assetId))
   return toImportDto(updated)
 }
 

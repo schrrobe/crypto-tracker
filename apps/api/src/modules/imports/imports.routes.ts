@@ -22,7 +22,8 @@ importsRoutes.post(
   asyncHandler(async (req, res) => {
     if (!req.file) throw AppError.badRequest('NO_FILE', 'Keine CSV-Datei übermittelt')
     const label = typeof req.body?.label === 'string' ? req.body.label : undefined
-    res.status(201).json(await importsService.uploadCsv(req.userId, req.file, label))
+    const kind = req.body?.kind === 'TRANSACTIONS' ? 'TRANSACTIONS' : 'BALANCES'
+    res.status(201).json(await importsService.uploadCsv(req.userId, req.file, kind, label))
   }),
 )
 

@@ -39,6 +39,8 @@ const pl: MessageSchema = {
     empty: 'Brak aktywów.',
     addHolding: 'Dodaj aktywo',
     unmapped: '{n} aktywo/aktywa bez przypisanej ceny — wartości niepełne.',
+    allocation: 'Podział',
+    others: 'Inne',
   },
   holdings: {
     empty: 'Nie dodano jeszcze żadnych aktywów.',
@@ -52,6 +54,11 @@ const pl: MessageSchema = {
     saveFailed: 'Zapis nie powiódł się',
     showUnpriced: 'Pokaż tokeny bez ceny: {n}',
     hideUnpriced: 'Ukryj tokeny bez ceny',
+    mapPrice: 'Przypisz cenę',
+    mapTitle: 'Przypisanie ceny dla {symbol}',
+    mapSearch: 'Szukaj w CoinGecko…',
+    mapEmpty: 'Brak wyników',
+    mapFailed: 'Przypisanie nie powiodło się',
   },
   sync: {
     running: 'synchronizacja…',
@@ -79,6 +86,7 @@ const pl: MessageSchema = {
     labelPlaceholderManual: 'np. pozostałe aktywa',
     apiKey: 'Klucz API (tylko do odczytu!)',
     apiSecret: 'Sekret API',
+    privateKey: 'Klucz prywatny CDP (PEM)',
     passphrase: 'Hasło dodatkowe (opcjonalnie)',
     address: 'Publiczny adres portfela',
     readOnlyHint:
@@ -106,6 +114,14 @@ const pl: MessageSchema = {
     result: 'Zaimportowano {imported} z {total} wierszy',
     errorRowsTitle: 'Błędne wiersze (niezaimportowane):',
     errorLine: 'Wiersz {line}: {error}',
+    kindBalances: 'Salda',
+    kindTransactions: 'Transakcje',
+    typeColumn: 'Kolumna typu',
+    timestampColumn: 'Kolumna daty',
+    priceColumn: 'Kolumna ceny (opcjonalnie)',
+    feeColumn: 'Kolumna opłat (opcjonalnie)',
+    currencyColumn: 'Kolumna waluty (opcjonalnie)',
+    noColumn: '— brak —',
   },
   imports: {
     title: 'Historia importów',
@@ -144,6 +160,8 @@ const pl: MessageSchema = {
     UNKNOWN_COLUMN: 'Wybrana kolumna nie istnieje w pliku',
     IMPORT_ALREADY_DONE: 'Ten import został już wykonany',
     PROVIDER_NOT_IMPLEMENTED: 'Ten dostawca nie jest jeszcze dostępny',
+    ASSET_ALREADY_MAPPED: 'To aktywo ma już przypisaną cenę',
+    COINGECKO_ID_TAKEN: 'To ID CoinGecko jest już przypisane do innego aktywa',
   },
   relative: {
     never: 'nigdy',

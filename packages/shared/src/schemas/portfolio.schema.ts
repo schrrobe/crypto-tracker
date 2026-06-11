@@ -21,7 +21,8 @@ export const createExchangeSourceSchema = z.object({
   provider: z.enum(EXCHANGE_PROVIDERS),
   label: z.string().trim().min(1).max(60),
   apiKey: z.string().trim().min(4).max(500),
-  apiSecret: z.string().trim().min(4).max(500),
+  // optional: Bitpanda braucht kein Secret; Coinbase-CDP-Keys sind PEM (mehrzeilig, lang)
+  apiSecret: z.string().trim().min(4).max(2000).optional(),
   passphrase: z.string().trim().max(200).optional(),
 })
 
@@ -32,11 +33,18 @@ export const createWalletSourceSchema = z.object({
   address: z.string().trim().min(10).max(120),
 })
 
-export const createSourceSchema = z.discriminatedUnion('type', [
-  createManualSourceSchema,
-  createExchangeSourceSchema,
-  createWalletSourceSchema,
-])
+export const createSourceSchema = z
+  .discriminatedUnion('type', [
+    createManualSourceSchema,
+    createExchangeSourceSchema,
+    createWalletSourceSchema,
+  ])
+  // Bitpanda ist der einzige Exchange ohne Secret
+  .superRefine((value, ctx) => {
+    if (value.type === 'EXCHANGE' && value.provider !== 'BITPANDA' && !value.apiSecret) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['apiSecret'], message: 'API-Secret fehlt' })
+    }
+  })
 export type CreateSourceInput = z.infer<typeof createSourceSchema>
 
 export const updateSourceSchema = z.object({
@@ -106,9 +114,25 @@ export const confirmMappingSchema = z.object({
   mapping: z.object({
     symbol: z.string().min(1),
     quantity: z.string().min(1),
+    // Pflicht bei kind=TRANSACTIONS — der Service prüft das kontextabhängig
+    type: z.string().min(1).optional(),
+    timestamp: z.string().min(1).optional(),
+    price: z.string().min(1).optional(),
+    fee: z.string().min(1).optional(),
+    currency: z.string().min(1).optional(),
   }),
 })
 export type ConfirmMappingInput = z.infer<typeof confirmMappingSchema>
+
+export interface MappingSuggestionDto {
+  symbol: string | null
+  quantity: string | null
+  type: string | null
+  timestamp: string | null
+  price: string | null
+  fee: string | null
+  currency: string | null
+}
 
 export interface ImportErrorRow {
   line: number
@@ -133,7 +157,7 @@ export interface CsvUploadResponse {
   import: CsvImportDto
   headers: string[]
   preview: Array<Record<string, string>>
-  suggestedMapping: { symbol: string | null; quantity: string | null }
+  suggestedMapping: MappingSuggestionDto
 }
 
 export interface PortfolioSummaryDto {

@@ -39,6 +39,8 @@ const cs: MessageSchema = {
     empty: 'Zatím žádná aktiva.',
     addHolding: 'Přidat aktivum',
     unmapped: '{n} aktiv bez přiřazené ceny — hodnoty nejsou úplné.',
+    allocation: 'Rozložení',
+    others: 'Ostatní',
   },
   holdings: {
     empty: 'Zatím nebyla zaznamenána žádná aktiva.',
@@ -52,6 +54,11 @@ const cs: MessageSchema = {
     saveFailed: 'Uložení se nezdařilo',
     showUnpriced: 'Zobrazit tokeny bez ceny: {n}',
     hideUnpriced: 'Skrýt tokeny bez ceny',
+    mapPrice: 'Přiřadit cenu',
+    mapTitle: 'Přiřazení ceny pro {symbol}',
+    mapSearch: 'Hledat na CoinGecko…',
+    mapEmpty: 'Žádné výsledky',
+    mapFailed: 'Přiřazení se nezdařilo',
   },
   sync: {
     running: 'synchronizuje se…',
@@ -79,6 +86,7 @@ const cs: MessageSchema = {
     labelPlaceholderManual: 'např. ostatní aktiva',
     apiKey: 'API klíč (pouze ke čtení!)',
     apiSecret: 'API secret',
+    privateKey: 'Privátní klíč CDP (PEM)',
     passphrase: 'Passphrase (volitelné)',
     address: 'Veřejná adresa peněženky',
     readOnlyHint:
@@ -106,6 +114,14 @@ const cs: MessageSchema = {
     result: 'Importováno {imported} z {total} řádků',
     errorRowsTitle: 'Chybné řádky (neimportováno):',
     errorLine: 'Řádek {line}: {error}',
+    kindBalances: 'Zůstatky',
+    kindTransactions: 'Transakce',
+    typeColumn: 'Sloupec typu',
+    timestampColumn: 'Sloupec data',
+    priceColumn: 'Sloupec ceny (volitelné)',
+    feeColumn: 'Sloupec poplatků (volitelné)',
+    currencyColumn: 'Sloupec měny (volitelné)',
+    noColumn: '— žádný —',
   },
   imports: {
     title: 'Historie importů',
@@ -144,6 +160,8 @@ const cs: MessageSchema = {
     UNKNOWN_COLUMN: 'Vybraný sloupec v souboru neexistuje',
     IMPORT_ALREADY_DONE: 'Tento import již byl proveden',
     PROVIDER_NOT_IMPLEMENTED: 'Tento poskytovatel zatím není k dispozici',
+    ASSET_ALREADY_MAPPED: 'Toto aktivum už má přiřazenou cenu',
+    COINGECKO_ID_TAKEN: 'Toto CoinGecko ID je už přiřazeno jinému aktivu',
   },
   relative: {
     never: 'nikdy',

@@ -12,7 +12,8 @@ export interface RawBalance {
 
 export interface ExchangeCredentials {
   apiKey: string
-  apiSecret: string
+  // Bitpanda authentifiziert nur über den Key
+  apiSecret?: string
   passphrase?: string
 }
 

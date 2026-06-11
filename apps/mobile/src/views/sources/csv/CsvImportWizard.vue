@@ -14,6 +14,14 @@
       <!-- Schritt 1: Upload -->
       <template v-if="step === 'upload'">
         <p class="hint">{{ $t('csv.intro') }}</p>
+        <ion-segment :value="kind" @ionChange="kind = $event.detail.value as ImportKind">
+          <ion-segment-button value="BALANCES" data-testid="csv-kind-balances">
+            <ion-label>{{ $t('csv.kindBalances') }}</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="TRANSACTIONS" data-testid="csv-kind-transactions">
+            <ion-label>{{ $t('csv.kindTransactions') }}</ion-label>
+          </ion-segment-button>
+        </ion-segment>
         <ion-item>
           <ion-input
             v-model="label"
@@ -70,6 +78,54 @@
               <ion-select-option v-for="h in uploadResult?.headers" :key="h" :value="h">{{ h }}</ion-select-option>
             </ion-select>
           </ion-item>
+          <template v-if="kind === 'TRANSACTIONS'">
+            <ion-item>
+              <ion-select
+                :label="$t('csv.typeColumn')"
+                interface="popover"
+                :value="mappingType"
+                data-testid="mapping-type"
+                @ionChange="mappingType = $event.detail.value"
+              >
+                <ion-select-option v-for="h in uploadResult?.headers" :key="h" :value="h">{{ h }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-select
+                :label="$t('csv.timestampColumn')"
+                interface="popover"
+                :value="mappingTimestamp"
+                data-testid="mapping-timestamp"
+                @ionChange="mappingTimestamp = $event.detail.value"
+              >
+                <ion-select-option v-for="h in uploadResult?.headers" :key="h" :value="h">{{ h }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-select
+                :label="$t('csv.priceColumn')"
+                interface="popover"
+                :value="mappingPrice"
+                data-testid="mapping-price"
+                @ionChange="mappingPrice = $event.detail.value"
+              >
+                <ion-select-option :value="''">{{ $t('csv.noColumn') }}</ion-select-option>
+                <ion-select-option v-for="h in uploadResult?.headers" :key="h" :value="h">{{ h }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-select
+                :label="$t('csv.currencyColumn')"
+                interface="popover"
+                :value="mappingCurrency"
+                data-testid="mapping-currency"
+                @ionChange="mappingCurrency = $event.detail.value"
+              >
+                <ion-select-option :value="''">{{ $t('csv.noColumn') }}</ion-select-option>
+                <ion-select-option v-for="h in uploadResult?.headers" :key="h" :value="h">{{ h }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+          </template>
         </ion-list>
 
         <div class="preview-wrap">
@@ -88,7 +144,7 @@
         <ion-text v-if="error" color="danger"><p class="error" data-testid="csv-error">{{ error }}</p></ion-text>
         <ion-button
           expand="block"
-          :disabled="!mappingSymbol || !mappingQuantity || importing"
+          :disabled="!mappingSymbol || !mappingQuantity || (kind === 'TRANSACTIONS' && (!mappingType || !mappingTimestamp)) || importing"
           data-testid="csv-import-run"
           @click="doImport"
         >
@@ -134,6 +190,8 @@ import {
   IonLabel,
   IonList,
   IonModal,
+  IonSegment,
+  IonSegmentButton,
   IonSelect,
   IonSelectOption,
   IonSpinner,
@@ -151,12 +209,19 @@ const emit = defineEmits<{ close: []; done: [] }>()
 
 const importsStore = useImportsStore()
 
+type ImportKind = 'BALANCES' | 'TRANSACTIONS'
+
 const step = ref<'upload' | 'mapping' | 'result'>('upload')
+const kind = ref<ImportKind>('BALANCES')
 const file = ref<File | null>(null)
 const label = ref('')
 const uploadResult = ref<CsvUploadResponse | null>(null)
 const mappingSymbol = ref<string | null>(null)
 const mappingQuantity = ref<string | null>(null)
+const mappingType = ref<string | null>(null)
+const mappingTimestamp = ref<string | null>(null)
+const mappingPrice = ref<string>('')
+const mappingCurrency = ref<string>('')
 const result = ref<CsvImportDto | null>(null)
 const error = ref('')
 const uploading = ref(false)
@@ -167,6 +232,7 @@ watch(
   (open) => {
     if (!open) return
     step.value = 'upload'
+    kind.value = 'BALANCES'
     file.value = null
     label.value = ''
     uploadResult.value = null
@@ -184,9 +250,14 @@ async function doUpload() {
   error.value = ''
   uploading.value = true
   try {
-    uploadResult.value = await importsStore.upload(file.value, label.value)
-    mappingSymbol.value = uploadResult.value.suggestedMapping.symbol
-    mappingQuantity.value = uploadResult.value.suggestedMapping.quantity
+    uploadResult.value = await importsStore.upload(file.value, label.value, kind.value)
+    const suggestion = uploadResult.value.suggestedMapping
+    mappingSymbol.value = suggestion.symbol
+    mappingQuantity.value = suggestion.quantity
+    mappingType.value = suggestion.type
+    mappingTimestamp.value = suggestion.timestamp
+    mappingPrice.value = suggestion.price ?? ''
+    mappingCurrency.value = suggestion.currency ?? ''
     step.value = 'mapping'
   } catch (e) {
     error.value = apiErrorMessage(e, 'csv.uploadFailed')
@@ -200,10 +271,17 @@ async function doImport() {
   error.value = ''
   importing.value = true
   try {
-    result.value = await importsStore.confirmMapping(uploadResult.value.import.id, {
+    const mapping: Record<string, string> = {
       symbol: mappingSymbol.value,
       quantity: mappingQuantity.value,
-    })
+    }
+    if (kind.value === 'TRANSACTIONS') {
+      if (mappingType.value) mapping.type = mappingType.value
+      if (mappingTimestamp.value) mapping.timestamp = mappingTimestamp.value
+      if (mappingPrice.value) mapping.price = mappingPrice.value
+      if (mappingCurrency.value) mapping.currency = mappingCurrency.value
+    }
+    result.value = await importsStore.confirmMapping(uploadResult.value.import.id, mapping)
     step.value = 'result'
   } catch (e) {
     error.value = apiErrorMessage(e, 'csv.importFailed')

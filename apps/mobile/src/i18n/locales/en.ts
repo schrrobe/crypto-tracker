@@ -39,6 +39,8 @@ const en: MessageSchema = {
     empty: 'No holdings yet.',
     addHolding: 'Add a holding',
     unmapped: '{n} asset(s) without price mapping — values incomplete.',
+    allocation: 'Allocation',
+    others: 'Others',
   },
   holdings: {
     empty: 'No holdings recorded yet.',
@@ -52,6 +54,11 @@ const en: MessageSchema = {
     saveFailed: 'Saving failed',
     showUnpriced: 'Show {n} tokens without price',
     hideUnpriced: 'Hide tokens without price',
+    mapPrice: 'Map price',
+    mapTitle: 'Price mapping for {symbol}',
+    mapSearch: 'Search on CoinGecko…',
+    mapEmpty: 'No results',
+    mapFailed: 'Mapping failed',
   },
   sync: {
     running: 'syncing…',
@@ -79,6 +86,7 @@ const en: MessageSchema = {
     labelPlaceholderManual: 'e.g. other holdings',
     apiKey: 'API key (read-only permissions!)',
     apiSecret: 'API secret',
+    privateKey: 'CDP private key (PEM)',
     passphrase: 'Passphrase (optional)',
     address: 'Public wallet address',
     readOnlyHint:
@@ -106,6 +114,14 @@ const en: MessageSchema = {
     result: '{imported} of {total} rows imported',
     errorRowsTitle: 'Invalid rows (not imported):',
     errorLine: 'Line {line}: {error}',
+    kindBalances: 'Balances',
+    kindTransactions: 'Transactions',
+    typeColumn: 'Type column',
+    timestampColumn: 'Date column',
+    priceColumn: 'Price column (optional)',
+    feeColumn: 'Fee column (optional)',
+    currencyColumn: 'Currency column (optional)',
+    noColumn: '— none —',
   },
   imports: {
     title: 'Import history',
@@ -144,6 +160,8 @@ const en: MessageSchema = {
     UNKNOWN_COLUMN: 'The selected column does not exist in the file',
     IMPORT_ALREADY_DONE: 'This import has already been executed',
     PROVIDER_NOT_IMPLEMENTED: 'This provider is not available yet',
+    ASSET_ALREADY_MAPPED: 'This asset already has a price mapping',
+    COINGECKO_ID_TAKEN: 'This CoinGecko ID is already assigned to another asset',
   },
   relative: {
     never: 'never',

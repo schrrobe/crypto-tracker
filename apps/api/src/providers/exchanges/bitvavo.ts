@@ -38,6 +38,7 @@ interface BitvavoError {
 const SKIP = new Set(['EUR'])
 
 async function fetchBitvavoBalances(creds: ExchangeCredentials): Promise<RawBalance[]> {
+  if (!creds.apiSecret) throw new ProviderError('INVALID_API_KEY', 'Bitvavo: API-Secret fehlt')
   const timestamp = Date.now().toString()
   const res = await fetch(`${BASE_URL}${BALANCE_PATH}`, {
     headers: {

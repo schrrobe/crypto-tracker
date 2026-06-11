@@ -86,7 +86,7 @@ export async function createSource(userId: string, input: CreateSourceInput): Pr
         credential: {
           create: {
             encryptedApiKey: encryptSecret(input.apiKey),
-            encryptedApiSecret: encryptSecret(input.apiSecret),
+            encryptedApiSecret: input.apiSecret ? encryptSecret(input.apiSecret) : null,
             encryptedPassphrase: input.passphrase ? encryptSecret(input.passphrase) : null,
             keyPreview: keyPreview(input.apiKey),
           },

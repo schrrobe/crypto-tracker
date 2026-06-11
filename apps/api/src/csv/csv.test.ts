@@ -79,3 +79,52 @@ describe('applyBalanceMapping', () => {
     expect(errors[1]?.error).toContain('keine gültige Zahl')
   })
 })
+
+import { applyTransactionMapping, normalizeTxType, parseTimestamp } from './csv.mapper'
+
+describe('normalizeTxType', () => {
+  it('mappt deutsche und englische Typen', () => {
+    expect(normalizeTxType('Kauf')).toBe('BUY')
+    expect(normalizeTxType('buy')).toBe('BUY')
+    expect(normalizeTxType('VERKAUF')).toBe('SELL')
+    expect(normalizeTxType('Einzahlung')).toBe('DEPOSIT')
+    expect(normalizeTxType('withdrawal')).toBe('WITHDRAWAL')
+    expect(normalizeTxType('Staking')).toBe('OTHER')
+    expect(normalizeTxType('quatsch')).toBeNull()
+  })
+})
+
+describe('parseTimestamp', () => {
+  it('parst ISO und deutsche Formate', () => {
+    expect(parseTimestamp('2024-01-15')?.getFullYear()).toBe(2024)
+    expect(parseTimestamp('2024-01-15T10:30:00Z')?.getUTCHours()).toBe(10)
+    expect(parseTimestamp('15.01.2024')?.getMonth()).toBe(0)
+    expect(parseTimestamp('15.01.2024 10:30')?.getMinutes()).toBe(30)
+    expect(parseTimestamp('kein datum')).toBeNull()
+    expect(parseTimestamp('')).toBeNull()
+  })
+})
+
+describe('applyTransactionMapping', () => {
+  const mapping = { symbol: 'Coin', quantity: 'Menge', type: 'Typ', timestamp: 'Datum' }
+
+  it('validiert Typ und Datum, sammelt Fehlerzeilen', () => {
+    const rows = [
+      { Coin: 'BTC', Menge: '1', Typ: 'Kauf', Datum: '2024-01-01' }, // ok
+      { Coin: 'BTC', Menge: '0,4', Typ: 'Verkauf', Datum: '01.02.2024' }, // ok
+      { Coin: 'BTC', Menge: '1', Typ: 'hodl', Datum: '2024-01-01' }, // Zeile 4: Typ
+      { Coin: 'SOL', Menge: '10', Typ: 'Kauf', Datum: 'gestern' }, // Zeile 5: Datum
+    ]
+    const { valid, errors } = applyTransactionMapping(rows, mapping)
+    expect(valid).toHaveLength(2)
+    expect(valid[0]).toMatchObject({ symbol: 'BTC', quantity: '1', type: 'BUY' })
+    expect(valid[1]).toMatchObject({ symbol: 'BTC', quantity: '0.4', type: 'SELL' })
+    expect(errors.map((e) => e.line)).toEqual([4, 5])
+  })
+
+  it('übernimmt optionale Preis-/Währungs-Spalten', () => {
+    const rows = [{ Coin: 'BTC', Menge: '1', Typ: 'Kauf', Datum: '2024-01-01', Kurs: '42.000,50', Fiat: 'eur' }]
+    const { valid } = applyTransactionMapping(rows, { ...mapping, price: 'Kurs', currency: 'Fiat' })
+    expect(valid[0]).toMatchObject({ price: '42000.50', currency: 'EUR' })
+  })
+})
