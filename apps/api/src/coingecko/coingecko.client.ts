@@ -93,6 +93,34 @@ export async function fetchMarketChart(
   return data
 }
 
+// EUR-Tagespreis (00:00 UTC) für die Steuer-Kostenbasis. null = CoinGecko hat
+// keinen Preis für dieses Datum (Free Tier: max. ~365 Tage zurück, antwortet
+// dann mit 401) — der Aufrufer cached das als Negativ-Eintrag.
+export async function fetchHistoricalPrice(coingeckoId: string, date: Date): Promise<number | null> {
+  if (env.FAKE_PRICES) {
+    // Deterministisch datumsabhängig: 80–100 % des Fake-Preises über das Jahr
+    const base = (FAKE_PRICES[coingeckoId] ?? { eur: 1, usd: 1.1 }).eur
+    const startOfYear = Date.UTC(date.getUTCFullYear(), 0, 1)
+    const dayOfYear = Math.floor((date.getTime() - startOfYear) / 86_400_000)
+    return base * (0.8 + 0.2 * (dayOfYear / 366))
+  }
+
+  const dd = String(date.getUTCDate()).padStart(2, '0')
+  const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const yyyy = date.getUTCFullYear()
+  const url = `${BASE}/coins/${encodeURIComponent(coingeckoId)}/history?date=${dd}-${mm}-${yyyy}&localization=false`
+  const res = await fetch(url, {
+    headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
+  })
+  // 401: Datum außerhalb des Free-Tier-Fensters; 404: Coin unbekannt — beides „kein Preis"
+  if (res.status === 401 || res.status === 404) return null
+  if (!res.ok) {
+    throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
+  }
+  const json = (await res.json()) as { market_data?: { current_price?: { eur?: number } } }
+  return json.market_data?.current_price?.eur ?? null
+}
+
 export async function fetchSimplePrices(coingeckoIds: string[]): Promise<SimplePrices> {
   if (coingeckoIds.length === 0) return {}
 

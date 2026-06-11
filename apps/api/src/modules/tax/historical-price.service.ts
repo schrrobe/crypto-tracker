@@ -1,0 +1,82 @@
+import { Prisma } from '@prisma/client'
+import { prisma } from '../../lib/prisma'
+import { fetchHistoricalPrice } from '../../coingecko/coingecko.client'
+
+// CoinGecko-Demo-Tier erlaubt ~30 Calls/min — pro Report-Lauf hart begrenzen.
+// Nicht aufgelöste Daten kommen beim nächsten Lauf aus dem Cache nach.
+const LOOKUP_CAP_PER_RUN = 40
+
+export interface HistoricalPriceRequest {
+  assetId: string
+  coingeckoId: string | null
+  // wird auf 00:00 UTC normalisiert
+  date: Date
+}
+
+export interface HistoricalPriceResult {
+  // Key: priceKey(assetId, date). Wert null = kein Preis ermittelbar (Negativ-Cache).
+  // Fehlender Key = Lookup-Cap erreicht, beim nächsten Lauf erneut versuchen.
+  prices: Map<string, Prisma.Decimal | null>
+  limitReached: boolean
+}
+
+export function toUtcDate(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+}
+
+export function priceKey(assetId: string, date: Date): string {
+  return `${assetId}|${toUtcDate(date).toISOString().slice(0, 10)}`
+}
+
+export async function resolveHistoricalPrices(
+  requests: HistoricalPriceRequest[],
+): Promise<HistoricalPriceResult> {
+  const prices = new Map<string, Prisma.Decimal | null>()
+
+  // Dedupe auf (Asset, Tag); unmapped Assets haben nie einen Preis
+  const unique = new Map<string, HistoricalPriceRequest>()
+  for (const req of requests) {
+    const key = priceKey(req.assetId, req.date)
+    if (req.coingeckoId === null) {
+      prices.set(key, null)
+      continue
+    }
+    if (!unique.has(key)) unique.set(key, { ...req, date: toUtcDate(req.date) })
+  }
+  if (unique.size === 0) return { prices, limitReached: false }
+
+  const cached = await prisma.historicalAssetPrice.findMany({
+    where: {
+      assetId: { in: [...new Set([...unique.values()].map((r) => r.assetId))] },
+      date: { in: [...new Set([...unique.values()].map((r) => r.date.getTime()))].map((t) => new Date(t)) },
+    },
+  })
+  for (const row of cached) {
+    const key = priceKey(row.assetId, row.date)
+    if (unique.has(key)) {
+      prices.set(key, row.priceEur)
+      unique.delete(key)
+    }
+  }
+
+  let lookups = 0
+  let limitReached = false
+  for (const [key, req] of unique) {
+    if (lookups >= LOOKUP_CAP_PER_RUN) {
+      limitReached = true
+      break
+    }
+    lookups += 1
+    const price = await fetchHistoricalPrice(req.coingeckoId as string, req.date)
+    const priceEur = price === null ? null : new Prisma.Decimal(price.toString())
+    // upsert statt create: paralleler Lauf könnte denselben Tag bereits geschrieben haben
+    await prisma.historicalAssetPrice.upsert({
+      where: { assetId_date: { assetId: req.assetId, date: req.date } },
+      create: { assetId: req.assetId, date: req.date, priceEur },
+      update: {},
+    })
+    prices.set(key, priceEur)
+  }
+
+  return { prices, limitReached }
+}
