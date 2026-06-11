@@ -25,7 +25,7 @@ pnpm db:up        # Postgres starten (Docker)
 pnpm db:migrate   # Prisma-Migrationen
 pnpm db:seed      # Asset-Seed (Top-Coins mit CoinGecko-IDs)
 
-pnpm dev          # API (:3000) + App (:5173) parallel
+pnpm dev          # API (:3010) + App (:5173) parallel
 ```
 
 Einzeln: `pnpm dev:api` / `pnpm dev:app` · Prisma Studio: `pnpm db:studio` ·
