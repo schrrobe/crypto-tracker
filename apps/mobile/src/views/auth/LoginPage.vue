@@ -2,15 +2,15 @@
   <ion-page>
     <ion-content :fullscreen="true" class="ion-padding">
       <div class="auth-wrap">
-        <h1>Crypto Tracker</h1>
-        <p class="subtitle">Anmelden</p>
+        <h1>{{ $t('auth.appTitle') }}</h1>
+        <p class="subtitle">{{ $t('auth.loginSubtitle') }}</p>
 
         <form @submit.prevent="submit">
           <ion-list inset>
             <ion-item>
               <ion-input
                 v-model="email"
-                label="E-Mail"
+                :label="$t('auth.email')"
                 label-placement="floating"
                 type="email"
                 autocomplete="email"
@@ -21,7 +21,7 @@
             <ion-item>
               <ion-input
                 v-model="password"
-                label="Passwort"
+                :label="$t('auth.password')"
                 label-placement="floating"
                 type="password"
                 autocomplete="current-password"
@@ -37,12 +37,12 @@
 
           <ion-button expand="block" type="submit" :disabled="loading" data-testid="login-submit">
             <ion-spinner v-if="loading" name="crescent" />
-            <span v-else>Anmelden</span>
+            <span v-else>{{ $t('auth.login') }}</span>
           </ion-button>
         </form>
 
         <ion-button expand="block" fill="clear" router-link="/register" data-testid="goto-register">
-          Noch kein Konto? Registrieren
+          {{ $t('auth.noAccount') }}
         </ion-button>
       </div>
     </ion-content>
@@ -64,6 +64,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.store'
 import { ApiError } from '../../services/api.client'
+import { t } from '../../i18n'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -80,7 +81,10 @@ async function submit() {
     await auth.login(email.value, password.value)
     router.replace('/tabs/dashboard')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Anmeldung fehlgeschlagen'
+    error.value =
+      e instanceof ApiError && e.status === 401
+        ? t('auth.invalidCredentials')
+        : t('auth.loginFailed')
   } finally {
     loading.value = false
   }

@@ -2,15 +2,15 @@
   <ion-page>
     <ion-content :fullscreen="true" class="ion-padding">
       <div class="auth-wrap">
-        <h1>Crypto Tracker</h1>
-        <p class="subtitle">Konto erstellen</p>
+        <h1>{{ $t('auth.appTitle') }}</h1>
+        <p class="subtitle">{{ $t('auth.registerSubtitle') }}</p>
 
         <form @submit.prevent="submit">
           <ion-list inset>
             <ion-item>
               <ion-input
                 v-model="email"
-                label="E-Mail"
+                :label="$t('auth.email')"
                 label-placement="floating"
                 type="email"
                 autocomplete="email"
@@ -21,7 +21,7 @@
             <ion-item>
               <ion-input
                 v-model="password"
-                label="Passwort (min. 10 Zeichen)"
+                :label="$t('auth.passwordWithHint')"
                 label-placement="floating"
                 type="password"
                 autocomplete="new-password"
@@ -37,12 +37,12 @@
 
           <ion-button expand="block" type="submit" :disabled="loading" data-testid="register-submit">
             <ion-spinner v-if="loading" name="crescent" />
-            <span v-else>Registrieren</span>
+            <span v-else>{{ $t('auth.register') }}</span>
           </ion-button>
         </form>
 
         <ion-button expand="block" fill="clear" router-link="/login" data-testid="goto-login">
-          Schon ein Konto? Anmelden
+          {{ $t('auth.hasAccount') }}
         </ion-button>
       </div>
     </ion-content>
@@ -64,6 +64,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.store'
 import { ApiError } from '../../services/api.client'
+import { t } from '../../i18n'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -76,7 +77,7 @@ const loading = ref(false)
 async function submit() {
   error.value = ''
   if (password.value.length < 10) {
-    error.value = 'Das Passwort muss mindestens 10 Zeichen haben'
+    error.value = t('auth.passwordTooShort')
     return
   }
   loading.value = true
@@ -84,7 +85,7 @@ async function submit() {
     await auth.register(email.value, password.value)
     router.replace('/tabs/dashboard')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Registrierung fehlgeschlagen'
+    error.value = e instanceof ApiError ? e.message : t('auth.registerFailed')
   } finally {
     loading.value = false
   }

@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/tabs/sources" text="" />
         </ion-buttons>
-        <ion-title>Import-Historie</ion-title>
+        <ion-title>{{ $t('imports.title') }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
@@ -19,8 +19,10 @@
             <h3>{{ record.sourceLabel }}</h3>
             <p>{{ record.filename }} · {{ formatDate(record.createdAt) }}</p>
             <p>
-              {{ record.importedRows }} von {{ record.totalRows }} Zeilen importiert
-              <template v-if="record.errorRows.length > 0"> · {{ record.errorRows.length }} Fehler</template>
+              {{ $t('csv.result', { imported: record.importedRows, total: record.totalRows }) }}
+              <template v-if="record.errorRows.length > 0">
+                · {{ $t('imports.errorsCount', { n: record.errorRows.length }) }}
+              </template>
             </p>
             <ion-badge :color="badgeColor(record.status)">{{ statusLabel(record.status) }}</ion-badge>
           </ion-label>
@@ -37,7 +39,7 @@
       </ion-list>
 
       <div v-else class="empty" data-testid="imports-empty">
-        <p>Noch keine CSV-Importe.</p>
+        <p>{{ $t('imports.empty') }}</p>
       </div>
     </ion-content>
   </ion-page>
@@ -66,17 +68,22 @@ import type { CsvImportDto } from '@crypto-tracker/shared'
 import { useImportsStore } from '../../../stores/imports.store'
 import { useSourcesStore } from '../../../stores/sources.store'
 import { usePortfolioStore } from '../../../stores/portfolio.store'
+import { intlLocale, t } from '../../../i18n'
 
 const importsStore = useImportsStore()
 const sourcesStore = useSourcesStore()
 const portfolio = usePortfolioStore()
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
+  return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 function statusLabel(status: CsvImportDto['status']): string {
-  return status === 'COMPLETED' ? 'importiert' : status === 'FAILED' ? 'fehlgeschlagen' : 'offen'
+  return status === 'COMPLETED'
+    ? t('imports.statusCompleted')
+    : status === 'FAILED'
+      ? t('imports.statusFailed')
+      : t('imports.statusPending')
 }
 
 function badgeColor(status: CsvImportDto['status']): string {
@@ -85,12 +92,12 @@ function badgeColor(status: CsvImportDto['status']): string {
 
 async function confirmDelete(record: CsvImportDto) {
   const alert = await alertController.create({
-    header: `Import „${record.sourceLabel}" löschen?`,
-    message: 'Die zugehörige Quelle und alle importierten Bestände werden entfernt.',
+    header: t('imports.deleteTitle', { label: record.sourceLabel }),
+    message: t('imports.deleteMessage'),
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
+      { text: t('common.cancel'), role: 'cancel' },
       {
-        text: 'Löschen',
+        text: t('common.delete'),
         role: 'destructive',
         handler: () => {
           importsStore.remove(record.id).then(() => {

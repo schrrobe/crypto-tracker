@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Quellen</ion-title>
+        <ion-title>{{ $t('tabs.sources') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button data-testid="open-csv-import" @click="csvWizardOpen = true">
             <ion-icon :icon="documentAttachOutline" slot="icon-only" />
@@ -14,7 +14,7 @@
             @click="syncAll"
           >
             <ion-icon :icon="syncOutline" slot="start" />
-            Alle
+            {{ $t('sources.syncAll') }}
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
@@ -30,7 +30,7 @@
             <h3>{{ source.label }}</h3>
             <p>
               {{ providerLabel(source) }}
-              <template v-if="source.keyPreview"> · Key {{ source.keyPreview }}</template>
+              <template v-if="source.keyPreview"> · {{ $t('sources.keyPreview', { preview: source.keyPreview }) }}</template>
               <template v-if="source.address"> · {{ shortAddress(source.address) }}</template>
             </p>
             <SyncStatusBadge :source="source" :syncing="sourcesStore.syncing.has(source.id)" />
@@ -56,9 +56,9 @@
       </ion-list>
 
       <div v-else class="empty" data-testid="sources-empty">
-        <p>Noch keine Quellen verbunden.</p>
+        <p>{{ $t('sources.empty') }}</p>
         <ion-button fill="outline" data-testid="add-source-empty" @click="modalOpen = true">
-          Quelle verbinden
+          {{ $t('sources.connectSource') }}
         </ion-button>
       </div>
 
@@ -69,7 +69,7 @@
         router-link="/tabs/sources/imports"
         data-testid="open-import-history"
       >
-        CSV-Import-Historie
+        {{ $t('sources.importHistory') }}
       </ion-button>
 
       <ion-fab slot="fixed" vertical="bottom" horizontal="end">
@@ -110,6 +110,7 @@ import CsvImportWizard from './csv/CsvImportWizard.vue'
 import SyncStatusBadge from '../../components/SyncStatusBadge.vue'
 import { useSourcesStore } from '../../stores/sources.store'
 import { usePortfolioStore } from '../../stores/portfolio.store'
+import { t } from '../../i18n'
 
 const sourcesStore = useSourcesStore()
 const portfolio = usePortfolioStore()
@@ -121,15 +122,23 @@ async function onImportDone() {
   await Promise.all([sourcesStore.load(), portfolio.loadSummary(), portfolio.loadHoldings()])
 }
 
-const PROVIDER_LABELS: Record<string, string> = {
+// Eigennamen bleiben, generische Labels kommen aus i18n
+function providerLabelKey(provider: string): string | null {
+  return (
+    {
+      BITCOIN: 'sources.providerBitcoin',
+      SOLANA: 'sources.providerSolana',
+      GENERIC_CSV: 'sources.providerCsv',
+      MANUAL: 'sources.providerManual',
+    }[provider] ?? null
+  )
+}
+
+const PROVIDER_NAMES: Record<string, string> = {
   COINBASE: 'Coinbase',
   KRAKEN: 'Kraken',
   BITVAVO: 'Bitvavo',
   BITPANDA: 'Bitpanda',
-  BITCOIN: 'Bitcoin-Wallet',
-  SOLANA: 'Solana-Wallet',
-  GENERIC_CSV: 'CSV-Import',
-  MANUAL: 'Manuelle Quelle',
 }
 
 const hasSyncable = computed(() => sourcesStore.sources.some(isSyncable))
@@ -139,7 +148,9 @@ function isSyncable(source: SourceDto): boolean {
 }
 
 function providerLabel(source: SourceDto): string {
-  return PROVIDER_LABELS[source.provider] ?? source.provider
+  const key = providerLabelKey(source.provider)
+  if (key) return t(key)
+  return PROVIDER_NAMES[source.provider] ?? source.provider
 }
 
 function shortAddress(address: string): string {
@@ -158,12 +169,12 @@ async function syncAll() {
 
 async function confirmDelete(source: SourceDto) {
   const alert = await alertController.create({
-    header: `„${source.label}" löschen?`,
-    message: 'Alle Bestände dieser Quelle werden entfernt.',
+    header: t('sources.deleteTitle', { label: source.label }),
+    message: t('sources.deleteMessage'),
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
+      { text: t('common.cancel'), role: 'cancel' },
       {
-        text: 'Löschen',
+        text: t('common.delete'),
         role: 'destructive',
         handler: () => {
           sourcesStore.remove(source.id).then(() => portfolio.loadSummary())

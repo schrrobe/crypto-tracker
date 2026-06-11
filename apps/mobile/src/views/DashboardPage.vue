@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Dashboard</ion-title>
+        <ion-title>{{ $t('tabs.dashboard') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button data-testid="refresh-button" :disabled="portfolio.loading" @click="refresh">
             <ion-spinner v-if="portfolio.loading" name="crescent" />
@@ -18,22 +18,26 @@
 
       <ion-card button data-testid="total-value-card" @click="toggleCurrency">
         <ion-card-header>
-          <ion-card-subtitle>Gesamtwert ({{ currency }})</ion-card-subtitle>
+          <ion-card-subtitle>{{ $t('dashboard.totalValue', { currency }) }}</ion-card-subtitle>
           <ion-card-title class="amount total" data-testid="total-value">
             {{ totalFormatted }}
           </ion-card-title>
         </ion-card-header>
         <ion-card-content>
           <p class="muted">
-            Preise: {{ formatRelativeTime(portfolio.summary?.pricesFetchedAt ?? null) }} ·
-            Tippen für {{ currency === 'EUR' ? 'USD' : 'EUR' }}
+            {{
+              $t('dashboard.pricesUpdated', {
+                time: formatRelativeTime(portfolio.summary?.pricesFetchedAt ?? null),
+                currency: currency === 'EUR' ? 'USD' : 'EUR',
+              })
+            }}
           </p>
         </ion-card-content>
       </ion-card>
 
       <ion-list v-if="topAssets.length > 0" inset>
         <ion-list-header>
-          <ion-label>Top-Positionen</ion-label>
+          <ion-label>{{ $t('dashboard.topPositions') }}</ion-label>
         </ion-list-header>
         <ion-item v-for="position in topAssets" :key="position.asset.id">
           <ion-label>
@@ -47,13 +51,13 @@
       </ion-list>
 
       <div v-else class="empty" data-testid="dashboard-empty">
-        <p>Noch keine Bestände.</p>
-        <ion-button router-link="/tabs/holdings" fill="outline">Bestand erfassen</ion-button>
+        <p>{{ $t('dashboard.empty') }}</p>
+        <ion-button router-link="/tabs/holdings" fill="outline">{{ $t('dashboard.addHolding') }}</ion-button>
       </div>
 
       <ion-text v-if="(portfolio.summary?.unmappedAssets.length ?? 0) > 0" color="warning">
         <p class="ion-padding-horizontal">
-          {{ portfolio.summary?.unmappedAssets.length }} Asset(s) ohne Preis-Mapping — Werte unvollständig.
+          {{ $t('dashboard.unmapped', { n: portfolio.summary?.unmappedAssets.length }) }}
         </p>
       </ion-text>
     </ion-content>

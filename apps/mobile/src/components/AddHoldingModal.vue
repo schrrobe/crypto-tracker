@@ -2,9 +2,9 @@
   <ion-modal :is-open="isOpen" @didDismiss="$emit('close')">
     <ion-header>
       <ion-toolbar>
-        <ion-title>{{ editHolding ? 'Bestand bearbeiten' : 'Bestand hinzufügen' }}</ion-title>
+        <ion-title>{{ editHolding ? $t('holdings.editTitle') : $t('holdings.addTitle') }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button data-testid="holding-modal-cancel" @click="$emit('close')">Abbrechen</ion-button>
+          <ion-button data-testid="holding-modal-cancel" @click="$emit('close')">{{ $t('common.cancel') }}</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -12,7 +12,7 @@
       <template v-if="!editHolding">
         <ion-searchbar
           :debounce="150"
-          placeholder="Asset suchen (z.B. BTC)"
+          :placeholder="$t('holdings.searchPlaceholder')"
           data-testid="asset-search"
           @ionInput="search($event.detail.value ?? '')"
         />
@@ -43,10 +43,10 @@
       <ion-item>
         <ion-input
           v-model="quantity"
-          label="Menge"
+          :label="$t('holdings.quantity')"
           label-placement="floating"
           inputmode="decimal"
-          placeholder="z.B. 0,5"
+          :placeholder="$t('holdings.quantityPlaceholder')"
           data-testid="holding-quantity"
         />
       </ion-item>
@@ -62,7 +62,7 @@
         data-testid="holding-save"
         @click="save"
       >
-        Speichern
+        {{ $t('common.save') }}
       </ion-button>
     </ion-content>
   </ion-modal>
@@ -87,6 +87,7 @@ import {
 import { ref, watch } from 'vue'
 import type { AssetDto, HoldingDto } from '@crypto-tracker/shared'
 import { api, ApiError } from '../services/api.client'
+import { t } from '../i18n'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { useSourcesStore } from '../stores/sources.store'
 
@@ -135,7 +136,7 @@ async function save(): Promise<void> {
     emit('saved')
     emit('close')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen'
+    error.value = e instanceof ApiError ? e.message : t('holdings.saveFailed')
   } finally {
     saving.value = false
   }

@@ -4,6 +4,7 @@ import { IonicVue } from '@ionic/vue'
 
 import App from './App.vue'
 import { router } from './router'
+import { i18n } from './i18n'
 
 /* Ionic Core-Styles */
 import '@ionic/vue/css/core.css'
@@ -22,7 +23,7 @@ import '@ionic/vue/css/palettes/dark.class.css'
 
 import './theme/variables.css'
 
-const app = createApp(App).use(IonicVue).use(createPinia()).use(router)
+const app = createApp(App).use(IonicVue).use(createPinia()).use(router).use(i18n)
 
 router.isReady().then(() => {
   app.mount('#app')

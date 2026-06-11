@@ -2,10 +2,10 @@
   <ion-modal :is-open="isOpen" @didDismiss="$emit('close')">
     <ion-header>
       <ion-toolbar>
-        <ion-title>CSV-Import</ion-title>
+        <ion-title>{{ $t('csv.title') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button data-testid="csv-cancel" @click="$emit('close')">
-            {{ step === 'result' ? 'Schließen' : 'Abbrechen' }}
+            {{ step === 'result' ? $t('common.close') : $t('common.cancel') }}
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
@@ -13,16 +13,13 @@
     <ion-content class="ion-padding">
       <!-- Schritt 1: Upload -->
       <template v-if="step === 'upload'">
-        <p class="hint">
-          Lade eine CSV mit deinen Beständen hoch (Spalten z.B. „Coin" und „Menge"). Im nächsten
-          Schritt bestätigst du die Spalten-Zuordnung.
-        </p>
+        <p class="hint">{{ $t('csv.intro') }}</p>
         <ion-item>
           <ion-input
             v-model="label"
-            label="Bezeichnung (optional)"
+            :label="$t('csv.labelOptional')"
             label-placement="floating"
-            placeholder="z.B. Export Bitpanda"
+            :placeholder="$t('csv.labelPlaceholder')"
             data-testid="csv-label"
           />
         </ion-item>
@@ -41,19 +38,19 @@
           @click="doUpload"
         >
           <ion-spinner v-if="uploading" name="crescent" />
-          <span v-else>Hochladen</span>
+          <span v-else>{{ $t('csv.upload') }}</span>
         </ion-button>
       </template>
 
       <!-- Schritt 2: Mapping bestätigen -->
       <template v-else-if="step === 'mapping'">
         <p class="hint" data-testid="csv-row-count">
-          {{ uploadResult?.import.totalRows }} Zeilen erkannt — ordne die Spalten zu:
+          {{ $t('csv.rowsDetected', { n: uploadResult?.import.totalRows }) }}
         </p>
         <ion-list inset>
           <ion-item>
             <ion-select
-              label="Symbol-Spalte"
+              :label="$t('csv.symbolColumn')"
               interface="popover"
               :value="mappingSymbol"
               data-testid="mapping-symbol"
@@ -64,7 +61,7 @@
           </ion-item>
           <ion-item>
             <ion-select
-              label="Mengen-Spalte"
+              :label="$t('csv.quantityColumn')"
               interface="popover"
               :value="mappingQuantity"
               data-testid="mapping-quantity"
@@ -96,7 +93,7 @@
           @click="doImport"
         >
           <ion-spinner v-if="importing" name="crescent" />
-          <span v-else>Importieren</span>
+          <span v-else>{{ $t('csv.run') }}</span>
         </ion-button>
       </template>
 
@@ -104,23 +101,23 @@
       <template v-else>
         <ion-text :color="result?.status === 'COMPLETED' ? 'success' : 'danger'">
           <h2 data-testid="csv-result">
-            {{ result?.importedRows }} von {{ result?.totalRows }} Zeilen importiert
+            {{ $t('csv.result', { imported: result?.importedRows, total: result?.totalRows }) }}
           </h2>
         </ion-text>
 
         <template v-if="(result?.errorRows.length ?? 0) > 0">
-          <p class="hint">Fehlerhafte Zeilen (nicht importiert):</p>
+          <p class="hint">{{ $t('csv.errorRowsTitle') }}</p>
           <ion-list inset data-testid="csv-error-rows">
             <ion-item v-for="row in result?.errorRows" :key="row.line">
               <ion-label>
-                <h3>Zeile {{ row.line }}: {{ row.error }}</h3>
+                <h3>{{ $t('csv.errorLine', { line: row.line, error: row.error }) }}</h3>
                 <p>{{ row.raw }}</p>
               </ion-label>
             </ion-item>
           </ion-list>
         </template>
 
-        <ion-button expand="block" data-testid="csv-done" @click="finish">Fertig</ion-button>
+        <ion-button expand="block" data-testid="csv-done" @click="finish">{{ $t('common.done') }}</ion-button>
       </template>
     </ion-content>
   </ion-modal>
@@ -147,6 +144,7 @@ import {
 import { ref, watch } from 'vue'
 import type { CsvImportDto, CsvUploadResponse } from '@crypto-tracker/shared'
 import { ApiError } from '../../../services/api.client'
+import { t } from '../../../i18n'
 import { useImportsStore } from '../../../stores/imports.store'
 
 const props = defineProps<{ isOpen: boolean }>()
@@ -192,7 +190,7 @@ async function doUpload() {
     mappingQuantity.value = uploadResult.value.suggestedMapping.quantity
     step.value = 'mapping'
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Upload fehlgeschlagen'
+    error.value = e instanceof ApiError ? e.message : t('csv.uploadFailed')
   } finally {
     uploading.value = false
   }
@@ -209,7 +207,7 @@ async function doImport() {
     })
     step.value = 'result'
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Import fehlgeschlagen'
+    error.value = e instanceof ApiError ? e.message : t('csv.importFailed')
   } finally {
     importing.value = false
   }

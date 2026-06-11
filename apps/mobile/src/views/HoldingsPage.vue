@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Bestände</ion-title>
+        <ion-title>{{ $t('tabs.holdings') }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
@@ -37,7 +37,7 @@
       </ion-list>
 
       <div v-else class="empty" data-testid="holdings-empty">
-        <p>Noch keine Bestände erfasst.</p>
+        <p>{{ $t('holdings.empty') }}</p>
       </div>
 
       <ion-fab slot="fixed" vertical="bottom" horizontal="end">
@@ -79,6 +79,7 @@ import { ref } from 'vue'
 import type { HoldingDto } from '@crypto-tracker/shared'
 import AddHoldingModal from '../components/AddHoldingModal.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
+import { t } from '../i18n'
 import { formatCurrency, formatQuantity } from '../services/format'
 
 const portfolio = usePortfolioStore()
@@ -98,12 +99,12 @@ function openEdit(holding: HoldingDto) {
 
 async function confirmDelete(holding: HoldingDto) {
   const alert = await alertController.create({
-    header: `${holding.asset.symbol} löschen?`,
-    message: 'Der Bestand wird aus der Quelle entfernt.',
+    header: t('holdings.deleteTitle', { symbol: holding.asset.symbol }),
+    message: t('holdings.deleteMessage'),
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
+      { text: t('common.cancel'), role: 'cancel' },
       {
-        text: 'Löschen',
+        text: t('common.delete'),
         role: 'destructive',
         handler: () => {
           portfolio.deleteHolding(holding.sourceId, holding.id)

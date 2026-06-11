@@ -2,9 +2,9 @@
   <ion-modal :is-open="isOpen" @didDismiss="$emit('close')">
     <ion-header>
       <ion-toolbar>
-        <ion-title>Quelle verbinden</ion-title>
+        <ion-title>{{ $t('sources.connectSource') }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button data-testid="source-modal-cancel" @click="$emit('close')">Abbrechen</ion-button>
+          <ion-button data-testid="source-modal-cancel" @click="$emit('close')">{{ $t('common.cancel') }}</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -12,13 +12,13 @@
       <!-- Schritt 1: Typ -->
       <ion-segment :value="type" @ionChange="type = $event.detail.value as SourceKind">
         <ion-segment-button value="EXCHANGE" data-testid="source-type-exchange">
-          <ion-label>Exchange</ion-label>
+          <ion-label>{{ $t('sources.typeExchange') }}</ion-label>
         </ion-segment-button>
         <ion-segment-button value="WALLET" data-testid="source-type-wallet">
-          <ion-label>Wallet</ion-label>
+          <ion-label>{{ $t('sources.typeWallet') }}</ion-label>
         </ion-segment-button>
         <ion-segment-button value="MANUAL" data-testid="source-type-manual">
-          <ion-label>Manuell</ion-label>
+          <ion-label>{{ $t('sources.typeManual') }}</ion-label>
         </ion-segment-button>
       </ion-segment>
 
@@ -26,7 +26,7 @@
         <!-- Provider-Wahl -->
         <ion-item v-if="type === 'EXCHANGE'">
           <ion-select
-            label="Exchange"
+            :label="$t('sources.exchange')"
             interface="popover"
             :value="exchangeProvider"
             data-testid="exchange-provider"
@@ -39,7 +39,7 @@
         </ion-item>
         <ion-item v-if="type === 'WALLET'">
           <ion-select
-            label="Netzwerk"
+            :label="$t('sources.network')"
             interface="popover"
             :value="walletProvider"
             data-testid="wallet-provider"
@@ -54,7 +54,7 @@
         <ion-item>
           <ion-input
             v-model="label"
-            label="Bezeichnung"
+            :label="$t('sources.label')"
             label-placement="floating"
             :placeholder="labelPlaceholder"
             data-testid="source-label"
@@ -66,7 +66,7 @@
           <ion-item>
             <ion-input
               v-model="apiKey"
-              label="API-Key (nur Lese-Rechte!)"
+              :label="$t('sources.apiKey')"
               label-placement="floating"
               data-testid="source-api-key"
             />
@@ -74,7 +74,7 @@
           <ion-item>
             <ion-input
               v-model="apiSecret"
-              label="API-Secret"
+              :label="$t('sources.apiSecret')"
               label-placement="floating"
               type="password"
               data-testid="source-api-secret"
@@ -83,7 +83,7 @@
           <ion-item v-if="exchangeProvider === 'COINBASE'">
             <ion-input
               v-model="passphrase"
-              label="Passphrase (optional)"
+              :label="$t('sources.passphrase')"
               label-placement="floating"
               type="password"
               data-testid="source-passphrase"
@@ -95,7 +95,7 @@
         <ion-item v-if="type === 'WALLET'">
           <ion-input
             v-model="address"
-            label="Öffentliche Wallet-Adresse"
+            :label="$t('sources.address')"
             label-placement="floating"
             data-testid="source-address"
           />
@@ -103,10 +103,7 @@
       </ion-list>
 
       <ion-text v-if="type === 'EXCHANGE'" color="medium">
-        <p class="hint">
-          Erstelle beim Anbieter einen API-Key mit ausschließlich Lese-Berechtigung. Der Key wird
-          verschlüsselt im Backend gespeichert und nie im Klartext angezeigt.
-        </p>
+        <p class="hint">{{ $t('sources.readOnlyHint') }}</p>
       </ion-text>
 
       <ion-text v-if="error" color="danger">
@@ -120,7 +117,7 @@
         @click="save"
       >
         <ion-spinner v-if="saving" name="crescent" />
-        <span v-else>Verbinden</span>
+        <span v-else>{{ $t('sources.connect') }}</span>
       </ion-button>
     </ion-content>
   </ion-modal>
@@ -153,6 +150,7 @@ import {
   type CreateSourceInput,
 } from '@crypto-tracker/shared'
 import { ApiError } from '../../services/api.client'
+import { t } from '../../i18n'
 import { useSourcesStore } from '../../stores/sources.store'
 
 type SourceKind = 'EXCHANGE' | 'WALLET' | 'MANUAL'
@@ -184,10 +182,10 @@ const saving = ref(false)
 
 const labelPlaceholder = computed(() =>
   type.value === 'EXCHANGE'
-    ? 'z.B. Kraken Hauptaccount'
+    ? t('sources.labelPlaceholderExchange')
     : type.value === 'WALLET'
-      ? 'z.B. Hardware-Wallet'
-      : 'z.B. Sonstige Bestände',
+      ? t('sources.labelPlaceholderWallet')
+      : t('sources.labelPlaceholderManual'),
 )
 
 const valid = computed(() => {
@@ -241,7 +239,7 @@ async function save() {
     emit('created')
     emit('close')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Verbinden fehlgeschlagen'
+    error.value = e instanceof ApiError ? e.message : t('sources.connectFailed')
   } finally {
     saving.value = false
   }

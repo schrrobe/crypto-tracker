@@ -1,20 +1,20 @@
 <template>
   <ion-badge v-if="syncing" color="medium" :data-testid="`sync-status-${source.id}`">
-    <ion-spinner name="crescent" class="spinner" /> synchronisiert…
+    <ion-spinner name="crescent" class="spinner" /> {{ $t('sync.running') }}
   </ion-badge>
   <ion-badge
     v-else-if="!syncable"
     color="light"
     :data-testid="`sync-status-${source.id}`"
   >
-    {{ source.type === 'MANUAL' ? 'manuell' : 'CSV' }}
+    {{ source.type === 'MANUAL' ? $t('sync.manual') : $t('sync.csv') }}
   </ion-badge>
   <ion-badge
     v-else-if="!source.lastSyncRun"
     color="medium"
     :data-testid="`sync-status-${source.id}`"
   >
-    nie synchronisiert
+    {{ $t('sync.never') }}
   </ion-badge>
   <ion-badge
     v-else-if="source.lastSyncRun.status === 'ERROR'"
@@ -22,7 +22,7 @@
     :title="source.lastSyncRun.errorMessage ?? undefined"
     :data-testid="`sync-status-${source.id}`"
   >
-    Fehler: {{ source.lastSyncRun.errorMessage }}
+    {{ $t('sync.error', { message: source.lastSyncRun.errorMessage }) }}
   </ion-badge>
   <ion-badge v-else color="success" :data-testid="`sync-status-${source.id}`">
     {{ formatRelativeTime(source.lastSyncAt) }}
