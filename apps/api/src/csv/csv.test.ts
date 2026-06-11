@@ -122,9 +122,19 @@ describe('applyTransactionMapping', () => {
     expect(errors.map((e) => e.line)).toEqual([4, 5])
   })
 
-  it('übernimmt optionale Preis-/Währungs-Spalten', () => {
-    const rows = [{ Coin: 'BTC', Menge: '1', Typ: 'Kauf', Datum: '2024-01-01', Kurs: '42.000,50', Fiat: 'eur' }]
-    const { valid } = applyTransactionMapping(rows, { ...mapping, price: 'Kurs', currency: 'Fiat' })
-    expect(valid[0]).toMatchObject({ price: '42000.50', currency: 'EUR' })
+  it('übernimmt optionale Preis-/Gebühren-/Währungs-Spalten', () => {
+    const rows = [
+      { Coin: 'BTC', Menge: '1', Typ: 'Kauf', Datum: '2024-01-01', Kurs: '42.000,50', Gebühr: '1,5', Fiat: 'eur' },
+    ]
+    const { valid } = applyTransactionMapping(rows, { ...mapping, price: 'Kurs', fee: 'Gebühr', currency: 'Fiat' })
+    expect(valid[0]).toMatchObject({ price: '42000.50', fee: '1.5', currency: 'EUR' })
+  })
+
+  it('leere optionale Felder bleiben undefined statt Fehler zu erzeugen', () => {
+    const rows = [{ Coin: 'SOL', Menge: '10', Typ: 'Einzahlung', Datum: '2024-03-01', Kurs: '', Gebühr: '' }]
+    const { valid, errors } = applyTransactionMapping(rows, { ...mapping, price: 'Kurs', fee: 'Gebühr' })
+    expect(errors).toHaveLength(0)
+    expect(valid[0]?.price).toBeUndefined()
+    expect(valid[0]?.fee).toBeUndefined()
   })
 })
