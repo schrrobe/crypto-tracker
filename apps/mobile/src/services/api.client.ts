@@ -29,10 +29,12 @@ export class ApiError extends Error {
 }
 
 async function rawRequest(path: string, init?: RequestInit): Promise<Response> {
+  // Bei FormData setzt der Browser den Content-Type (multipart boundary) selbst
+  const isFormData = init?.body instanceof FormData
   return fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...init?.headers,
     },
@@ -99,4 +101,5 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  upload: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
 }

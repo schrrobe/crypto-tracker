@@ -4,6 +4,9 @@
       <ion-toolbar>
         <ion-title>Quellen</ion-title>
         <ion-buttons slot="end">
+          <ion-button data-testid="open-csv-import" @click="csvWizardOpen = true">
+            <ion-icon :icon="documentAttachOutline" slot="icon-only" />
+          </ion-button>
           <ion-button
             v-if="hasSyncable"
             data-testid="sync-all"
@@ -59,6 +62,16 @@
         </ion-button>
       </div>
 
+      <ion-button
+        expand="block"
+        fill="clear"
+        size="small"
+        router-link="/tabs/sources/imports"
+        data-testid="open-import-history"
+      >
+        CSV-Import-Historie
+      </ion-button>
+
       <ion-fab slot="fixed" vertical="bottom" horizontal="end">
         <ion-fab-button data-testid="add-source" @click="modalOpen = true">
           <ion-icon :icon="addOutline" />
@@ -66,6 +79,7 @@
       </ion-fab>
 
       <AddSourceModal :is-open="modalOpen" @close="modalOpen = false" />
+      <CsvImportWizard :is-open="csvWizardOpen" @close="csvWizardOpen = false" @done="onImportDone" />
     </ion-content>
   </ion-page>
 </template>
@@ -88,10 +102,11 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { addOutline, syncOutline, trashOutline } from 'ionicons/icons'
+import { addOutline, documentAttachOutline, syncOutline, trashOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import type { SourceDto } from '@crypto-tracker/shared'
 import AddSourceModal from './AddSourceModal.vue'
+import CsvImportWizard from './csv/CsvImportWizard.vue'
 import SyncStatusBadge from '../../components/SyncStatusBadge.vue'
 import { useSourcesStore } from '../../stores/sources.store'
 import { usePortfolioStore } from '../../stores/portfolio.store'
@@ -100,6 +115,11 @@ const sourcesStore = useSourcesStore()
 const portfolio = usePortfolioStore()
 
 const modalOpen = ref(false)
+const csvWizardOpen = ref(false)
+
+async function onImportDone() {
+  await Promise.all([sourcesStore.load(), portfolio.loadSummary(), portfolio.loadHoldings()])
+}
 
 const PROVIDER_LABELS: Record<string, string> = {
   COINBASE: 'Coinbase',

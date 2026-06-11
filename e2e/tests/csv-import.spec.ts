@@ -1,0 +1,90 @@
+import { expect, test } from '@playwright/test'
+import { input, register, uniqueEmail } from './helpers'
+
+// Fake-Preise: BTC 50.000 € · ETH 2.000 € · SOL 100 €
+
+const GERMAN_CSV = Buffer.from(
+  'Währung;Menge\nBTC;0,25\nETH;1.5\nFOO;abc\nSOL;10\n',
+  'utf8',
+)
+
+async function uploadCsv(page: import('@playwright/test').Page, label: string) {
+  await page.getByRole('tab', { name: 'Quellen' }).click()
+  await page.getByTestId('open-csv-import').click()
+  await input(page, 'csv-label').fill(label)
+  await page.getByTestId('csv-file').setInputFiles({
+    name: 'bestand.csv',
+    mimeType: 'text/csv',
+    buffer: GERMAN_CSV,
+  })
+  await page.getByTestId('csv-upload').click()
+}
+
+test('CSV-Import: Upload, Mapping-Vorschlag, Fehlerzeilen, Bestände', async ({ page }) => {
+  await register(page, uniqueEmail('csv'))
+  await uploadCsv(page, 'Mein CSV-Import')
+
+  // Mapping-Schritt: 4 Zeilen erkannt, deutsche Spaltennamen automatisch zugeordnet
+  await expect(page.getByTestId('csv-row-count')).toContainText('4 Zeilen')
+  await expect(page.getByTestId('mapping-symbol')).toContainText('Währung')
+  await expect(page.getByTestId('mapping-quantity')).toContainText('Menge')
+
+  await page.getByTestId('csv-import-run').click()
+
+  // Ergebnis: 3 von 4, Fehlerzeile 4 ("abc" ist keine Zahl) nachvollziehbar
+  await expect(page.getByTestId('csv-result')).toContainText('3 von 4 Zeilen importiert')
+  await expect(page.getByTestId('csv-error-rows')).toContainText('Zeile 4')
+  await expect(page.getByTestId('csv-error-rows')).toContainText('keine gültige Zahl')
+  await page.getByTestId('csv-done').click()
+
+  // Quelle erscheint in der Liste
+  await expect(page.getByTestId('source-Mein CSV-Import')).toBeVisible()
+  await expect(page.getByTestId('source-Mein CSV-Import')).toContainText('CSV')
+
+  // 0,25 × 50.000 + 1,5 × 2.000 + 10 × 100 = 16.500 € (FOO hat keinen Preis)
+  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await expect(page.getByTestId('total-value')).toHaveText(/16\.500,00\s€/u)
+
+  await page.getByRole('tab', { name: 'Bestände' }).click()
+  await expect(page.getByTestId('holding-BTC')).toContainText('0,25 BTC')
+  await expect(page.getByTestId('holding-ETH')).toContainText('1,5 ETH')
+  await expect(page.getByTestId('holding-SOL')).toContainText('10 SOL')
+})
+
+test('Import-Historie zeigt den Import und löscht ihn samt Quelle', async ({ page }) => {
+  await register(page, uniqueEmail('csvhistory'))
+  await uploadCsv(page, 'Historien-Test')
+  await page.getByTestId('csv-import-run').click()
+  await expect(page.getByTestId('csv-result')).toBeVisible()
+  await page.getByTestId('csv-done').click()
+
+  await page.getByTestId('open-import-history').click()
+  const entry = page.getByTestId('import-bestand.csv')
+  await expect(entry).toBeVisible()
+  await expect(entry).toContainText('Historien-Test')
+  await expect(entry).toContainText('3 von 4 Zeilen importiert')
+  await expect(entry).toContainText('1 Fehler')
+
+  await page.getByTestId('import-delete-bestand.csv').click()
+  await page.getByRole('button', { name: 'Löschen' }).click()
+  await expect(page.getByTestId('imports-empty')).toBeVisible()
+
+  // Quelle und Bestände sind mit dem Import verschwunden
+  await page.getByRole('tab', { name: 'Quellen' }).click()
+  await expect(page.getByTestId('sources-empty')).toBeVisible()
+  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await expect(page.getByTestId('total-value')).toHaveText(/0,00\s€/u)
+})
+
+test('unbrauchbare CSV wird beim Upload abgelehnt', async ({ page }) => {
+  await register(page, uniqueEmail('csvbad'))
+  await page.getByRole('tab', { name: 'Quellen' }).click()
+  await page.getByTestId('open-csv-import').click()
+  await page.getByTestId('csv-file').setInputFiles({
+    name: 'kaputt.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('nur-eine-spalte\nBTC\n', 'utf8'),
+  })
+  await page.getByTestId('csv-upload').click()
+  await expect(page.getByTestId('csv-error')).toContainText('CSV konnte nicht gelesen werden')
+})

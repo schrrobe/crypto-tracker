@@ -16,6 +16,7 @@ const routes: Array<RouteRecordRaw> = [
       { path: 'dashboard', component: () => import('../views/DashboardPage.vue') },
       { path: 'holdings', component: () => import('../views/HoldingsPage.vue') },
       { path: 'sources', component: () => import('../views/sources/SourcesPage.vue') },
+      { path: 'sources/imports', component: () => import('../views/sources/csv/ImportsPage.vue') },
       { path: 'settings', component: () => import('../views/SettingsPage.vue') },
     ],
   },

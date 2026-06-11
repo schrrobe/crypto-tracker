@@ -102,6 +102,40 @@ export interface PortfolioAssetPosition {
   valueUsd: string | null
 }
 
+export const confirmMappingSchema = z.object({
+  mapping: z.object({
+    symbol: z.string().min(1),
+    quantity: z.string().min(1),
+  }),
+})
+export type ConfirmMappingInput = z.infer<typeof confirmMappingSchema>
+
+export interface ImportErrorRow {
+  line: number
+  raw: string
+  error: string
+}
+
+export interface CsvImportDto {
+  id: string
+  sourceId: string
+  sourceLabel: string
+  filename: string
+  kind: 'BALANCES' | 'TRANSACTIONS'
+  status: 'PENDING_MAPPING' | 'COMPLETED' | 'FAILED'
+  totalRows: number
+  importedRows: number
+  errorRows: ImportErrorRow[]
+  createdAt: string
+}
+
+export interface CsvUploadResponse {
+  import: CsvImportDto
+  headers: string[]
+  preview: Array<Record<string, string>>
+  suggestedMapping: { symbol: string | null; quantity: string | null }
+}
+
 export interface PortfolioSummaryDto {
   totalEur: string
   totalUsd: string
