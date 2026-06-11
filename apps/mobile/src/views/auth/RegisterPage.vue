@@ -63,7 +63,7 @@ import {
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.store'
-import { ApiError } from '../../services/api.client'
+import { apiErrorMessage } from '../../services/errors'
 import { t } from '../../i18n'
 
 const auth = useAuthStore()
@@ -85,7 +85,7 @@ async function submit() {
     await auth.register(email.value, password.value)
     router.replace('/tabs/dashboard')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : t('auth.registerFailed')
+    error.value = apiErrorMessage(e, 'auth.registerFailed')
   } finally {
     loading.value = false
   }

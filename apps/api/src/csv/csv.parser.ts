@@ -25,7 +25,7 @@ export function parseCsv(content: string): ParsedCsv {
     )
   }
   if (result.data.length === 0) {
-    throw AppError.badRequest('CSV_PARSE_ERROR', 'CSV enthält keine Datenzeilen')
+    throw AppError.badRequest('CSV_NO_ROWS', 'CSV enthält keine Datenzeilen')
   }
   if (result.data.length > MAX_ROWS) {
     throw AppError.badRequest('CSV_TOO_LARGE', `CSV hat mehr als ${MAX_ROWS} Zeilen`)

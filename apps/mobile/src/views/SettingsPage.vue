@@ -21,6 +21,18 @@
         </ion-item>
         <ion-item>
           <ion-select
+            :label="$t('settings.baseCurrency')"
+            interface="popover"
+            :value="auth.user?.baseCurrency ?? 'EUR'"
+            data-testid="currency-select"
+            @ionChange="onCurrencyChange($event.detail.value)"
+          >
+            <ion-select-option value="EUR">EUR</ion-select-option>
+            <ion-select-option value="USD">USD</ion-select-option>
+          </ion-select>
+        </ion-item>
+        <ion-item>
+          <ion-select
             :label="$t('settings.language')"
             interface="popover"
             :value="locale"
@@ -89,6 +101,10 @@ function onThemeChange(value: ThemePreference) {
 function onLocaleChange(value: LocaleCode) {
   locale.value = value
   setLocale(value)
+}
+
+async function onCurrencyChange(value: 'EUR' | 'USD') {
+  if (value !== auth.user?.baseCurrency) await auth.updateBaseCurrency(value)
 }
 
 async function logout() {

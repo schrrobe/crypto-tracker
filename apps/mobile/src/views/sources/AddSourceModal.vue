@@ -149,7 +149,7 @@ import {
   WALLET_PROVIDERS,
   type CreateSourceInput,
 } from '@crypto-tracker/shared'
-import { ApiError } from '../../services/api.client'
+import { apiErrorMessage } from '../../services/errors'
 import { t } from '../../i18n'
 import { useSourcesStore } from '../../stores/sources.store'
 
@@ -239,7 +239,7 @@ async function save() {
     emit('created')
     emit('close')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : t('sources.connectFailed')
+    error.value = apiErrorMessage(e, 'sources.connectFailed')
   } finally {
     saving.value = false
   }

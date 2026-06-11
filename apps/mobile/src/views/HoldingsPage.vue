@@ -6,8 +6,11 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
-      <ion-list v-if="portfolio.holdings.length > 0" inset>
-        <ion-item v-for="holding in portfolio.holdings" :key="holding.id" :data-testid="`holding-${holding.asset.symbol}`">
+      <LoadingSkeleton v-if="pageLoading && portfolio.holdings.length === 0" />
+      <ErrorState v-else-if="pageError && portfolio.holdings.length === 0" @retry="loadData" />
+      <template v-else-if="portfolio.holdings.length > 0">
+      <ion-list inset>
+        <ion-item v-for="holding in visibleHoldings" :key="holding.id" :data-testid="`holding-${holding.asset.symbol}`">
           <ion-label>
             <h3>{{ holding.asset.symbol }}</h3>
             <p>
@@ -35,6 +38,22 @@
           </ion-buttons>
         </ion-item>
       </ion-list>
+
+      <ion-button
+        v-if="unpricedHoldings.length > 0"
+        expand="block"
+        fill="clear"
+        size="small"
+        data-testid="toggle-unpriced"
+        @click="showUnpriced = !showUnpriced"
+      >
+        {{
+          showUnpriced
+            ? $t('holdings.hideUnpriced')
+            : $t('holdings.showUnpriced', { n: unpricedHoldings.length })
+        }}
+      </ion-button>
+      </template>
 
       <div v-else class="empty" data-testid="holdings-empty">
         <p>{{ $t('holdings.empty') }}</p>
@@ -75,17 +94,44 @@ import {
   onIonViewWillEnter,
 } from '@ionic/vue'
 import { addOutline, createOutline, trashOutline } from 'ionicons/icons'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { HoldingDto } from '@crypto-tracker/shared'
 import AddHoldingModal from '../components/AddHoldingModal.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { t } from '../i18n'
 import { formatCurrency, formatQuantity } from '../services/format'
 
 const portfolio = usePortfolioStore()
+const route = useRoute()
+const router = useRouter()
 
 const modalOpen = ref(false)
 const editing = ref<HoldingDto | null>(null)
+const pageLoading = ref(false)
+const pageError = ref(false)
+const showUnpriced = ref(false)
+
+// Spam-/unbekannte Tokens (ohne Preis) sind standardmäßig eingeklappt
+const pricedHoldings = computed(() => portfolio.holdings.filter((h) => h.valueEur !== null))
+const unpricedHoldings = computed(() => portfolio.holdings.filter((h) => h.valueEur === null))
+const visibleHoldings = computed(() =>
+  showUnpriced.value ? [...pricedHoldings.value, ...unpricedHoldings.value] : pricedHoldings.value,
+)
+
+async function loadData() {
+  pageLoading.value = true
+  pageError.value = false
+  try {
+    await portfolio.loadHoldings()
+  } catch {
+    pageError.value = true
+  } finally {
+    pageLoading.value = false
+  }
+}
 
 function openAdd() {
   editing.value = null
@@ -116,7 +162,12 @@ async function confirmDelete(holding: HoldingDto) {
 }
 
 onIonViewWillEnter(() => {
-  portfolio.loadHoldings()
+  loadData()
+  // Onboarding-Einstieg: /tabs/holdings?add=1 öffnet direkt das Erfassen-Modal
+  if (route.query.add === '1') {
+    openAdd()
+    router.replace({ query: {} })
+  }
 })
 </script>
 

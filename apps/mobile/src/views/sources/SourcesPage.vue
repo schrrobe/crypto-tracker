@@ -20,7 +20,9 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
-      <ion-list v-if="sourcesStore.sources.length > 0" inset>
+      <LoadingSkeleton v-if="pageLoading && sourcesStore.sources.length === 0" />
+      <ErrorState v-else-if="pageError && sourcesStore.sources.length === 0" @retry="loadData" />
+      <ion-list v-else-if="sourcesStore.sources.length > 0" inset>
         <ion-item
           v-for="source in sourcesStore.sources"
           :key="source.id"
@@ -104,9 +106,12 @@ import {
 } from '@ionic/vue'
 import { addOutline, documentAttachOutline, syncOutline, trashOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { SourceDto } from '@crypto-tracker/shared'
 import AddSourceModal from './AddSourceModal.vue'
 import CsvImportWizard from './csv/CsvImportWizard.vue'
+import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
+import ErrorState from '../../components/ErrorState.vue'
 import SyncStatusBadge from '../../components/SyncStatusBadge.vue'
 import { useSourcesStore } from '../../stores/sources.store'
 import { usePortfolioStore } from '../../stores/portfolio.store'
@@ -115,8 +120,25 @@ import { t } from '../../i18n'
 const sourcesStore = useSourcesStore()
 const portfolio = usePortfolioStore()
 
+const route = useRoute()
+const router = useRouter()
+
 const modalOpen = ref(false)
 const csvWizardOpen = ref(false)
+const pageLoading = ref(false)
+const pageError = ref(false)
+
+async function loadData() {
+  pageLoading.value = true
+  pageError.value = false
+  try {
+    await sourcesStore.load()
+  } catch {
+    pageError.value = true
+  } finally {
+    pageLoading.value = false
+  }
+}
 
 async function onImportDone() {
   await Promise.all([sourcesStore.load(), portfolio.loadSummary(), portfolio.loadHoldings()])
@@ -186,7 +208,11 @@ async function confirmDelete(source: SourceDto) {
 }
 
 onIonViewWillEnter(() => {
-  sourcesStore.load()
+  loadData()
+  // Onboarding-Einstiege vom Dashboard
+  if (route.query.add === '1') modalOpen.value = true
+  if (route.query.csv === '1') csvWizardOpen.value = true
+  if (route.query.add || route.query.csv) router.replace({ query: {} })
 })
 </script>
 

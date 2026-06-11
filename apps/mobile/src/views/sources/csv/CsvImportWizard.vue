@@ -143,8 +143,7 @@ import {
 } from '@ionic/vue'
 import { ref, watch } from 'vue'
 import type { CsvImportDto, CsvUploadResponse } from '@crypto-tracker/shared'
-import { ApiError } from '../../../services/api.client'
-import { t } from '../../../i18n'
+import { apiErrorMessage } from '../../../services/errors'
 import { useImportsStore } from '../../../stores/imports.store'
 
 const props = defineProps<{ isOpen: boolean }>()
@@ -190,7 +189,7 @@ async function doUpload() {
     mappingQuantity.value = uploadResult.value.suggestedMapping.quantity
     step.value = 'mapping'
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : t('csv.uploadFailed')
+    error.value = apiErrorMessage(e, 'csv.uploadFailed')
   } finally {
     uploading.value = false
   }
@@ -207,7 +206,7 @@ async function doImport() {
     })
     step.value = 'result'
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : t('csv.importFailed')
+    error.value = apiErrorMessage(e, 'csv.importFailed')
   } finally {
     importing.value = false
   }

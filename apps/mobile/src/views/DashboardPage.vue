@@ -16,6 +16,9 @@
         <ion-refresher-content />
       </ion-refresher>
 
+      <LoadingSkeleton v-if="pageLoading && !portfolio.summary" />
+      <ErrorState v-else-if="pageError && !portfolio.summary" @retry="loadData" />
+      <template v-else>
       <ion-card button data-testid="total-value-card" @click="toggleCurrency">
         <ion-card-header>
           <ion-card-subtitle>{{ $t('dashboard.totalValue', { currency }) }}</ion-card-subtitle>
@@ -52,7 +55,17 @@
 
       <div v-else class="empty" data-testid="dashboard-empty">
         <p>{{ $t('dashboard.empty') }}</p>
-        <ion-button router-link="/tabs/holdings" fill="outline">{{ $t('dashboard.addHolding') }}</ion-button>
+        <div class="onboarding">
+          <ion-button fill="outline" data-testid="onboarding-connect" router-link="/tabs/sources?add=1">
+            {{ $t('sources.connectSource') }}
+          </ion-button>
+          <ion-button fill="outline" data-testid="onboarding-csv" router-link="/tabs/sources?csv=1">
+            {{ $t('onboarding.importCsv') }}
+          </ion-button>
+          <ion-button fill="outline" data-testid="onboarding-manual" router-link="/tabs/holdings?add=1">
+            {{ $t('onboarding.addManual') }}
+          </ion-button>
+        </div>
       </div>
 
       <ion-text v-if="(portfolio.summary?.unmappedAssets.length ?? 0) > 0" color="warning">
@@ -60,6 +73,7 @@
           {{ $t('dashboard.unmapped', { n: portfolio.summary?.unmappedAssets.length }) }}
         </p>
       </ion-text>
+      </template>
     </ion-content>
   </ion-page>
 </template>
@@ -93,6 +107,8 @@ import {
 } from '@ionic/vue'
 import { refreshOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { useAuthStore } from '../stores/auth.store'
 import { formatCurrency, formatQuantity, formatRelativeTime } from '../services/format'
@@ -101,6 +117,20 @@ const portfolio = usePortfolioStore()
 const auth = useAuthStore()
 
 const currency = ref<'EUR' | 'USD'>((auth.user?.baseCurrency as 'EUR' | 'USD') ?? 'EUR')
+const pageLoading = ref(false)
+const pageError = ref(false)
+
+async function loadData() {
+  pageLoading.value = true
+  pageError.value = false
+  try {
+    await portfolio.loadSummary()
+  } catch {
+    pageError.value = true
+  } finally {
+    pageLoading.value = false
+  }
+}
 
 const totalFormatted = computed(() => {
   const s = portfolio.summary
@@ -124,7 +154,9 @@ async function onPullRefresh(event: RefresherCustomEvent) {
 }
 
 onIonViewWillEnter(() => {
-  portfolio.loadSummary()
+  // Basiswährung kann sich in den Einstellungen geändert haben
+  currency.value = (auth.user?.baseCurrency as 'EUR' | 'USD') ?? 'EUR'
+  loadData()
 })
 </script>
 
@@ -140,5 +172,12 @@ onIonViewWillEnter(() => {
   text-align: center;
   margin-top: 48px;
   color: var(--ion-color-medium);
+}
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 280px;
+  margin: 16px auto 0;
 }
 </style>

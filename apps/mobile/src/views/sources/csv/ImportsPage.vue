@@ -9,7 +9,9 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
-      <ion-list v-if="importsStore.imports.length > 0" inset>
+      <LoadingSkeleton v-if="pageLoading && importsStore.imports.length === 0" />
+      <ErrorState v-else-if="pageError && importsStore.imports.length === 0" @retry="loadData" />
+      <ion-list v-else-if="importsStore.imports.length > 0" inset>
         <ion-item
           v-for="record in importsStore.imports"
           :key="record.id"
@@ -64,7 +66,10 @@ import {
   onIonViewWillEnter,
 } from '@ionic/vue'
 import { trashOutline } from 'ionicons/icons'
+import { ref } from 'vue'
 import type { CsvImportDto } from '@crypto-tracker/shared'
+import LoadingSkeleton from '../../../components/LoadingSkeleton.vue'
+import ErrorState from '../../../components/ErrorState.vue'
 import { useImportsStore } from '../../../stores/imports.store'
 import { useSourcesStore } from '../../../stores/sources.store'
 import { usePortfolioStore } from '../../../stores/portfolio.store'
@@ -73,6 +78,21 @@ import { intlLocale, t } from '../../../i18n'
 const importsStore = useImportsStore()
 const sourcesStore = useSourcesStore()
 const portfolio = usePortfolioStore()
+
+const pageLoading = ref(false)
+const pageError = ref(false)
+
+async function loadData() {
+  pageLoading.value = true
+  pageError.value = false
+  try {
+    await importsStore.load()
+  } catch {
+    pageError.value = true
+  } finally {
+    pageLoading.value = false
+  }
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
@@ -112,7 +132,7 @@ async function confirmDelete(record: CsvImportDto) {
 }
 
 onIonViewWillEnter(() => {
-  importsStore.load()
+  loadData()
 })
 </script>
 

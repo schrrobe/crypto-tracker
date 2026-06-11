@@ -86,8 +86,8 @@ import {
 } from '@ionic/vue'
 import { ref, watch } from 'vue'
 import type { AssetDto, HoldingDto } from '@crypto-tracker/shared'
-import { api, ApiError } from '../services/api.client'
-import { t } from '../i18n'
+import { api } from '../services/api.client'
+import { apiErrorMessage } from '../services/errors'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { useSourcesStore } from '../stores/sources.store'
 
@@ -136,7 +136,7 @@ async function save(): Promise<void> {
     emit('saved')
     emit('close')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : t('holdings.saveFailed')
+    error.value = apiErrorMessage(e, 'holdings.saveFailed')
   } finally {
     saving.value = false
   }

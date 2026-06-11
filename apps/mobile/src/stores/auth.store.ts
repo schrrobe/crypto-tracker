@@ -54,10 +54,15 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
   }
 
+  async function updateBaseCurrency(baseCurrency: 'EUR' | 'USD'): Promise<void> {
+    const res = await api.patch<{ user: UserDto }>('/auth/me', { baseCurrency })
+    user.value = res.user
+  }
+
   function sessionExpired() {
     setTokens(null)
     user.value = null
   }
 
-  return { user, initialized, init, register, login, logout, sessionExpired }
+  return { user, initialized, init, register, login, logout, updateBaseCurrency, sessionExpired }
 })
