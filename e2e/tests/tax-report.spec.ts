@@ -78,6 +78,68 @@ test('manuelle Transaktionen: erfassen, Bestand abgeleitet, Steuerreport mit CSV
   await page.getByTestId('tax-export-csv').click()
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('steuerreport-AT-2024.csv')
+
+  // PDF-Export
+  const pdfPromise = page.waitForEvent('download')
+  await page.getByTestId('tax-export-pdf').click()
+  const pdf = await pdfPromise
+  expect(pdf.suggestedFilename()).toBe('steuerreport-AT-2024.pdf')
+})
+
+test('Transfer verknüpfen: Kostenbasis bleibt im DE-Report erhalten', async ({ page }) => {
+  await register(page, uniqueEmail('tax-transfer'))
+
+  await page.getByRole('tab', { name: 'Quellen' }).click()
+  await page.getByTestId('open-transactions').click()
+
+  // Kauf 2022 → Auszahlung/Einzahlung 2023 (Transfer) → Verkauf 2024
+  await addTransaction(page, {
+    search: 'bitcoin',
+    symbol: 'BTC',
+    qty: '1',
+    price: '10000',
+    timestamp: '2022-03-01T10:00',
+  })
+  await addTransaction(page, {
+    search: 'bitcoin',
+    symbol: 'BTC',
+    type: 'Auszahlung',
+    qty: '1',
+    timestamp: '2023-03-01T10:00',
+  })
+  await addTransaction(page, {
+    search: 'bitcoin',
+    symbol: 'BTC',
+    type: 'Einzahlung',
+    qty: '1',
+    timestamp: '2023-03-01T12:00',
+  })
+  await addTransaction(page, {
+    search: 'bitcoin',
+    symbol: 'BTC',
+    type: 'Verkauf',
+    qty: '1',
+    price: '40000',
+    timestamp: '2024-06-01T10:00',
+  })
+
+  // Auszahlung mit Einzahlung verknüpfen
+  await page.getByTestId('tx-link-BTC').first().click()
+  await page.getByTestId('transfer-candidate-BTC-WITHDRAWAL').or(page.getByTestId('transfer-candidate-BTC-DEPOSIT')).first().click()
+  await expect(page.getByTestId('tx-transfer-badge-BTC').first()).toBeVisible()
+
+  // DE-Report 2024: Basis 10.000 erhalten, > 1 Jahr → steuerfrei
+  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await page.getByTestId('open-tax-report').click()
+  await page.getByTestId('tax-year').click()
+  await page.locator('ion-popover ion-radio', { hasText: '2024' }).click()
+  await page.getByTestId('tax-country').click()
+  await page.locator('ion-popover ion-radio', { hasText: 'Deutschland' }).click()
+
+  const disposal = page.getByTestId('tax-disposal-BTC')
+  await expect(disposal).toBeVisible()
+  await expect(disposal).toContainText('steuerfrei')
+  await expect(page.getByTestId('tax-total-gain')).toContainText('30.000,00')
 })
 
 test('Transaktion ohne Kurs: Backfill-Hinweis im Report, Bearbeiten/Löschen', async ({ page }) => {

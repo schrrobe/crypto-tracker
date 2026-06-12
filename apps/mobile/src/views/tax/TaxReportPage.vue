@@ -15,6 +15,10 @@
             <ion-icon :icon="downloadOutline" slot="start" />
             {{ $t('tax.exportCsv') }}
           </ion-button>
+          <ion-button v-if="report" data-testid="tax-export-pdf" @click="exportPdf">
+            <ion-icon :icon="documentOutline" slot="start" />
+            {{ $t('tax.exportPdf') }}
+          </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -145,6 +149,7 @@
                 {{ $t('tax.acquired') }}:
                 {{ d.acquiredAt ? formatDate(d.acquiredAt) : $t('tax.unknownAcquisition') }}
                 → {{ formatDate(d.disposedAt) }}
+                <template v-if="d.sourceLabel"> · {{ d.sourceLabel }}</template>
               </p>
               <p>
                 {{ money(d.costBasisEur) }} → {{ money(d.proceedsEur) }} ·
@@ -183,7 +188,7 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { downloadOutline } from 'ionicons/icons'
+import { documentOutline, downloadOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import type { TaxCountry, TaxWarningDto } from '@crypto-tracker/shared'
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
@@ -191,6 +196,7 @@ import ErrorState from '../../components/ErrorState.vue'
 import { useTaxStore } from '../../stores/tax.store'
 import { formatCurrency, formatQuantity, intlLocale } from '../../services/format'
 import { downloadCsv } from '../../services/download'
+import { downloadTaxReportPdf } from '../../services/pdf'
 import { t } from '../../i18n'
 
 const store = useTaxStore()
@@ -266,6 +272,10 @@ function exportCsv() {
       d.priceQuality,
     ]),
   )
+}
+
+function exportPdf() {
+  if (report.value) downloadTaxReportPdf(report.value)
 }
 
 onIonViewWillEnter(() => {
