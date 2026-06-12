@@ -65,6 +65,8 @@ const TYPE_ALIASES: Record<string, MappedTransactionRow['type']> = {
   deposit: 'DEPOSIT', einzahlung: 'DEPOSIT', receive: 'DEPOSIT', erhalten: 'DEPOSIT',
   withdrawal: 'WITHDRAWAL', auszahlung: 'WITHDRAWAL', send: 'WITHDRAWAL', gesendet: 'WITHDRAWAL',
   transfer: 'TRANSFER', umbuchung: 'TRANSFER',
+  // Bitpanda-Vokabular
+  incoming: 'DEPOSIT', outgoing: 'WITHDRAWAL',
   staking: 'STAKING_REWARD', reward: 'STAKING_REWARD', belohnung: 'STAKING_REWARD',
   'staking reward': 'STAKING_REWARD', 'staking-reward': 'STAKING_REWARD',
   other: 'OTHER', sonstiges: 'OTHER',

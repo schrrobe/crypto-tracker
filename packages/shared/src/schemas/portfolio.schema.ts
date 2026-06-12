@@ -161,6 +161,8 @@ export interface CsvUploadResponse {
   headers: string[]
   preview: Array<Record<string, string>>
   suggestedMapping: MappingSuggestionDto
+  // erkanntes Export-Format (Spalten dann vollständig vorbelegt)
+  preset: 'KRAKEN' | 'BITPANDA' | null
 }
 
 export type HistoryRange = '24h' | '7d' | '30d'

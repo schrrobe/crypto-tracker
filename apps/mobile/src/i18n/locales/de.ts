@@ -112,6 +112,7 @@ const de = {
     upload: 'Hochladen',
     uploadFailed: 'Upload fehlgeschlagen',
     rowsDetected: '{n} Zeilen erkannt — ordne die Spalten zu:',
+    presetDetected: '{provider}-Export erkannt — Spalten sind vorbelegt.',
     symbolColumn: 'Symbol-Spalte',
     quantityColumn: 'Mengen-Spalte',
     run: 'Importieren',

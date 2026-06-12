@@ -55,6 +55,9 @@
         <p class="hint" data-testid="csv-row-count">
           {{ $t('csv.rowsDetected', { n: uploadResult?.import.totalRows }) }}
         </p>
+        <p v-if="uploadResult?.preset" class="hint preset" data-testid="csv-preset">
+          {{ $t('csv.presetDetected', { provider: presetName(uploadResult.preset) }) }}
+        </p>
         <ion-list inset>
           <ion-item>
             <ion-select
@@ -243,6 +246,10 @@ watch(
 
 function onFileSelected(event: Event) {
   file.value = (event.target as HTMLInputElement).files?.[0] ?? null
+}
+
+function presetName(preset: 'KRAKEN' | 'BITPANDA'): string {
+  return preset === 'KRAKEN' ? 'Kraken' : 'Bitpanda'
 }
 
 async function doUpload() {

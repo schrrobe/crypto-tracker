@@ -2,7 +2,7 @@ import { Prisma, type CsvImport } from '@prisma/client'
 import type { CsvImportDto, CsvUploadResponse, ImportErrorRow } from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
-import { parseCsv, suggestMapping } from '../../csv/csv.parser'
+import { parseCsv, suggestMappingWithPreset } from '../../csv/csv.parser'
 import {
   applyBalanceMapping,
   applyTransactionMapping,
@@ -63,11 +63,13 @@ export async function uploadCsv(
     include: { source: { select: { label: true } } },
   })
 
+  const { mapping, preset } = suggestMappingWithPreset(headers, kind)
   return {
     import: toImportDto(record),
     headers,
     preview: rows.slice(0, PREVIEW_ROWS),
-    suggestedMapping: suggestMapping(headers, kind),
+    suggestedMapping: mapping,
+    preset,
   }
 }
 

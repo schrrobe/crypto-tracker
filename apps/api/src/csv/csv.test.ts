@@ -141,3 +141,56 @@ describe('applyTransactionMapping', () => {
     expect(valid[0]?.fee).toBeUndefined()
   })
 })
+
+import { detectPreset, suggestMappingWithPreset } from './csv.parser'
+
+describe('CSV-Presets (Kraken/Bitpanda)', () => {
+  const KRAKEN_HEADERS = ['txid', 'refid', 'time', 'type', 'subtype', 'aclass', 'asset', 'amount', 'fee', 'balance']
+  const BITPANDA_HEADERS = [
+    'Transaction ID', 'Timestamp', 'Transaction Type', 'In/Out', 'Amount Fiat', 'Fiat',
+    'Amount Asset', 'Asset', 'Asset market price', 'Asset market price currency',
+    'Asset class', 'Product ID', 'Fee', 'Fee asset',
+  ]
+
+  it('erkennt Kraken-Ledger-Export und belegt das Mapping', () => {
+    const detected = detectPreset(KRAKEN_HEADERS)
+    expect(detected?.preset).toBe('KRAKEN')
+    expect(detected?.mapping).toMatchObject({
+      symbol: 'asset',
+      quantity: 'amount',
+      type: 'type',
+      timestamp: 'time',
+      fee: 'fee',
+    })
+  })
+
+  it('erkennt Bitpanda-Export inkl. Kurs- und Währungsspalte', () => {
+    const detected = detectPreset(BITPANDA_HEADERS)
+    expect(detected?.preset).toBe('BITPANDA')
+    expect(detected?.mapping).toMatchObject({
+      symbol: 'Asset',
+      quantity: 'Amount Asset',
+      type: 'Transaction Type',
+      timestamp: 'Timestamp',
+      price: 'Asset market price',
+      currency: 'Asset market price currency',
+      fee: 'Fee',
+    })
+  })
+
+  it('unbekannte Header fallen auf die Heuristik zurück (kein Preset)', () => {
+    const { preset, mapping } = suggestMappingWithPreset(['Coin', 'Menge', 'Datum', 'Typ'], 'TRANSACTIONS')
+    expect(preset).toBeNull()
+    expect(mapping.symbol).toBe('Coin')
+  })
+
+  it('Presets greifen nur bei Transaktions-Importen', () => {
+    const { preset } = suggestMappingWithPreset(KRAKEN_HEADERS, 'BALANCES')
+    expect(preset).toBeNull()
+  })
+
+  it('Bitpanda-Typen incoming/outgoing werden gemappt', () => {
+    expect(normalizeTxType('incoming')).toBe('DEPOSIT')
+    expect(normalizeTxType('outgoing')).toBe('WITHDRAWAL')
+  })
+})
