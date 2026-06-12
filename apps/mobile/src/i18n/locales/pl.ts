@@ -99,6 +99,16 @@ const pl: MessageSchema = {
     includeUnknownTokens: 'Importuj nieznane tokeny (ryzyko spamu)',
     readOnlyHint:
       'Utwórz u dostawcy klucz API wyłącznie z uprawnieniami do odczytu. Klucz jest przechowywany w postaci zaszyfrowanej i nigdy nie jest wyświetlany jawnie.',
+    keyGuideTitle: 'Gdzie znajdę swój klucz API?',
+    keyGuideLink: 'Otwórz ustawienia API u {provider}',
+    keyGuideKRAKEN:
+      '1. Zaloguj się w Kraken → Ustawienia → API.\n2. Wybierz „Create API Key".\n3. Włącz wyłącznie uprawnienie „Query Funds" (odczyt sald) — bez tradingu, bez wypłat.\n4. Utwórz klucz: „API Key" wpisz tutaj jako klucz API, „Private Key" jako sekret API. Klucz prywatny jest wyświetlany tylko raz.',
+    keyGuideBITVAVO:
+      '1. Zaloguj się w Bitvavo → Profil → API.\n2. Wybierz „Poproś o nowy klucz API".\n3. Włącz tylko uprawnienia „Podgląd" — trading i wypłaty pozostaw wyłączone.\n4. Klucz API i sekret są wyświetlane tylko raz — wpisz tutaj oba. Ograniczenie IP nie jest wymagane, ale nie zaszkodzi (wpisz wtedy IP swojego serwera).',
+    keyGuideCOINBASE:
+      '1. Zaloguj się w Coinbase Developer Portal (CDP).\n2. „Create API Key" — jako uprawnienie wybierz tylko „View".\n3. Pobrany plik klucza zawiera nazwę i klucz prywatny (PEM, wielowierszowy).\n4. Nazwę klucza wpisz tutaj jako klucz API, a cały blok PEM (wraz z liniami BEGIN/END) jako klucz prywatny.',
+    keyGuideBITPANDA:
+      '1. Zaloguj się w Bitpanda → menu profilu → Klucze API.\n2. Utwórz nowy klucz i jako uprawnienie wybierz tylko „Pokaż saldo" (Balance).\n3. Bitpanda używa tylko klucza API — sekret nie jest potrzebny.\n4. Wpisz tutaj wyświetlony klucz; jest pokazywany tylko raz.',
     connect: 'Połącz',
     connectFailed: 'Połączenie nie powiodło się',
     providerBitcoin: 'Portfel Bitcoin',

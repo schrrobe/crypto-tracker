@@ -97,6 +97,16 @@ const de = {
     includeUnknownTokens: 'Unbekannte Tokens importieren (Spam-Risiko)',
     readOnlyHint:
       'Erstelle beim Anbieter einen API-Key mit ausschließlich Lese-Berechtigung. Der Key wird verschlüsselt im Backend gespeichert und nie im Klartext angezeigt.',
+    keyGuideTitle: 'Wo finde ich meinen API-Key?',
+    keyGuideLink: 'API-Einstellungen bei {provider} öffnen',
+    keyGuideKRAKEN:
+      '1. Bei Kraken anmelden → Einstellungen → API.\n2. „Create API Key" wählen.\n3. Nur die Berechtigung „Query Funds" (Guthaben abfragen) aktivieren — kein Trading, keine Auszahlungen.\n4. Key erstellen: „API Key" hier als API-Key, „Private Key" als API-Secret eintragen. Der Private Key wird nur einmal angezeigt.',
+    keyGuideBITVAVO:
+      '1. Bei Bitvavo anmelden → Profil → API.\n2. „Neuen API-Schlüssel anfordern" wählen.\n3. Nur „Ansicht"-Rechte aktivieren — Trading und Auszahlungen aus lassen.\n4. API-Key und Secret werden einmalig angezeigt — beide hier eintragen. Keine IP-Beschränkung nötig, schadet aber nicht (dann die IP deines Servers eintragen).',
+    keyGuideCOINBASE:
+      '1. Im Coinbase Developer Portal (CDP) anmelden.\n2. „Create API Key" — als Berechtigung nur „View" wählen.\n3. Die heruntergeladene Key-Datei enthält Name und Private Key (PEM, mehrzeilig).\n4. Key-Name hier als API-Key, den kompletten PEM-Block (inkl. BEGIN/END-Zeilen) als Private Key eintragen.',
+    keyGuideBITPANDA:
+      '1. Bei Bitpanda anmelden → Profil-Menü → API-Schlüssel.\n2. Neuen Schlüssel erstellen, als Berechtigung nur „Guthaben anzeigen" (Balance) wählen.\n3. Bitpanda nutzt nur einen API-Key — kein Secret nötig.\n4. Den angezeigten Key hier eintragen; er wird nur einmal angezeigt.',
     connect: 'Verbinden',
     connectFailed: 'Verbinden fehlgeschlagen',
     providerBitcoin: 'Bitcoin-Wallet',

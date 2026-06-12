@@ -99,6 +99,16 @@ const cs: MessageSchema = {
     includeUnknownTokens: 'Importovat neznámé tokeny (riziko spamu)',
     readOnlyHint:
       'Vytvořte si u poskytovatele API klíč pouze s právy ke čtení. Klíč je uložen šifrovaně na serveru a nikdy se nezobrazuje v čitelné podobě.',
+    keyGuideTitle: 'Kde najdu svůj API klíč?',
+    keyGuideLink: 'Otevřít nastavení API u {provider}',
+    keyGuideKRAKEN:
+      '1. Přihlaste se na Kraken → Nastavení → API.\n2. Zvolte „Create API Key".\n3. Aktivujte pouze oprávnění „Query Funds" (dotaz na zůstatky) — žádný trading, žádné výběry.\n4. Vytvořte klíč: „API Key" zadejte sem jako API klíč, „Private Key" jako API secret. Privátní klíč se zobrazí jen jednou.',
+    keyGuideBITVAVO:
+      '1. Přihlaste se na Bitvavo → Profil → API.\n2. Zvolte „Vyžádat nový API klíč".\n3. Aktivujte pouze práva „Zobrazení" — trading a výběry nechte vypnuté.\n4. API klíč a secret se zobrazí jen jednou — zadejte sem oba. Omezení IP není nutné, ale neuškodí (pak zadejte IP svého serveru).',
+    keyGuideCOINBASE:
+      '1. Přihlaste se do Coinbase Developer Portal (CDP).\n2. „Create API Key" — jako oprávnění zvolte pouze „View".\n3. Stažený soubor s klíčem obsahuje název a privátní klíč (PEM, víceřádkový).\n4. Název klíče zadejte sem jako API klíč, celý blok PEM (včetně řádků BEGIN/END) jako privátní klíč.',
+    keyGuideBITPANDA:
+      '1. Přihlaste se na Bitpanda → menu profilu → API klíče.\n2. Vytvořte nový klíč a jako oprávnění zvolte pouze „Zobrazit zůstatek" (Balance).\n3. Bitpanda používá jen API klíč — secret není potřeba.\n4. Zadejte sem zobrazený klíč; zobrazí se jen jednou.',
     connect: 'Připojit',
     connectFailed: 'Připojení se nezdařilo',
     providerBitcoin: 'Bitcoinová peněženka',

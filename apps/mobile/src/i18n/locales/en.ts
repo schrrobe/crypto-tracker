@@ -99,6 +99,16 @@ const en: MessageSchema = {
     includeUnknownTokens: 'Import unknown tokens (spam risk)',
     readOnlyHint:
       'Create an API key with read-only permissions at your provider. The key is stored encrypted in the backend and never shown in plain text.',
+    keyGuideTitle: 'Where do I find my API key?',
+    keyGuideLink: 'Open API settings at {provider}',
+    keyGuideKRAKEN:
+      '1. Sign in to Kraken → Settings → API.\n2. Choose "Create API Key".\n3. Enable only the "Query Funds" permission (query balances) — no trading, no withdrawals.\n4. Create the key: enter "API Key" here as the API key, "Private Key" as the API secret. The private key is shown only once.',
+    keyGuideBITVAVO:
+      '1. Sign in to Bitvavo → Profile → API.\n2. Choose "Request new API key".\n3. Enable only "View" permissions — leave trading and withdrawals off.\n4. The API key and secret are shown only once — enter both here. An IP restriction is not required but does no harm (then enter the IP of your server).',
+    keyGuideCOINBASE:
+      '1. Sign in to the Coinbase Developer Portal (CDP).\n2. "Create API Key" — select only the "View" permission.\n3. The downloaded key file contains the name and the private key (PEM, multi-line).\n4. Enter the key name here as the API key, the full PEM block (including the BEGIN/END lines) as the private key.',
+    keyGuideBITPANDA:
+      '1. Sign in to Bitpanda → profile menu → API keys.\n2. Create a new key and select only the "View balance" permission (Balance).\n3. Bitpanda uses just an API key — no secret needed.\n4. Enter the displayed key here; it is shown only once.',
     connect: 'Connect',
     connectFailed: 'Connecting failed',
     providerBitcoin: 'Bitcoin wallet',

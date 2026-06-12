@@ -37,6 +37,21 @@
             </ion-select-option>
           </ion-select>
         </ion-item>
+        <!-- Schritt-Anleitung: Read-only-Key beim jeweiligen Anbieter erstellen -->
+        <ion-accordion-group v-if="type === 'EXCHANGE'">
+          <ion-accordion value="guide">
+            <ion-item slot="header" lines="none">
+              <ion-label color="medium">{{ $t('sources.keyGuideTitle') }}</ion-label>
+            </ion-item>
+            <div slot="content" class="guide" data-testid="key-guide">
+              <p class="guide-steps">{{ $t(`sources.keyGuide${exchangeProvider}`) }}</p>
+              <a :href="GUIDE_URLS[exchangeProvider]" target="_blank" rel="noopener noreferrer">
+                {{ $t('sources.keyGuideLink', { provider: PROVIDER_LABELS[exchangeProvider] }) }}
+              </a>
+            </div>
+          </ion-accordion>
+        </ion-accordion-group>
+
         <ion-item v-if="type === 'WALLET'">
           <ion-select
             :label="$t('sources.network')"
@@ -136,6 +151,8 @@
 
 <script setup lang="ts">
 import {
+  IonAccordion,
+  IonAccordionGroup,
   IonButton,
   IonButtons,
   IonContent,
@@ -167,6 +184,14 @@ import { t } from '../../i18n'
 import { useSourcesStore } from '../../stores/sources.store'
 
 type SourceKind = 'EXCHANGE' | 'WALLET' | 'MANUAL'
+
+// Direktlinks zu den API-Key-Seiten der Anbieter (nicht übersetzt)
+const GUIDE_URLS: Record<string, string> = {
+  KRAKEN: 'https://pro.kraken.com/app/settings/api',
+  BITVAVO: 'https://account.bitvavo.com/user/api',
+  COINBASE: 'https://portal.cdp.coinbase.com/access/api',
+  BITPANDA: 'https://web.bitpanda.com/apikey',
+}
 
 const PROVIDER_LABELS: Record<string, string> = {
   COINBASE: 'Coinbase',
@@ -271,5 +296,14 @@ async function save() {
 .error {
   margin: 8px 16px;
   font-size: 0.9em;
+}
+.guide {
+  padding: 0 16px 12px;
+  font-size: 0.9em;
+}
+.guide-steps {
+  white-space: pre-line;
+  margin: 0 0 8px;
+  color: var(--ion-color-medium);
 }
 </style>
