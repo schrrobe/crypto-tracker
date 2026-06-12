@@ -97,10 +97,12 @@ async function recomputeHoldings(sourceId: string): Promise<void> {
 
 export async function listTransactions(
   userId: string,
-  query: { year?: number; assetId?: string },
+  query: { year?: number; assetId?: string; sourceId?: string },
 ): Promise<TransactionDto[]> {
   const where: Prisma.TransactionWhereInput = { source: { userId } }
   if (query.assetId) where.assetId = query.assetId
+  // Ownership steckt bereits im source.userId-Filter — fremde sourceId liefert leer
+  if (query.sourceId) where.sourceId = query.sourceId
   if (query.year) {
     where.timestamp = {
       gte: new Date(Date.UTC(query.year, 0, 1)),

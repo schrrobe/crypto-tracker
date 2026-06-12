@@ -38,6 +38,7 @@ export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>
 export const listTransactionsQuerySchema = z.object({
   year: z.coerce.number().int().min(2009).max(2100).optional(),
   assetId: z.string().uuid().optional(),
+  sourceId: z.string().uuid().optional(),
 })
 
 export const transferLinkSchema = z.object({

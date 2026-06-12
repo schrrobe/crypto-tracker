@@ -115,6 +115,38 @@ describe('Manuelle Transaktionen', () => {
     expect(patch.status).toBe(404)
   })
 
+  it('sourceId-Filter begrenzt auf eine Quelle, fremde sourceId liefert leer', async () => {
+    const user = await registerUser('manualtx-source')
+    const stranger = await registerUser('manualtx-source-fremd')
+    const btcId = await findAssetId(user, 'BTC')
+
+    // manuelle Quelle + CSV-Quelle mit je einer Transaktion
+    const manual = await createTx(user, { assetId: btcId, type: 'BUY', quantity: '1', timestamp: '2024-01-01T00:00:00.000Z' })
+    const csv = 'Datum;Typ;Coin;Menge\n2024-03-01;Kauf;ETH;2'
+    const upload = await uploadCsv(user, csv, 'TRANSACTIONS')
+    await request(app)
+      .post(`${API}/imports/${upload.import.id}/mapping`)
+      .set(...bearer(user))
+      .send({ mapping: { symbol: 'Coin', quantity: 'Menge', type: 'Typ', timestamp: 'Datum' } })
+
+    const filtered = await request(app)
+      .get(`${API}/transactions?sourceId=${upload.import.sourceId}`)
+      .set(...bearer(user))
+    expect(filtered.body.transactions).toHaveLength(1)
+    expect(filtered.body.transactions[0].asset.symbol).toBe('ETH')
+
+    const all = await request(app)
+      .get(`${API}/transactions`)
+      .set(...bearer(user))
+    expect(all.body.transactions).toHaveLength(2)
+
+    // fremder User mit derselben sourceId sieht nichts
+    const foreign = await request(app)
+      .get(`${API}/transactions?sourceId=${manual.sourceId}`)
+      .set(...bearer(stranger))
+    expect(foreign.body.transactions).toHaveLength(0)
+  })
+
   it('Jahres-Filter begrenzt die Liste', async () => {
     const user = await registerUser('manualtx-year')
     const btcId = await findAssetId(user, 'BTC')

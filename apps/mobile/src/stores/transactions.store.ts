@@ -5,9 +5,14 @@ import { api } from '../services/api.client'
 
 export const useTransactionsStore = defineStore('transactions', () => {
   const transactions = ref<TransactionDto[]>([])
+  // aktiver Quellen-Filter — bleibt über Mutations-Reloads erhalten
+  const filterSourceId = ref<string | null>(null)
 
-  async function load(): Promise<void> {
-    transactions.value = (await api.get<{ transactions: TransactionDto[] }>('/transactions')).transactions
+  // query angeben = Filter setzen (null hebt auf); ohne query = mit aktuellem Filter neu laden
+  async function load(query?: { sourceId: string | null }): Promise<void> {
+    if (query !== undefined) filterSourceId.value = query.sourceId
+    const params = filterSourceId.value ? `?sourceId=${encodeURIComponent(filterSourceId.value)}` : ''
+    transactions.value = (await api.get<{ transactions: TransactionDto[] }>(`/transactions${params}`)).transactions
   }
 
   async function create(input: CreateTransactionInput): Promise<void> {
@@ -37,7 +42,8 @@ export const useTransactionsStore = defineStore('transactions', () => {
 
   function reset(): void {
     transactions.value = []
+    filterSourceId.value = null
   }
 
-  return { transactions, load, create, update, remove, linkTransfer, unlinkTransfer, reset }
+  return { transactions, filterSourceId, load, create, update, remove, linkTransfer, unlinkTransfer, reset }
 })

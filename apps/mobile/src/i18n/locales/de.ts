@@ -171,6 +171,7 @@ const de = {
     unlink: 'Lösen',
     unlinkTitle: 'Transfer-Verknüpfung lösen?',
     unlinkMessage: 'Die Kostenbasis wird im Steuerreport dann nicht mehr übertragen.',
+    filteredBySource: 'Quelle: {source}',
   },
   tax: {
     title: 'Steuerreport',

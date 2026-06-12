@@ -9,6 +9,11 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
+      <ion-chip v-if="filterLabel" data-testid="tx-source-filter" @click="clearFilter">
+        {{ $t('transactions.filteredBySource', { source: filterLabel }) }}
+        <ion-icon :icon="closeCircleOutline" />
+      </ion-chip>
+
       <LoadingSkeleton v-if="pageLoading && store.transactions.length === 0" />
       <ErrorState v-else-if="pageError && store.transactions.length === 0" @retry="loadData" />
 
@@ -107,6 +112,7 @@ import {
   IonBadge,
   IonButton,
   IonButtons,
+  IonChip,
   IonContent,
   IonFab,
   IonFabButton,
@@ -120,8 +126,16 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { addOutline, createOutline, gitMergeOutline, trashOutline, unlinkOutline } from 'ionicons/icons'
-import { ref } from 'vue'
+import {
+  addOutline,
+  closeCircleOutline,
+  createOutline,
+  gitMergeOutline,
+  trashOutline,
+  unlinkOutline,
+} from 'ionicons/icons'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { TransactionDto } from '@crypto-tracker/shared'
 import TransactionFormModal from '../../components/TransactionFormModal.vue'
 import TransferLinkModal from '../../components/TransferLinkModal.vue'
@@ -134,9 +148,22 @@ import { t } from '../../i18n'
 
 const store = useTransactionsStore()
 const portfolio = usePortfolioStore()
+const route = useRoute()
+const router = useRouter()
 
 const pageLoading = ref(false)
 const pageError = ref(false)
+
+// Label der gefilterten Quelle aus den geladenen Transaktionen ableiten
+const filterLabel = computed(() => {
+  if (!store.filterSourceId) return null
+  return store.transactions.find((t) => t.sourceId === store.filterSourceId)?.sourceLabel ?? '…'
+})
+
+async function clearFilter() {
+  await router.replace({ query: {} })
+  await store.load({ sourceId: null })
+}
 const modalOpen = ref(false)
 const editTransaction = ref<TransactionDto | null>(null)
 const linkModalOpen = ref(false)
@@ -174,7 +201,8 @@ async function loadData() {
   pageLoading.value = true
   pageError.value = false
   try {
-    await store.load()
+    const sourceId = typeof route.query.sourceId === 'string' ? route.query.sourceId : null
+    await store.load({ sourceId })
   } catch {
     pageError.value = true
   } finally {

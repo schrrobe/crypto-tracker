@@ -30,6 +30,13 @@
           </ion-label>
           <ion-buttons slot="end">
             <ion-button
+              v-if="record.kind === 'TRANSACTIONS' && record.status === 'COMPLETED'"
+              :data-testid="`import-transactions-${record.filename}`"
+              :router-link="`/tabs/sources/transactions?sourceId=${record.sourceId}`"
+            >
+              <ion-icon :icon="listOutline" slot="icon-only" />
+            </ion-button>
+            <ion-button
               color="danger"
               :data-testid="`import-delete-${record.filename}`"
               @click="confirmDelete(record)"
@@ -65,7 +72,7 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { trashOutline } from 'ionicons/icons'
+import { listOutline, trashOutline } from 'ionicons/icons'
 import { ref } from 'vue'
 import type { CsvImportDto } from '@crypto-tracker/shared'
 import LoadingSkeleton from '../../../components/LoadingSkeleton.vue'
