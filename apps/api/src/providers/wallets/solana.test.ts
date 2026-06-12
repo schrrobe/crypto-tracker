@@ -42,7 +42,9 @@ describe('solanaProvider', () => {
       },
     ])
 
-    const balances = await solanaProvider.fetchBalances('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM')
+    const balances = await solanaProvider.fetchBalances('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', {
+      includeUnknownTokens: true,
+    })
 
     expect(balances).toContainEqual({ symbol: 'SOL', amount: '2.5' })
     expect(balances).toContainEqual({ symbol: 'USDC', amount: '12.5', meta: { mint: USDC_MINT } })
@@ -52,6 +54,24 @@ describe('solanaProvider', () => {
       amount: '7',
       meta: { mint: UNKNOWN_MINT },
     })
+  })
+
+  it('Dust-Filter (Default): unbekannte Mints werden übersprungen', async () => {
+    mockRpc([
+      { value: 2_500_000_000 },
+      {
+        value: [
+          tokenAccount(USDC_MINT, '12500000', 6),
+          tokenAccount(UNKNOWN_MINT, '7000000000', 9), // Spam — fliegt raus
+        ],
+      },
+    ])
+
+    const balances = await solanaProvider.fetchBalances('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM')
+
+    expect(balances).toContainEqual({ symbol: 'SOL', amount: '2.5' })
+    expect(balances).toContainEqual({ symbol: 'USDC', amount: '12.5', meta: { mint: USDC_MINT } })
+    expect(balances.find((b) => b.meta?.mint === UNKNOWN_MINT)).toBeUndefined()
   })
 
   it('summiert mehrere Token-Accounts mit demselben Mint', async () => {

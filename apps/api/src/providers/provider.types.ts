@@ -25,11 +25,17 @@ export interface ExchangeProvider {
   fetchBalances(creds: ExchangeCredentials): Promise<RawBalance[]>
 }
 
+export interface WalletFetchOptions {
+  // Tokens ohne kuratiertes Mapping (z.B. unbekannte Solana-Mints) mitliefern?
+  // Default false — Spam-/Dust-Filter
+  includeUnknownTokens?: boolean
+}
+
 export interface WalletProvider {
   readonly kind: 'wallet'
   readonly id: ProviderId
   validateAddress(address: string): boolean
-  fetchBalances(address: string): Promise<RawBalance[]>
+  fetchBalances(address: string, options?: WalletFetchOptions): Promise<RawBalance[]>
 }
 
 export type Provider = ExchangeProvider | WalletProvider

@@ -46,7 +46,10 @@ async function fetchBalancesForSource(source: PortfolioSource): Promise<RawBalan
     const wallet = await prisma.walletAddress.findUnique({ where: { sourceId: source.id } })
     if (!wallet) throw new ProviderError('INVALID_ADDRESS', 'Keine Wallet-Adresse hinterlegt')
     const provider = getWalletProvider(source.provider)
-    return withTimeout(provider.fetchBalances(wallet.address), FETCH_TIMEOUT_MS)
+    return withTimeout(
+      provider.fetchBalances(wallet.address, { includeUnknownTokens: wallet.includeUnknownTokens }),
+      FETCH_TIMEOUT_MS,
+    )
   }
   throw AppError.badRequest('SOURCE_NOT_SYNCABLE', 'Diese Quelle hat keinen Sync')
 }

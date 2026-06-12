@@ -65,7 +65,7 @@ export const solanaProvider: WalletProvider = {
     return ADDRESS_RE.test(address)
   },
 
-  async fetchBalances(address: string): Promise<RawBalance[]> {
+  async fetchBalances(address: string, options?: { includeUnknownTokens?: boolean }): Promise<RawBalance[]> {
     const balanceResult = await rpc<{ value: number }>('getBalance', [address])
     const balances: RawBalance[] = [
       { symbol: 'SOL', amount: fromBaseUnits(BigInt(balanceResult.value), 9) },
@@ -89,7 +89,10 @@ export const solanaProvider: WalletProvider = {
 
     for (const [mint, { raw, decimals }] of byMint) {
       if (raw === 0n) continue
-      const symbol = KNOWN_MINTS[mint] ?? `${mint.slice(0, 4)}…${mint.slice(-4)}`
+      const known = KNOWN_MINTS[mint]
+      // Dust-/Spam-Filter: unbekannte Mints nur auf ausdrücklichen Wunsch importieren
+      if (!known && !options?.includeUnknownTokens) continue
+      const symbol = known ?? `${mint.slice(0, 4)}…${mint.slice(-4)}`
       balances.push({ symbol, amount: fromBaseUnits(raw, decimals), meta: { mint } })
     }
 

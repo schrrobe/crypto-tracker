@@ -112,6 +112,9 @@ model WalletAddress {
   sourceId String          @unique
   chain    String
   address  String
+  // Dust-/Spam-Filter: unbekannte Tokens (z.B. Solana-Mints ohne Mapping)
+  // werden beim Sync standardmäßig übersprungen
+  includeUnknownTokens Boolean @default(false)
   source   PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 }
 

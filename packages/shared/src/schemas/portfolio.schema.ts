@@ -31,6 +31,8 @@ export const createWalletSourceSchema = z.object({
   provider: z.enum(WALLET_PROVIDERS),
   label: z.string().trim().min(1).max(60),
   address: z.string().trim().min(10).max(120),
+  // Dust-/Spam-Filter: unbekannte Tokens (Solana-Mints ohne Mapping) standardmäßig überspringen
+  includeUnknownTokens: z.boolean().default(false),
 })
 
 export const createSourceSchema = z
@@ -100,6 +102,7 @@ export interface SourceDto {
   // nur bei WALLET
   address: string | null
   chain: string | null
+  includeUnknownTokens: boolean | null
   lastSyncRun: SyncRunDto | null
 }
 

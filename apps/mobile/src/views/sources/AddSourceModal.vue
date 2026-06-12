@@ -100,6 +100,17 @@
             data-testid="source-address"
           />
         </ion-item>
+
+        <!-- Solana: Spam-Mints sind häufig — unbekannte Tokens nur auf Wunsch -->
+        <ion-item v-if="type === 'WALLET' && walletProvider === 'SOLANA'">
+          <ion-toggle
+            :checked="includeUnknownTokens"
+            data-testid="source-include-unknown"
+            @ionChange="includeUnknownTokens = $event.detail.checked"
+          >
+            {{ $t('sources.includeUnknownTokens') }}
+          </ion-toggle>
+        </ion-item>
       </ion-list>
 
       <ion-text v-if="type === 'EXCHANGE'" color="medium">
@@ -140,6 +151,7 @@ import {
   IonSelectOption,
   IonSpinner,
   IonText,
+  IonToggle,
   IonTextarea,
   IonTitle,
   IonToolbar,
@@ -178,6 +190,7 @@ const apiKey = ref('')
 const apiSecret = ref('')
 const passphrase = ref('')
 const address = ref('')
+const includeUnknownTokens = ref(false)
 const error = ref('')
 const saving = ref(false)
 
@@ -210,6 +223,7 @@ watch(
     apiSecret.value = ''
     passphrase.value = ''
     address.value = ''
+    includeUnknownTokens.value = false
   },
 )
 
@@ -230,6 +244,7 @@ function buildInput(): CreateSourceInput {
       provider: walletProvider.value,
       label: label.value.trim(),
       address: address.value.trim(),
+      includeUnknownTokens: includeUnknownTokens.value,
     }
   }
   return { type: 'MANUAL', label: label.value.trim() }

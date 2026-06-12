@@ -29,6 +29,7 @@ export function toSourceDto(source: SourceWithRelations): SourceDto {
     keyPreview: source.credential?.keyPreview ?? null,
     address: source.wallet?.address ?? null,
     chain: source.wallet?.chain ?? null,
+    includeUnknownTokens: source.wallet?.includeUnknownTokens ?? null,
     lastSyncRun: source.syncRuns[0] ? toSyncRunDto(source.syncRuns[0]) : null,
   }
 }
@@ -107,7 +108,13 @@ export async function createSource(userId: string, input: CreateSourceInput): Pr
       type: 'WALLET',
       provider: input.provider,
       label: input.label,
-      wallet: { create: { chain: input.provider.toLowerCase(), address: input.address } },
+      wallet: {
+        create: {
+          chain: input.provider.toLowerCase(),
+          address: input.address,
+          includeUnknownTokens: input.includeUnknownTokens,
+        },
+      },
     },
   })
   return reloadDto(source.id)

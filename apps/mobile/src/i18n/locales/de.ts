@@ -93,6 +93,7 @@ const de = {
     privateKey: 'CDP Private Key (PEM)',
     passphrase: 'Passphrase (optional)',
     address: 'Öffentliche Wallet-Adresse',
+    includeUnknownTokens: 'Unbekannte Tokens importieren (Spam-Risiko)',
     readOnlyHint:
       'Erstelle beim Anbieter einen API-Key mit ausschließlich Lese-Berechtigung. Der Key wird verschlüsselt im Backend gespeichert und nie im Klartext angezeigt.',
     connect: 'Verbinden',
