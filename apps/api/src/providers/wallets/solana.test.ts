@@ -12,7 +12,7 @@ function tokenAccount(mint: string, amount: string, decimals: number) {
   }
 }
 
-// Antworten in Aufruf-Reihenfolge: getBalance, dann getTokenAccountsByOwner
+// Antworten in Aufruf-Reihenfolge: getBalance, getProgramAccounts (Stake), getTokenAccountsByOwner
 function mockRpc(responses: unknown[]) {
   const fn = vi.fn()
   for (const result of responses) {
@@ -34,6 +34,7 @@ describe('solanaProvider', () => {
   it('liefert SOL- und SPL-Bestände mit Mint-Mapping', async () => {
     mockRpc([
       { value: 2_500_000_000 }, // 2.5 SOL
+      [], // keine Stake-Accounts
       {
         value: [
           tokenAccount(USDC_MINT, '12500000', 6), // 12.5 USDC
@@ -59,6 +60,7 @@ describe('solanaProvider', () => {
   it('Dust-Filter (Default): unbekannte Mints werden übersprungen', async () => {
     mockRpc([
       { value: 2_500_000_000 },
+      [], // keine Stake-Accounts
       {
         value: [
           tokenAccount(USDC_MINT, '12500000', 6),
@@ -77,6 +79,7 @@ describe('solanaProvider', () => {
   it('summiert mehrere Token-Accounts mit demselben Mint', async () => {
     mockRpc([
       { value: 0 },
+      [],
       {
         value: [tokenAccount(USDC_MINT, '1000000', 6), tokenAccount(USDC_MINT, '2500000', 6)],
       },
@@ -86,9 +89,23 @@ describe('solanaProvider', () => {
   })
 
   it('lässt Token-Accounts mit Bestand 0 weg', async () => {
-    mockRpc([{ value: 0 }, { value: [tokenAccount(USDC_MINT, '0', 6)] }])
+    mockRpc([{ value: 0 }, [], { value: [tokenAccount(USDC_MINT, '0', 6)] }])
     const balances = await solanaProvider.fetchBalances('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM')
     expect(balances).toEqual([{ symbol: 'SOL', amount: '0' }])
+  })
+
+  it('zählt nativ gestakte SOL aus Stake-Accounts zur SOL-Position', async () => {
+    mockRpc([
+      { value: 1_000_000_000 }, // 1 SOL liquide
+      [
+        { account: { lamports: 5_000_000_000 } }, // 5 SOL gestakt
+        { account: { lamports: 2_500_000_000 } }, // 2.5 SOL gestakt
+      ],
+      { value: [] },
+    ])
+    const balances = await solanaProvider.fetchBalances('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM')
+    // 1 + 5 + 2.5 = 8.5 SOL gesamt
+    expect(balances).toEqual([{ symbol: 'SOL', amount: '8.5' }])
   })
 
   it('wirft PROVIDER_ERROR bei RPC-Fehler-Antwort', async () => {

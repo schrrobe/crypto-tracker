@@ -7,6 +7,10 @@ import { ProviderError, type RawBalance, type WalletProvider } from '../provider
 // Token-2022-Accounts sind bewusst "Später".
 
 const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
+const STAKE_PROGRAM_ID = 'Stake11111111111111111111111111111111111111'
+// Stake-Account-Layout: Withdrawer-Authority liegt bei Byte-Offset 44, Größe 200 Bytes
+const STAKE_ACCOUNT_SIZE = 200
+const STAKE_WITHDRAWER_OFFSET = 44
 
 // Kuratiertes Mint→Symbol-Mapping; unbekannte Mints werden als unmapped Asset angelegt
 // (kein Preis, UI-Hinweis). Vollständiges Contract-Mapping über CoinGecko kommt mit M8.
@@ -15,6 +19,9 @@ const KNOWN_MINTS: Record<string, string> = {
   Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'USDT',
   DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263: 'BONK',
   JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN: 'JUP',
+  // Liquid-Staking-Tokens — sonst fallen sie dem Dust-Filter zum Opfer
+  mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So: 'MSOL',
+  J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn: 'JITOSOL',
 }
 
 // Base58, 32 Bytes → 32-44 Zeichen
@@ -67,8 +74,24 @@ export const solanaProvider: WalletProvider = {
 
   async fetchBalances(address: string, options?: { includeUnknownTokens?: boolean }): Promise<RawBalance[]> {
     const balanceResult = await rpc<{ value: number }>('getBalance', [address])
+
+    // Nativ gestakte SOL liegen in eigenen Stake-Accounts (Stake-Programm), nicht
+    // im Wallet-Konto — über die Withdrawer-Authority finden und mitzählen.
+    // account.lamports = delegierter Stake + Rent-Reserve + aufgelaufene Rewards.
+    const stakeResult = await rpc<Array<{ account: { lamports: number } }>>('getProgramAccounts', [
+      STAKE_PROGRAM_ID,
+      {
+        encoding: 'jsonParsed',
+        filters: [
+          { dataSize: STAKE_ACCOUNT_SIZE },
+          { memcmp: { offset: STAKE_WITHDRAWER_OFFSET, bytes: address } },
+        ],
+      },
+    ])
+    const stakedLamports = stakeResult.reduce((sum, acc) => sum + BigInt(acc.account.lamports), 0n)
+
     const balances: RawBalance[] = [
-      { symbol: 'SOL', amount: fromBaseUnits(BigInt(balanceResult.value), 9) },
+      { symbol: 'SOL', amount: fromBaseUnits(BigInt(balanceResult.value) + stakedLamports, 9) },
     ]
 
     const tokenResult = await rpc<{ value: TokenAccount[] }>('getTokenAccountsByOwner', [
