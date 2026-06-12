@@ -122,3 +122,71 @@ describe('solanaProvider', () => {
     ).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
   })
 })
+
+describe('solanaProvider.fetchStakingRewards', () => {
+  const STAKE_ACC = 'StakeAcc111111111111111111111111111111111111'
+
+  function stakeAccountsResponse() {
+    return [{ pubkey: STAKE_ACC, account: { lamports: 5_000_000_000 } }]
+  }
+
+  it('liefert Rewards pro Epoche mit externalRef und Block-Zeitstempel', async () => {
+    mockRpc([
+      stakeAccountsResponse(), // getProgramAccounts
+      { epoch: 702 }, // getEpochInfo → letzte fertige Epoche 701
+      [{ amount: 50_000_000, effectiveSlot: 300000000 }], // getInflationReward Epoche 700
+      1709251200, // getBlockTime
+      [{ amount: 70_000_000, effectiveSlot: 300432000 }], // Epoche 701
+      1709424000,
+    ])
+
+    const rewards = await solanaProvider.fetchStakingRewards!(
+      '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
+      // inkrementell: letzte bekannte Epoche 699 → Abfrage ab 700
+      { lastExternalRef: `sol-reward:${STAKE_ACC}:699` },
+    )
+
+    expect(rewards).toEqual([
+      {
+        symbol: 'SOL',
+        amount: '0.05',
+        timestamp: new Date(1709251200 * 1000),
+        externalRef: `sol-reward:${STAKE_ACC}:700`,
+      },
+      {
+        symbol: 'SOL',
+        amount: '0.07',
+        timestamp: new Date(1709424000 * 1000),
+        externalRef: `sol-reward:${STAKE_ACC}:701`,
+      },
+    ])
+  })
+
+  it('überspringt nicht verfügbare Epochen und Null-Einträge', async () => {
+    const fn = vi.fn()
+    // getProgramAccounts, getEpochInfo
+    fn.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ result: stakeAccountsResponse() }) })
+    fn.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ result: { epoch: 702 } }) })
+    // Epoche 700: RPC-Fehler (gepruned)
+    fn.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ error: { code: -32001, message: 'epoch gepruned' } }) })
+    // Epoche 701: null-Eintrag (kein Reward)
+    fn.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ result: [null] }) })
+    vi.stubGlobal('fetch', fn)
+
+    const rewards = await solanaProvider.fetchStakingRewards!(
+      '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
+      { lastExternalRef: `sol-reward:${STAKE_ACC}:699` },
+    )
+    expect(rewards).toEqual([])
+  })
+
+  it('ohne Stake-Accounts keine RPC-Calls für Epochen', async () => {
+    const fn = mockRpc([[]])
+    const rewards = await solanaProvider.fetchStakingRewards!(
+      '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
+      { lastExternalRef: null },
+    )
+    expect(rewards).toEqual([])
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+})

@@ -31,11 +31,25 @@ export interface WalletFetchOptions {
   includeUnknownTokens?: boolean
 }
 
+// On-Chain-Staking-Reward, vom Sync als STAKING_REWARD-Transaktion persistiert.
+// externalRef macht den Import idempotent (unique, z.B. sol-reward:<account>:<epoch>).
+export interface RawStakingReward {
+  symbol: string
+  amount: string
+  timestamp: Date
+  externalRef: string
+}
+
 export interface WalletProvider {
   readonly kind: 'wallet'
   readonly id: ProviderId
   validateAddress(address: string): boolean
   fetchBalances(address: string, options?: WalletFetchOptions): Promise<RawBalance[]>
+  // Optional: Staking-Rewards seit lastExternalRef (null = Erst-Import, begrenztes Fenster)
+  fetchStakingRewards?(
+    address: string,
+    sinceHint: { lastExternalRef: string | null },
+  ): Promise<RawStakingReward[]>
 }
 
 export type Provider = ExchangeProvider | WalletProvider

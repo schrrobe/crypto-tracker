@@ -148,6 +148,21 @@ export async function getReport(
     orderBy: { createdAt: 'asc' },
   })
 
+  // Wallets mit ausschließlich Reward-Importen gelten nicht als „abgedeckt" —
+  // ihre Käufe/Verkäufe fehlen weiterhin (Hinweis statt falscher Sicherheit)
+  const rewardsOnlyWallets = await prisma.portfolioSource.count({
+    where: {
+      userId,
+      type: 'WALLET',
+      transactions: { some: {} },
+      NOT: { transactions: { some: { type: { not: 'STAKING_REWARD' } } } },
+    },
+  })
+  const coverageWarnings: TaxWarningDto[] =
+    rewardsOnlyWallets > 0
+      ? [{ code: TaxWarningCode.WALLET_REWARDS_ONLY, count: rewardsOnlyWallets }]
+      : []
+
   return {
     year,
     country,
@@ -171,7 +186,7 @@ export async function getReport(
           }
         : {}),
     },
-    warnings: [...enrichmentWarnings, ...report.warnings],
+    warnings: [...enrichmentWarnings, ...report.warnings, ...coverageWarnings],
     uncoveredSources: uncovered,
     generatedAt: new Date().toISOString(),
   }

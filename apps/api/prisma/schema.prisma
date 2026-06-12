@@ -157,6 +157,9 @@ model Transaction {
   feeAmount    Decimal?        @db.Decimal(38, 18)
   currency     String?
   timestamp    DateTime
+  // Dedupe-Anker für Chain-Importe (z.B. sol-reward:<stakeAccount>:<epoch>,
+  // eth-wd:<withdrawalIndex>) — macht Reward-Syncs idempotent (skipDuplicates)
+  externalRef  String?         @unique
   source       PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   asset        Asset           @relation(fields: [assetId], references: [id])
   transferOut  TransferLink?   @relation("TransferWithdrawal")

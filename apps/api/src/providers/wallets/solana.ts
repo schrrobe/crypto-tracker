@@ -1,6 +1,11 @@
 import { env } from '../../config/env'
 import { fromBaseUnits } from '../../lib/decimal'
-import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
+import {
+  ProviderError,
+  type RawBalance,
+  type RawStakingReward,
+  type WalletProvider,
+} from '../provider.types'
 
 // Solana-Bestand über öffentliches JSON-RPC (Endpoint via SOLANA_RPC_URL konfigurierbar):
 // getBalance (SOL) + getTokenAccountsByOwner (klassische SPL-Tokens, jsonParsed).
@@ -11,6 +16,11 @@ const STAKE_PROGRAM_ID = 'Stake11111111111111111111111111111111111111'
 // Stake-Account-Layout: Withdrawer-Authority liegt bei Byte-Offset 44, Größe 200 Bytes
 const STAKE_ACCOUNT_SIZE = 200
 const STAKE_WITHDRAWER_OFFSET = 44
+
+// Erst-Import: maximal so viele Epochen rückwärts (~2 Tage/Epoche ≈ 2 Monate).
+// Öffentliche RPCs halten ältere Epochen ohnehin oft nicht vor; ältere Historie
+// kommt über CSV-Import. Folge-Syncs laufen inkrementell ab lastExternalRef.
+const REWARD_BACKFILL_EPOCHS = 30
 
 // Kuratiertes Mint→Symbol-Mapping; unbekannte Mints werden als unmapped Asset angelegt
 // (kein Preis, UI-Hinweis). Vollständiges Contract-Mapping über CoinGecko kommt mit M8.
@@ -64,6 +74,29 @@ interface TokenAccount {
   }
 }
 
+// Nativ gestakte SOL liegen in eigenen Stake-Accounts (Stake-Programm) — über
+// die Withdrawer-Authority finden. account.lamports = delegierter Stake +
+// Rent-Reserve + aufgelaufene Rewards.
+async function fetchStakeAccounts(address: string): Promise<Array<{ pubkey: string; lamports: bigint }>> {
+  const result = await rpc<Array<{ pubkey: string; account: { lamports: number } }>>('getProgramAccounts', [
+    STAKE_PROGRAM_ID,
+    {
+      encoding: 'jsonParsed',
+      filters: [
+        { dataSize: STAKE_ACCOUNT_SIZE },
+        { memcmp: { offset: STAKE_WITHDRAWER_OFFSET, bytes: address } },
+      ],
+    },
+  ])
+  return result.map((r) => ({ pubkey: r.pubkey, lamports: BigInt(r.account.lamports) }))
+}
+
+// Epoche aus einer Reward-externalRef (sol-reward:<account>:<epoch>) ziehen
+function epochFromExternalRef(ref: string | null): number | null {
+  const match = ref?.match(/^sol-reward:[^:]+:(\d+)$/)
+  return match ? Number(match[1]) : null
+}
+
 export const solanaProvider: WalletProvider = {
   kind: 'wallet',
   id: 'SOLANA',
@@ -75,20 +108,8 @@ export const solanaProvider: WalletProvider = {
   async fetchBalances(address: string, options?: { includeUnknownTokens?: boolean }): Promise<RawBalance[]> {
     const balanceResult = await rpc<{ value: number }>('getBalance', [address])
 
-    // Nativ gestakte SOL liegen in eigenen Stake-Accounts (Stake-Programm), nicht
-    // im Wallet-Konto — über die Withdrawer-Authority finden und mitzählen.
-    // account.lamports = delegierter Stake + Rent-Reserve + aufgelaufene Rewards.
-    const stakeResult = await rpc<Array<{ account: { lamports: number } }>>('getProgramAccounts', [
-      STAKE_PROGRAM_ID,
-      {
-        encoding: 'jsonParsed',
-        filters: [
-          { dataSize: STAKE_ACCOUNT_SIZE },
-          { memcmp: { offset: STAKE_WITHDRAWER_OFFSET, bytes: address } },
-        ],
-      },
-    ])
-    const stakedLamports = stakeResult.reduce((sum, acc) => sum + BigInt(acc.account.lamports), 0n)
+    const stakeAccounts = await fetchStakeAccounts(address)
+    const stakedLamports = stakeAccounts.reduce((sum, acc) => sum + acc.lamports, 0n)
 
     const balances: RawBalance[] = [
       { symbol: 'SOL', amount: fromBaseUnits(BigInt(balanceResult.value) + stakedLamports, 9) },
@@ -120,5 +141,54 @@ export const solanaProvider: WalletProvider = {
     }
 
     return balances
+  },
+
+  // Inflation-Rewards der Stake-Accounts, eine Abfrage pro Epoche. Inkrementell:
+  // ab der Epoche nach lastExternalRef; Erst-Import begrenzt auf REWARD_BACKFILL_EPOCHS.
+  // Nicht vorgehaltene Epochen (RPC-Pruning) werden still übersprungen.
+  async fetchStakingRewards(
+    address: string,
+    sinceHint: { lastExternalRef: string | null },
+  ): Promise<RawStakingReward[]> {
+    const stakeAccounts = await fetchStakeAccounts(address)
+    if (stakeAccounts.length === 0) return []
+    const pubkeys = stakeAccounts.map((s) => s.pubkey)
+
+    const epochInfo = await rpc<{ epoch: number }>('getEpochInfo', [])
+    // Rewards für Epoche E werden zu Beginn von E+1 gutgeschrieben → letzte fertige = E−1
+    const lastComplete = epochInfo.epoch - 1
+    const lastKnown = epochFromExternalRef(sinceHint.lastExternalRef)
+    const fromEpoch = Math.max(
+      lastKnown !== null ? lastKnown + 1 : lastComplete - REWARD_BACKFILL_EPOCHS + 1,
+      0,
+    )
+
+    const rewards: RawStakingReward[] = []
+    for (let epoch = fromEpoch; epoch <= lastComplete; epoch += 1) {
+      let results: Array<{ amount: number; effectiveSlot: number } | null>
+      try {
+        results = await rpc('getInflationReward', [pubkeys, { epoch }])
+      } catch {
+        continue // Epoche nicht (mehr) verfügbar
+      }
+
+      // effectiveSlot ist für alle Accounts einer Epoche gleich → ein getBlockTime reicht
+      const first = results.find((r) => r !== null && r.amount > 0)
+      if (!first) continue
+      const blockTime = await rpc<number | null>('getBlockTime', [first.effectiveSlot]).catch(() => null)
+      if (blockTime === null) continue // ohne belastbaren Zeitstempel kein Steuer-Datensatz
+      const timestamp = new Date(blockTime * 1000)
+
+      results.forEach((r, i) => {
+        if (!r || r.amount <= 0) return
+        rewards.push({
+          symbol: 'SOL',
+          amount: fromBaseUnits(BigInt(r.amount), 9),
+          timestamp,
+          externalRef: `sol-reward:${pubkeys[i]}:${epoch}`,
+        })
+      })
+    }
+    return rewards
   },
 }

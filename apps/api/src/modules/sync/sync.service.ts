@@ -54,6 +54,52 @@ async function fetchBalancesForSource(source: PortfolioSource): Promise<RawBalan
   throw AppError.badRequest('SOURCE_NOT_SYNCABLE', 'Diese Quelle hat keinen Sync')
 }
 
+// Staking-Rewards des Wallets als STAKING_REWARD-Transaktionen persistieren.
+// Idempotent über externalRef (unique + skipDuplicates), inkrementell ab der
+// jüngsten bekannten Reward-Ref. Kurs bleibt leer — der Steuerreport ergänzt
+// den EUR-Tagespreis per Backfill.
+async function importStakingRewards(source: PortfolioSource): Promise<void> {
+  try {
+    const provider = getWalletProvider(source.provider)
+    if (!provider.fetchStakingRewards) return
+    const wallet = await prisma.walletAddress.findUnique({ where: { sourceId: source.id } })
+    if (!wallet) return
+
+    const last = await prisma.transaction.findFirst({
+      where: { sourceId: source.id, externalRef: { not: null } },
+      orderBy: { timestamp: 'desc' },
+      select: { externalRef: true },
+    })
+    const rewards = await provider.fetchStakingRewards(wallet.address, {
+      lastExternalRef: last?.externalRef ?? null,
+    })
+    if (rewards.length === 0) return
+
+    const assetMap = await resolveAssetsBySymbol(rewards.map((r) => r.symbol))
+    const data = rewards.flatMap((r) => {
+      const asset = assetMap.get(r.symbol.toUpperCase())
+      if (!asset) return []
+      return [
+        {
+          sourceId: source.id,
+          assetId: asset.id,
+          type: 'STAKING_REWARD' as const,
+          quantity: new Prisma.Decimal(r.amount),
+          timestamp: r.timestamp,
+          externalRef: r.externalRef,
+        },
+      ]
+    })
+    if (data.length > 0) await prisma.transaction.createMany({ data, skipDuplicates: true })
+  } catch (error) {
+    // Rewards sind Zusatzinformation — der Bestands-Sync bleibt davon unberührt
+    console.warn(
+      `Staking-Reward-Import für Quelle ${source.id} fehlgeschlagen:`,
+      error instanceof Error ? error.message : error,
+    )
+  }
+}
+
 // Schritt 1: Validierung + Run anlegen (RUNNING). Getrennt von der Ausführung,
 // damit der Queue-Modus den Run sofort zurückgeben und die Arbeit an den
 // Worker übergeben kann.
@@ -113,6 +159,9 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
 
     // Preis-Fehler sind kein Sync-Fehler (UI zeigt dann ältere Preise)
     await refreshPrices([...byAsset.keys()])
+
+    // On-Chain-Staking-Rewards als Transaktionen — Fehler hier sind kein Sync-Fehler
+    if (source.type === 'WALLET') await importStakingRewards(source)
 
     const finished = await prisma.syncRun.update({
       where: { id: run.id },

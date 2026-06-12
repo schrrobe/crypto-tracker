@@ -20,6 +20,20 @@ const FAKE_EXCHANGE_BALANCES: RawBalance[] = [
 const FAKE_WALLET_BALANCES: Record<string, RawBalance[]> = {
   BITCOIN: [{ symbol: 'BTC', amount: '0.05' }],
   SOLANA: [{ symbol: 'SOL', amount: '12' }],
+  ETHEREUM: [
+    { symbol: 'ETH', amount: '1.5' },
+    { symbol: 'STETH', amount: '3' },
+  ],
+}
+
+// Deterministische Rewards für Integrationstests: feste externalRefs →
+// wiederholter Sync darf keine Duplikate erzeugen (skipDuplicates-Pfad)
+const FAKE_STAKING_REWARDS: Record<string, Array<{ symbol: string; amount: string; iso: string; ref: string }>> = {
+  SOLANA: [
+    { symbol: 'SOL', amount: '0.05', iso: '2024-03-01T00:00:00.000Z', ref: 'fake-sol-reward:1' },
+    { symbol: 'SOL', amount: '0.07', iso: '2024-03-03T00:00:00.000Z', ref: 'fake-sol-reward:2' },
+  ],
+  ETHEREUM: [{ symbol: 'ETH', amount: '0.01', iso: '2024-04-01T00:00:00.000Z', ref: 'fake-eth-wd:1' }],
 }
 
 export function fakeExchangeProvider(id: ProviderId): ExchangeProvider {
@@ -49,6 +63,16 @@ export function fakeWalletProvider(id: ProviderId): WalletProvider {
     },
     async fetchBalances() {
       return FAKE_WALLET_BALANCES[id] ?? []
+    },
+    async fetchStakingRewards(address: string) {
+      // Adresse in die Ref aufnehmen — externalRef ist global unique (beim echten
+      // Provider übernimmt das der Stake-Account-Pubkey bzw. der Withdrawal-Index)
+      return (FAKE_STAKING_REWARDS[id] ?? []).map((r) => ({
+        symbol: r.symbol,
+        amount: r.amount,
+        timestamp: new Date(r.iso),
+        externalRef: `${r.ref}:${address}`,
+      }))
     },
   }
 }

@@ -28,6 +28,9 @@ export const TaxWarningCode = {
   FOREIGN_CURRENCY_PRICE_IGNORED: 'FOREIGN_CURRENCY_PRICE_IGNORED',
   // CoinGecko-Lookup-Limit pro Lauf erreicht — erneut ausführen trifft den Cache
   PRICE_LOOKUP_LIMIT_REACHED: 'PRICE_LOOKUP_LIMIT_REACHED',
+  // Wallet-Quelle hat nur automatisch importierte Staking-Rewards —
+  // Käufe/Verkäufe dieser Quelle fehlen im Report
+  WALLET_REWARDS_ONLY: 'WALLET_REWARDS_ONLY',
 } as const
 export type TaxWarningCode = (typeof TaxWarningCode)[keyof typeof TaxWarningCode]
 
