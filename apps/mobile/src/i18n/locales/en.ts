@@ -103,6 +103,7 @@ const en: MessageSchema = {
     connectFailed: 'Connecting failed',
     providerBitcoin: 'Bitcoin wallet',
     providerSolana: 'Solana wallet',
+    providerEthereum: 'Ethereum wallet',
     providerCsv: 'CSV import',
     providerManual: 'Manual source',
   },
@@ -215,7 +216,7 @@ const en: MessageSchema = {
     warningsTitle: 'Notes',
     disclaimerTitle: 'No tax advice',
     disclaimer:
-      'This report is a non-binding calculation aid. Assumptions: FIFO per source/wallet (DE, wallet-based view per BMF-Schreiben v. 10.05.2022) — linked transfers carry the cost basis over, unlinked withdrawals lose it; Altvermögen is consumed first (AT); crypto-to-crypto swaps and foreign currency conversion are not covered. Please seek professional advice for your tax return.',
+      'This report is a non-binding calculation aid. Assumptions: FIFO per source/wallet (DE, wallet-based view per BMF-Schreiben v. 10.05.2022) — linked transfers carry the cost basis over, unlinked withdrawals lose it; Altvermögen is consumed first (AT); crypto-to-crypto swaps and foreign currency conversion are not covered. Rebase yields from liquid staking tokens (e.g. stETH) and MEV/tip income of your own validators are not captured automatically. Please seek professional advice for your tax return.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: acquisition without price — cost basis of 0 assumed ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: disposal without a determinable price — not included in totals ({count}×)',
@@ -225,6 +226,8 @@ const en: MessageSchema = {
       TRANSFERS_IGNORED: '{symbol}: transfer/other transactions were ignored ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: price in foreign currency discarded — historical EUR daily price used ({count}×)',
       PRICE_LOOKUP_LIMIT_REACHED: 'Price lookup limit reached — generate the report again to load more prices',
+      WALLET_REWARDS_ONLY:
+        '{count} wallet source(s) with automatically imported staking rewards — buys/sells of these wallets are missing from the report',
     },
   },
   settings: {

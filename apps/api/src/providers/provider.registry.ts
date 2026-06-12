@@ -5,17 +5,19 @@ import type { ExchangeProvider, Provider, WalletProvider } from './provider.type
 import { fakeExchangeProvider, fakeWalletProvider } from './fake.providers'
 import { bitcoinProvider } from './wallets/bitcoin'
 import { solanaProvider } from './wallets/solana'
+import { ethereumProvider } from './wallets/ethereum'
 import { krakenProvider } from './exchanges/kraken'
 import { bitvavoProvider } from './exchanges/bitvavo'
 import { coinbaseProvider } from './exchanges/coinbase'
 import { bitpandaProvider } from './exchanges/bitpanda'
 
 const EXCHANGE_IDS: ProviderId[] = ['COINBASE', 'KRAKEN', 'BITVAVO', 'BITPANDA']
-const WALLET_IDS: ProviderId[] = ['BITCOIN', 'SOLANA']
+const WALLET_IDS: ProviderId[] = ['BITCOIN', 'SOLANA', 'ETHEREUM']
 
 const realProviders = new Map<ProviderId, Provider>([
   ['BITCOIN', bitcoinProvider],
   ['SOLANA', solanaProvider],
+  ['ETHEREUM', ethereumProvider],
   ['KRAKEN', krakenProvider],
   ['BITVAVO', bitvavoProvider],
   ['COINBASE', coinbaseProvider],

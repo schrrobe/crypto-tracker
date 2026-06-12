@@ -16,6 +16,7 @@ export const ProviderId = {
   BITPANDA: 'BITPANDA',
   BITCOIN: 'BITCOIN',
   SOLANA: 'SOLANA',
+  ETHEREUM: 'ETHEREUM',
   GENERIC_CSV: 'GENERIC_CSV',
   MANUAL: 'MANUAL',
 } as const

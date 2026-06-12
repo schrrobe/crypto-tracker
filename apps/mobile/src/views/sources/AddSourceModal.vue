@@ -175,6 +175,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   BITPANDA: 'Bitpanda',
   BITCOIN: 'Bitcoin',
   SOLANA: 'Solana',
+  ETHEREUM: 'Ethereum',
 }
 
 const props = defineProps<{ isOpen: boolean }>()

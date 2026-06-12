@@ -103,6 +103,7 @@ const pl: MessageSchema = {
     connectFailed: 'Połączenie nie powiodło się',
     providerBitcoin: 'Portfel Bitcoin',
     providerSolana: 'Portfel Solana',
+    providerEthereum: 'Portfel Ethereum',
     providerCsv: 'Import CSV',
     providerManual: 'Źródło ręczne',
   },
@@ -215,7 +216,7 @@ const pl: MessageSchema = {
     warningsTitle: 'Uwagi',
     disclaimerTitle: 'To nie jest doradztwo podatkowe',
     disclaimer:
-      'Ten raport to niewiążąca pomoc obliczeniowa. Założenia: FIFO osobno dla każdego źródła/portfela (DE, ujęcie portfelowe zgodnie z BMF-Schreiben v. 10.05.2022) — połączone transfery przenoszą koszt nabycia, niepołączone wypłaty go tracą; Altvermögen jest zużywane w pierwszej kolejności (AT); wymiany krypto-krypto oraz przeliczanie walut obcych nie są uwzględnione. Przy zeznaniu podatkowym skorzystaj z porady specjalisty.',
+      'Ten raport to niewiążąca pomoc obliczeniowa. Założenia: FIFO osobno dla każdego źródła/portfela (DE, ujęcie portfelowe zgodnie z BMF-Schreiben v. 10.05.2022) — połączone transfery przenoszą koszt nabycia, niepołączone wypłaty go tracą; Altvermögen jest zużywane w pierwszej kolejności (AT); wymiany krypto-krypto oraz przeliczanie walut obcych nie są uwzględnione. Dochody z rebase tokenów liquid stakingu (np. stETH) oraz przychody MEV/z napiwków własnych walidatorów nie są rejestrowane automatycznie. Przy zeznaniu podatkowym skorzystaj z porady specjalisty.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: nabycie bez kursu — przyjęto koszt nabycia 0 ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: zbycie bez możliwego do ustalenia kursu — nieuwzględnione w sumach ({count}×)',
@@ -225,6 +226,8 @@ const pl: MessageSchema = {
       TRANSFERS_IGNORED: '{symbol}: transakcje typu transfer/inne zostały zignorowane ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: odrzucono kurs w walucie obcej — użyto historycznej dziennej ceny w EUR ({count}×)',
       PRICE_LOOKUP_LIMIT_REACHED: 'Osiągnięto limit zapytań o kursy — utwórz raport ponownie, aby pobrać kolejne kursy',
+      WALLET_REWARDS_ONLY:
+        'Źródła typu portfel z automatycznie zaimportowanymi nagrodami za staking: {count} — kupna/sprzedaże z tych portfeli nie są ujęte w raporcie',
     },
   },
   settings: {

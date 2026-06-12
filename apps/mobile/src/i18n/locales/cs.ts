@@ -103,6 +103,7 @@ const cs: MessageSchema = {
     connectFailed: 'Připojení se nezdařilo',
     providerBitcoin: 'Bitcoinová peněženka',
     providerSolana: 'Solana peněženka',
+    providerEthereum: 'Ethereum peněženka',
     providerCsv: 'CSV import',
     providerManual: 'Ruční zdroj',
   },
@@ -215,7 +216,7 @@ const cs: MessageSchema = {
     warningsTitle: 'Upozornění',
     disclaimerTitle: 'Nejedná se o daňové poradenství',
     disclaimer:
-      'Tento report je nezávazná výpočetní pomůcka. Předpoklady: FIFO za každý zdroj/peněženku zvlášť (DE, posuzování po peněženkách podle BMF-Schreiben v. 10.05.2022) — propojené převody přenášejí pořizovací náklady, nepropojené výběry je ztrácejí; Altvermögen se spotřebovává jako první (AT); směny krypto-krypto a přepočet cizích měn nejsou zohledněny. Pro daňové přiznání si prosím vyžádejte odbornou radu.',
+      'Tento report je nezávazná výpočetní pomůcka. Předpoklady: FIFO za každý zdroj/peněženku zvlášť (DE, posuzování po peněženkách podle BMF-Schreiben v. 10.05.2022) — propojené převody přenášejí pořizovací náklady, nepropojené výběry je ztrácejí; Altvermögen se spotřebovává jako první (AT); směny krypto-krypto a přepočet cizích měn nejsou zohledněny. Výnosy z rebase u liquid-staking tokenů (např. stETH) a příjmy MEV/ze spropitného vlastních validátorů nejsou automaticky zachyceny. Pro daňové přiznání si prosím vyžádejte odbornou radu.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: pořízení bez kurzu — použity pořizovací náklady 0 ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: prodej bez zjistitelného kurzu — nezahrnuto v součtech ({count}×)',
@@ -225,6 +226,8 @@ const cs: MessageSchema = {
       TRANSFERS_IGNORED: '{symbol}: transakce typu převod/ostatní byly ignorovány ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: kurz v cizí měně zahozen — použita historická denní cena v EUR ({count}×)',
       PRICE_LOOKUP_LIMIT_REACHED: 'Dosažen limit dotazů na kurzy — vytvořte report znovu, aby se načetly další kurzy',
+      WALLET_REWARDS_ONLY:
+        'Zdroje typu peněženka s automaticky importovanými odměnami za staking: {count} — nákupy/prodeje těchto peněženek v reportu chybí',
     },
   },
   settings: {

@@ -103,6 +103,7 @@ const fr: MessageSchema = {
     connectFailed: 'Échec de la connexion',
     providerBitcoin: 'Portefeuille Bitcoin',
     providerSolana: 'Portefeuille Solana',
+    providerEthereum: 'Portefeuille Ethereum',
     providerCsv: 'Import CSV',
     providerManual: 'Source manuelle',
   },
@@ -215,7 +216,7 @@ const fr: MessageSchema = {
     warningsTitle: 'Remarques',
     disclaimerTitle: 'Pas un conseil fiscal',
     disclaimer:
-      "Ce rapport est une aide au calcul sans valeur contractuelle. Hypothèses : FIFO par source/portefeuille (DE, approche par portefeuille selon le BMF-Schreiben v. 10.05.2022) — les transferts liés transmettent le coût d'acquisition, les retraits non liés le perdent ; l'Altvermögen est consommé en premier (AT) ; les échanges crypto-crypto et la conversion de devises étrangères ne sont pas pris en compte. Pour la déclaration fiscale, veuillez consulter un professionnel.",
+      "Ce rapport est une aide au calcul sans valeur contractuelle. Hypothèses : FIFO par source/portefeuille (DE, approche par portefeuille selon le BMF-Schreiben v. 10.05.2022) — les transferts liés transmettent le coût d'acquisition, les retraits non liés le perdent ; l'Altvermögen est consommé en premier (AT) ; les échanges crypto-crypto et la conversion de devises étrangères ne sont pas pris en compte. Les revenus de rebase des jetons de liquid staking (p. ex. stETH) et les revenus MEV/de pourboires de vos propres validateurs ne sont pas saisis automatiquement. Pour la déclaration fiscale, veuillez consulter un professionnel.",
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: "{symbol} : acquisition sans cours — coût d'acquisition de 0 retenu ({count}×)",
       MISSING_DISPOSAL_PRICE: '{symbol} : cession sans cours déterminable — non incluse dans les totaux ({count}×)',
@@ -225,6 +226,8 @@ const fr: MessageSchema = {
       TRANSFERS_IGNORED: '{symbol} : les transactions de type transfert/autre ont été ignorées ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol} : cours en devise étrangère écarté — prix journalier EUR historique utilisé ({count}×)',
       PRICE_LOOKUP_LIMIT_REACHED: "Limite de requêtes de cours atteinte — régénérez le rapport pour charger d'autres cours",
+      WALLET_REWARDS_ONLY:
+        '{count} source(s) de type portefeuille avec des récompenses de staking importées automatiquement — les achats/ventes de ces portefeuilles manquent dans le rapport',
     },
   },
   settings: {

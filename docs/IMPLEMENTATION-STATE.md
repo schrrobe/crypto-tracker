@@ -34,7 +34,8 @@ bewertet in EUR/USD über CoinGecko.
 | — | Wertverlauf-Chart: `GET /portfolio/history` (24h/7d/30d, EUR/USD, CoinGecko market_chart on-demand mit 30-min-Cache, Top-10-Assets), SVG-Chart mit Range-Umschalter und Delta-Prozent | `f48ff7c` |
 | — | Steuerreport DE/AT: manuelle Transaktionen (CRUD, auto-verwaltete MANUAL-Quelle, Netto-Bestände), historische EUR-Tagespreise (CoinGecko /history, DB-/Negativ-Cache, Lookup-Cap), reine Tax-Engine (DE: FIFO, Haltefrist, Freigrenze 600/1000 €; AT: Stichtag 1.3.2021, Altvermögen-FIFO + 440 €, Neuvermögen-Durchschnittspreis 27,5 %), `GET /tax/report`, Report-Seite mit Disclaimer/Warnungen/CSV-Export | `3c18d67` |
 | — | Steuerreport-Ausbau: `TransferLink` (WITHDRAWAL↔DEPOSIT-Paare, Validierung, Link-UI) + **wallet-bezogenes FIFO** für DE (BMF 10.05.2022, Kostenbasis zieht bei verknüpften Transfers um), TxType `STAKING_REWARD` (DE: §22 Nr. 3, Zufluss-Einkommen + Freigrenze 256 €; AT: §27b Abs. 2, Basis 0), Backfill-Cap 150 mit CoinGecko-Key, PDF-Export (jsPDF, immer Deutsch) | `81fcd64` |
-| — | Background-Sync: optionaler Queue-Modus (BullMQ/Redis via `REDIS_URL`, Worker-Prozess, Preis-Refresh-Cron alle 15 min); ohne Redis weiterhin inline. Kleinkram: Quellen-Umbenennen-UI, Solana-Dust-Filter (`includeUnknownTokens`, Default aus), CSV-Presets Kraken/Bitpanda, Transaktionsliste pro CSV-Quelle | `HEAD` |
+| — | Background-Sync: optionaler Queue-Modus (BullMQ/Redis via `REDIS_URL`, Worker-Prozess, Preis-Refresh-Cron alle 15 min); ohne Redis weiterhin inline. Kleinkram: Quellen-Umbenennen-UI, Solana-Dust-Filter (`includeUnknownTokens`, Default aus), CSV-Presets Kraken/Bitpanda, Transaktionsliste pro CSV-Quelle | `3768a03` |
+| — | On-Chain-Staking-Rewards: Wallet-Syncs erzeugen STAKING_REWARD-Transaktionen (idempotent via `Transaction.externalRef`). Solana: `getInflationReward` je Epoche/Stake-Account (inkrementell, Erst-Import 30 Epochen, nativ gestakte SOL im Bestand). Neuer **Ethereum-Wallet-Provider** (eth_getBalance + 10 kuratierte ERC-20 inkl. stETH/wstETH/rETH); Validator-Rewards via beaconcha.in-Withdrawals (braucht `BEACONCHAIN_API_KEY`, Principal-Filter ≥ 8 ETH). Report-Hinweis `WALLET_REWARDS_ONLY` | `HEAD` |
 
 ## Architektur-Eckpunkte
 
@@ -56,6 +57,7 @@ bewertet in EUR/USD über CoinGecko.
 - **Solana-Spam**: hunderte Müll-Tokens werden sauber als unmapped importiert und sind in der UI eingeklappt; ein echter Dust-/Spam-Filter fehlt
 - Server-Fehlertexte sind Deutsch; das Frontend lokalisiert über die stabilen `error.code`s (die wichtigsten Codes in allen 6 Sprachen)
 - **Queue-Modus ungetestet in CI**: der BullMQ-Pfad (Worker, Repeatable Job) braucht Redis und ist nur manuell verifiziert; Tests laufen ohne `REDIS_URL` im Inline-Modus. Kraken-CSV-Typ „trade" wird bewusst nicht gemappt (Kauf/Verkauf nur über Vorzeichen erkennbar) und landet als Fehlerzeile
+- **Staking-Reward-Import, bewusste Grenzen**: Solana-Erst-Import max. 30 Epochen zurück (RPC-Pruning; ältere Historie via CSV); ETH-Validator-Rewards nur mit beaconcha.in-Key (v1-API verlangt inzwischen einen — Antwortform gegen Live-API noch unverifiziert, Fixtures nach v1-Doku); Exit-Withdrawals ≥ 8 ETH werden als Principal übersprungen (Heuristik); stETH-Rebase-Erträge und MEV/Tips nicht erfasst (Disclaimer). ERC-20 nur kuratierte Liste (kein Indexer)
 
 ## Nächste Features (priorisiert)
 

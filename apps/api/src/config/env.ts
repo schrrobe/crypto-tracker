@@ -22,6 +22,10 @@ const envSchema = z.object({
   // Optional: aktiviert den Queue-Modus für Background-Sync (BullMQ-Worker nötig)
   REDIS_URL: z.string().url().optional(),
   SOLANA_RPC_URL: z.string().url().default('https://api.mainnet-beta.solana.com'),
+  ETH_RPC_URL: z.string().url().default('https://ethereum-rpc.publicnode.com'),
+  // Für den ETH-Validator-Reward-Import erforderlich (kostenloser Key,
+  // beaconcha.in verlangt ihn inzwischen für alle API-Endpunkte)
+  BEACONCHAIN_API_KEY: z.string().optional(),
   MEMPOOL_API_URL: z.string().url().default('https://mempool.space/api'),
   // Nur für Tests/lokale Entwicklung: deterministische Preise und Provider statt echter APIs
   FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),

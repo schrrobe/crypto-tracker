@@ -101,6 +101,7 @@ const de = {
     connectFailed: 'Verbinden fehlgeschlagen',
     providerBitcoin: 'Bitcoin-Wallet',
     providerSolana: 'Solana-Wallet',
+    providerEthereum: 'Ethereum-Wallet',
     providerCsv: 'CSV-Import',
     providerManual: 'Manuelle Quelle',
   },
@@ -213,7 +214,7 @@ const de = {
     warningsTitle: 'Hinweise',
     disclaimerTitle: 'Keine Steuerberatung',
     disclaimer:
-      'Dieser Report ist eine unverbindliche Berechnungshilfe. Annahmen: FIFO je Quelle/Wallet (DE, walletbezogene Betrachtung nach BMF-Schreiben v. 10.05.2022) — verknüpfte Transfers übertragen die Kostenbasis, unverknüpfte Auszahlungen verlieren sie; Altvermögen wird zuerst verbraucht (AT); Crypto-zu-Crypto-Tausch und Fremdwährungsumrechnung sind nicht abgebildet. Für die Steuererklärung bitte fachlichen Rat einholen.',
+      'Dieser Report ist eine unverbindliche Berechnungshilfe. Annahmen: FIFO je Quelle/Wallet (DE, walletbezogene Betrachtung nach BMF-Schreiben v. 10.05.2022) — verknüpfte Transfers übertragen die Kostenbasis, unverknüpfte Auszahlungen verlieren sie; Altvermögen wird zuerst verbraucht (AT); Crypto-zu-Crypto-Tausch und Fremdwährungsumrechnung sind nicht abgebildet. Rebase-Erträge von Liquid-Staking-Tokens (z.B. stETH) und MEV-/Tip-Einnahmen eigener Validatoren werden nicht automatisch erfasst. Für die Steuererklärung bitte fachlichen Rat einholen.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: Erwerb ohne Kurs — Anschaffungskosten 0 angesetzt ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: Veräußerung ohne ermittelbaren Kurs — nicht in den Summen ({count}×)',
@@ -223,6 +224,8 @@ const de = {
       TRANSFERS_IGNORED: '{symbol}: Transfer-/Sonstige-Transaktionen wurden ignoriert ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: Kurs in Fremdwährung verworfen — historischer EUR-Tagespreis verwendet ({count}×)',
       PRICE_LOOKUP_LIMIT_REACHED: 'Kurs-Abfragelimit erreicht — Report erneut erstellen, um weitere Kurse zu laden',
+      WALLET_REWARDS_ONLY:
+        '{count} Wallet-Quelle(n) mit automatisch importierten Staking-Rewards — Käufe/Verkäufe dieser Wallets fehlen im Report',
     },
   },
   settings: {

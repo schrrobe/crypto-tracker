@@ -14,7 +14,7 @@ export const createManualSourceSchema = z.object({
 })
 
 export const EXCHANGE_PROVIDERS = ['COINBASE', 'KRAKEN', 'BITVAVO', 'BITPANDA'] as const
-export const WALLET_PROVIDERS = ['BITCOIN', 'SOLANA'] as const
+export const WALLET_PROVIDERS = ['BITCOIN', 'SOLANA', 'ETHEREUM'] as const
 
 export const createExchangeSourceSchema = z.object({
   type: z.literal('EXCHANGE'),

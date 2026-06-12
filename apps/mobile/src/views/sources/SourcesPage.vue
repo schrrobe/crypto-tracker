@@ -163,6 +163,7 @@ function providerLabelKey(provider: string): string | null {
     {
       BITCOIN: 'sources.providerBitcoin',
       SOLANA: 'sources.providerSolana',
+      ETHEREUM: 'sources.providerEthereum',
       GENERIC_CSV: 'sources.providerCsv',
       MANUAL: 'sources.providerManual',
     }[provider] ?? null

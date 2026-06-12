@@ -21,6 +21,7 @@ enum ProviderId {
   BITPANDA
   BITCOIN
   SOLANA
+  ETHEREUM
   GENERIC_CSV
   MANUAL
 }
