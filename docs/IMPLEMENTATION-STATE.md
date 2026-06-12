@@ -33,7 +33,8 @@ bewertet in EUR/USD über CoinGecko.
 | — | Testlücken: Tenant-Isolation (Supertest), Sync-/Import-Integrationstests, Frontend-Unit-Tests (api.client) | `f47cf75` |
 | — | Wertverlauf-Chart: `GET /portfolio/history` (24h/7d/30d, EUR/USD, CoinGecko market_chart on-demand mit 30-min-Cache, Top-10-Assets), SVG-Chart mit Range-Umschalter und Delta-Prozent | `f48ff7c` |
 | — | Steuerreport DE/AT: manuelle Transaktionen (CRUD, auto-verwaltete MANUAL-Quelle, Netto-Bestände), historische EUR-Tagespreise (CoinGecko /history, DB-/Negativ-Cache, Lookup-Cap), reine Tax-Engine (DE: FIFO, Haltefrist, Freigrenze 600/1000 €; AT: Stichtag 1.3.2021, Altvermögen-FIFO + 440 €, Neuvermögen-Durchschnittspreis 27,5 %), `GET /tax/report`, Report-Seite mit Disclaimer/Warnungen/CSV-Export | `3c18d67` |
-| — | Steuerreport-Ausbau: `TransferLink` (WITHDRAWAL↔DEPOSIT-Paare, Validierung, Link-UI) + **wallet-bezogenes FIFO** für DE (BMF 10.05.2022, Kostenbasis zieht bei verknüpften Transfers um), TxType `STAKING_REWARD` (DE: §22 Nr. 3, Zufluss-Einkommen + Freigrenze 256 €; AT: §27b Abs. 2, Basis 0), Backfill-Cap 150 mit CoinGecko-Key, PDF-Export (jsPDF, immer Deutsch) | `HEAD` |
+| — | Steuerreport-Ausbau: `TransferLink` (WITHDRAWAL↔DEPOSIT-Paare, Validierung, Link-UI) + **wallet-bezogenes FIFO** für DE (BMF 10.05.2022, Kostenbasis zieht bei verknüpften Transfers um), TxType `STAKING_REWARD` (DE: §22 Nr. 3, Zufluss-Einkommen + Freigrenze 256 €; AT: §27b Abs. 2, Basis 0), Backfill-Cap 150 mit CoinGecko-Key, PDF-Export (jsPDF, immer Deutsch) | `81fcd64` |
+| — | Background-Sync: optionaler Queue-Modus (BullMQ/Redis via `REDIS_URL`, Worker-Prozess, Preis-Refresh-Cron alle 15 min); ohne Redis weiterhin inline. Kleinkram: Quellen-Umbenennen-UI, Solana-Dust-Filter (`includeUnknownTokens`, Default aus), CSV-Presets Kraken/Bitpanda, Transaktionsliste pro CSV-Quelle | `HEAD` |
 
 ## Architektur-Eckpunkte
 
@@ -54,6 +55,7 @@ bewertet in EUR/USD über CoinGecko.
 - **Quellen-Umbenennen**: Backend (`PATCH /sources/:id`) existiert, UI fehlt
 - **Solana-Spam**: hunderte Müll-Tokens werden sauber als unmapped importiert und sind in der UI eingeklappt; ein echter Dust-/Spam-Filter fehlt
 - Server-Fehlertexte sind Deutsch; das Frontend lokalisiert über die stabilen `error.code`s (die wichtigsten Codes in allen 6 Sprachen)
+- **Queue-Modus ungetestet in CI**: der BullMQ-Pfad (Worker, Repeatable Job) braucht Redis und ist nur manuell verifiziert; Tests laufen ohne `REDIS_URL` im Inline-Modus. Kraken-CSV-Typ „trade" wird bewusst nicht gemappt (Kauf/Verkauf nur über Vorzeichen erkennbar) und landet als Fehlerzeile
 
 ## Nächste Features (priorisiert)
 
@@ -66,16 +68,7 @@ Produktanspruch „native App".
 Read-only Keys bei Kraken/Bitvavo anlegen und verbinden — der einzige ungetestete
 Happy-Path. Befunde fließen ggf. in Symbol-Normalisierung ein.
 
-**3. Background-Sync** *(Plan „Später", architektonisch vorbereitet)*
-BullMQ/Redis-Worker ruft `SyncService.syncSource()` unverändert auf; Endpoint enqueued
-nur noch, Frontend pollt den Run-Status (UI dafür existiert). Dazu Cron für
-Preis-Refresh (`price.service.refreshPrices()` ist cron-ready).
-
-**4. Kleinere sinnvolle Lücken**
-Quellen-Umbenennen-UI, Transaktions-Liste pro CSV-Quelle, Dust-Filter für Solana,
-provider-spezifische CSV-Formate (Kraken-/Bitpanda-Export ohne manuelles Mapping).
-
-**5. Deployment dev/prod**
+**3. Deployment dev/prod**
 Env-Konzept und `migrate deploy` sind vorbereitet; es fehlen Hosting-Entscheidung,
 Secret Manager, CI (Lint/Tests/E2E) und die Cookie-Umstellung aus den Einschränkungen.
 

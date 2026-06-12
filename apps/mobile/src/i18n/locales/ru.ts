@@ -79,6 +79,7 @@ const ru: MessageSchema = {
     keyPreview: 'Ключ {preview}',
     deleteTitle: 'Удалить «{label}»?',
     deleteMessage: 'Все активы этого источника будут удалены.',
+    renameTitle: 'Переименовать источник',
     importHistory: 'История CSV-импортов',
     transactions: 'Транзакции',
     typeExchange: 'Биржа',
@@ -95,6 +96,7 @@ const ru: MessageSchema = {
     privateKey: 'Приватный ключ CDP (PEM)',
     passphrase: 'Кодовая фраза (необязательно)',
     address: 'Публичный адрес кошелька',
+    includeUnknownTokens: 'Импортировать неизвестные токены (риск спама)',
     readOnlyHint:
       'Создайте у провайдера API-ключ только с правами на чтение. Ключ хранится в зашифрованном виде на сервере и никогда не отображается открытым текстом.',
     connect: 'Подключить',
@@ -113,6 +115,7 @@ const ru: MessageSchema = {
     upload: 'Загрузить',
     uploadFailed: 'Не удалось загрузить',
     rowsDetected: 'Обнаружено строк: {n} — сопоставьте столбцы:',
+    presetDetected: 'Обнаружен экспорт {provider} — столбцы предзаполнены.',
     symbolColumn: 'Столбец символа',
     quantityColumn: 'Столбец количества',
     run: 'Импортировать',
@@ -171,6 +174,7 @@ const ru: MessageSchema = {
     unlink: 'Отвязать',
     unlinkTitle: 'Удалить связь перевода?',
     unlinkMessage: 'Затраты на приобретение тогда больше не будут переноситься в налоговом отчёте.',
+    filteredBySource: 'Источник: {source}',
   },
   tax: {
     title: 'Налоговый отчёт',

@@ -46,6 +46,9 @@
             >
               <ion-icon :icon="syncOutline" slot="icon-only" />
             </ion-button>
+            <ion-button :data-testid="`source-rename-${source.label}`" @click="promptRename(source)">
+              <ion-icon :icon="createOutline" slot="icon-only" />
+            </ion-button>
             <ion-button
               color="danger"
               :data-testid="`source-delete-${source.label}`"
@@ -114,7 +117,7 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { addOutline, documentAttachOutline, syncOutline, trashOutline } from 'ionicons/icons'
+import { addOutline, createOutline, documentAttachOutline, syncOutline, trashOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { SourceDto } from '@crypto-tracker/shared'
@@ -197,6 +200,24 @@ async function sync(source: SourceDto) {
 async function syncAll() {
   await sourcesStore.syncAll()
   await Promise.all([portfolio.loadSummary(), portfolio.loadHoldings()])
+}
+
+async function promptRename(source: SourceDto) {
+  const alert = await alertController.create({
+    header: t('sources.renameTitle'),
+    inputs: [{ name: 'label', type: 'text', value: source.label, attributes: { maxlength: 60 } }],
+    buttons: [
+      { text: t('common.cancel'), role: 'cancel' },
+      {
+        text: t('common.save'),
+        handler: (values: { label: string }) => {
+          const label = values.label.trim()
+          if (label && label !== source.label) sourcesStore.rename(source.id, label)
+        },
+      },
+    ],
+  })
+  await alert.present()
 }
 
 async function confirmDelete(source: SourceDto) {

@@ -79,6 +79,7 @@ const pl: MessageSchema = {
     keyPreview: 'Klucz {preview}',
     deleteTitle: 'Usunąć „{label}"?',
     deleteMessage: 'Wszystkie aktywa tego źródła zostaną usunięte.',
+    renameTitle: 'Zmień nazwę źródła',
     importHistory: 'Historia importów CSV',
     transactions: 'Transakcje',
     typeExchange: 'Giełda',
@@ -95,6 +96,7 @@ const pl: MessageSchema = {
     privateKey: 'Klucz prywatny CDP (PEM)',
     passphrase: 'Hasło dodatkowe (opcjonalnie)',
     address: 'Publiczny adres portfela',
+    includeUnknownTokens: 'Importuj nieznane tokeny (ryzyko spamu)',
     readOnlyHint:
       'Utwórz u dostawcy klucz API wyłącznie z uprawnieniami do odczytu. Klucz jest przechowywany w postaci zaszyfrowanej i nigdy nie jest wyświetlany jawnie.',
     connect: 'Połącz',
@@ -113,6 +115,7 @@ const pl: MessageSchema = {
     upload: 'Wgraj',
     uploadFailed: 'Wgrywanie nie powiodło się',
     rowsDetected: 'Wykryto {n} wierszy — przypisz kolumny:',
+    presetDetected: 'Wykryto eksport {provider} — kolumny zostały wstępnie przypisane.',
     symbolColumn: 'Kolumna symbolu',
     quantityColumn: 'Kolumna ilości',
     run: 'Importuj',
@@ -171,6 +174,7 @@ const pl: MessageSchema = {
     unlink: 'Rozłącz',
     unlinkTitle: 'Rozłączyć powiązanie transferu?',
     unlinkMessage: 'Koszt nabycia nie będzie wtedy przenoszony w raporcie podatkowym.',
+    filteredBySource: 'Źródło: {source}',
   },
   tax: {
     title: 'Raport podatkowy',

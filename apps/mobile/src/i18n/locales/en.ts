@@ -79,6 +79,7 @@ const en: MessageSchema = {
     keyPreview: 'Key {preview}',
     deleteTitle: 'Delete "{label}"?',
     deleteMessage: 'All holdings of this source will be removed.',
+    renameTitle: 'Rename source',
     importHistory: 'CSV import history',
     transactions: 'Transactions',
     typeExchange: 'Exchange',
@@ -95,6 +96,7 @@ const en: MessageSchema = {
     privateKey: 'CDP private key (PEM)',
     passphrase: 'Passphrase (optional)',
     address: 'Public wallet address',
+    includeUnknownTokens: 'Import unknown tokens (spam risk)',
     readOnlyHint:
       'Create an API key with read-only permissions at your provider. The key is stored encrypted in the backend and never shown in plain text.',
     connect: 'Connect',
@@ -113,6 +115,7 @@ const en: MessageSchema = {
     upload: 'Upload',
     uploadFailed: 'Upload failed',
     rowsDetected: '{n} rows detected — map the columns:',
+    presetDetected: '{provider} export detected — columns are pre-filled.',
     symbolColumn: 'Symbol column',
     quantityColumn: 'Quantity column',
     run: 'Import',
@@ -171,6 +174,7 @@ const en: MessageSchema = {
     unlink: 'Unlink',
     unlinkTitle: 'Remove transfer link?',
     unlinkMessage: 'The cost basis will then no longer be carried over in the tax report.',
+    filteredBySource: 'Source: {source}',
   },
   tax: {
     title: 'Tax report',

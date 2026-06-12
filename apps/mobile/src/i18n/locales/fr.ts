@@ -79,6 +79,7 @@ const fr: MessageSchema = {
     keyPreview: 'Clé {preview}',
     deleteTitle: 'Supprimer « {label} » ?',
     deleteMessage: 'Tous les avoirs de cette source seront supprimés.',
+    renameTitle: 'Renommer la source',
     importHistory: 'Historique des imports CSV',
     transactions: 'Transactions',
     typeExchange: 'Plateforme',
@@ -95,6 +96,7 @@ const fr: MessageSchema = {
     privateKey: 'Clé privée CDP (PEM)',
     passphrase: 'Phrase secrète (optionnel)',
     address: 'Adresse publique du portefeuille',
+    includeUnknownTokens: 'Importer les jetons inconnus (risque de spam)',
     readOnlyHint:
       "Créez chez votre fournisseur une clé API avec des droits en lecture seule. La clé est stockée chiffrée côté serveur et n'est jamais affichée en clair.",
     connect: 'Connecter',
@@ -113,6 +115,7 @@ const fr: MessageSchema = {
     upload: 'Téléverser',
     uploadFailed: 'Échec du téléversement',
     rowsDetected: '{n} lignes détectées — associez les colonnes :',
+    presetDetected: 'Export {provider} détecté — les colonnes sont préremplies.',
     symbolColumn: 'Colonne symbole',
     quantityColumn: 'Colonne quantité',
     run: 'Importer',
@@ -171,6 +174,7 @@ const fr: MessageSchema = {
     unlink: 'Délier',
     unlinkTitle: 'Supprimer la liaison de transfert ?',
     unlinkMessage: "Le coût d'acquisition ne sera alors plus transféré dans le rapport fiscal.",
+    filteredBySource: 'Source : {source}',
   },
   tax: {
     title: 'Rapport fiscal',

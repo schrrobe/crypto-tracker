@@ -31,6 +31,11 @@ pnpm dev          # API (:3010) + App (:5173) parallel
 Einzeln: `pnpm dev:api` / `pnpm dev:app` · Prisma Studio: `pnpm db:studio` ·
 Adminer (optional): `docker compose --profile tools up -d` → http://localhost:8081
 
+**Background-Sync (optional):** `pnpm queue:up` (Redis auf Host-Port 6381),
+`REDIS_URL=redis://localhost:6381` in `apps/api/.env`, zusätzlich
+`pnpm --filter @crypto-tracker/api dev:worker` starten. Ohne `REDIS_URL`
+läuft der Sync inline (auch in allen Tests).
+
 ## Checks
 
 ```bash

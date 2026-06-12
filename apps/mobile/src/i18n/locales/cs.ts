@@ -79,6 +79,7 @@ const cs: MessageSchema = {
     keyPreview: 'Klíč {preview}',
     deleteTitle: 'Smazat „{label}"?',
     deleteMessage: 'Všechna aktiva tohoto zdroje budou odstraněna.',
+    renameTitle: 'Přejmenovat zdroj',
     importHistory: 'Historie CSV importů',
     transactions: 'Transakce',
     typeExchange: 'Burza',
@@ -95,6 +96,7 @@ const cs: MessageSchema = {
     privateKey: 'Privátní klíč CDP (PEM)',
     passphrase: 'Passphrase (volitelné)',
     address: 'Veřejná adresa peněženky',
+    includeUnknownTokens: 'Importovat neznámé tokeny (riziko spamu)',
     readOnlyHint:
       'Vytvořte si u poskytovatele API klíč pouze s právy ke čtení. Klíč je uložen šifrovaně na serveru a nikdy se nezobrazuje v čitelné podobě.',
     connect: 'Připojit',
@@ -113,6 +115,7 @@ const cs: MessageSchema = {
     upload: 'Nahrát',
     uploadFailed: 'Nahrání se nezdařilo',
     rowsDetected: 'Rozpoznáno {n} řádků — přiřaďte sloupce:',
+    presetDetected: 'Rozpoznán export {provider} — sloupce jsou předvyplněny.',
     symbolColumn: 'Sloupec symbolu',
     quantityColumn: 'Sloupec množství',
     run: 'Importovat',
@@ -171,6 +174,7 @@ const cs: MessageSchema = {
     unlink: 'Zrušit propojení',
     unlinkTitle: 'Zrušit propojení převodu?',
     unlinkMessage: 'Pořizovací náklady se pak v daňovém reportu už nepřenesou.',
+    filteredBySource: 'Zdroj: {source}',
   },
   tax: {
     title: 'Daňový report',

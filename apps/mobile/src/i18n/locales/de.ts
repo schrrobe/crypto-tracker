@@ -77,6 +77,7 @@ const de = {
     keyPreview: 'Key {preview}',
     deleteTitle: '„{label}" löschen?',
     deleteMessage: 'Alle Bestände dieser Quelle werden entfernt.',
+    renameTitle: 'Quelle umbenennen',
     importHistory: 'CSV-Import-Historie',
     transactions: 'Transaktionen',
     typeExchange: 'Exchange',

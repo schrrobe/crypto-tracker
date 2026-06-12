@@ -24,6 +24,11 @@ export const useSourcesStore = defineStore('sources', () => {
     return created
   }
 
+  async function rename(sourceId: string, label: string): Promise<void> {
+    const { source } = await api.patch<{ source: SourceDto }>(`/sources/${sourceId}`, { label })
+    sources.value = sources.value.map((s) => (s.id === sourceId ? source : s))
+  }
+
   async function remove(sourceId: string): Promise<void> {
     await api.delete(`/sources/${sourceId}`)
     sources.value = sources.value.filter((s) => s.id !== sourceId)
@@ -85,5 +90,5 @@ export const useSourcesStore = defineStore('sources', () => {
     loaded.value = false
   }
 
-  return { sources, loaded, syncing, load, ensureManualSource, create, remove, sync, syncAll, reset }
+  return { sources, loaded, syncing, load, ensureManualSource, create, rename, remove, sync, syncAll, reset }
 })
