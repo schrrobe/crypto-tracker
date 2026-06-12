@@ -25,9 +25,19 @@ export const useTransactionsStore = defineStore('transactions', () => {
     transactions.value = transactions.value.filter((t) => t.id !== id)
   }
 
+  async function linkTransfer(id: string, counterpartId: string): Promise<void> {
+    await api.post(`/transactions/${id}/transfer-link`, { counterpartId })
+    await load()
+  }
+
+  async function unlinkTransfer(id: string): Promise<void> {
+    await api.delete(`/transactions/${id}/transfer-link`)
+    await load()
+  }
+
   function reset(): void {
     transactions.value = []
   }
 
-  return { transactions, load, create, update, remove, reset }
+  return { transactions, load, create, update, remove, linkTransfer, unlinkTransfer, reset }
 })

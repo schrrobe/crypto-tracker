@@ -150,6 +150,7 @@ const pl: MessageSchema = {
     typeDEPOSIT: 'Wpłata',
     typeWITHDRAWAL: 'Wypłata',
     typeTRANSFER: 'Transfer',
+    typeSTAKING_REWARD: 'Nagroda za staking',
     typeOTHER: 'Inne',
     quantity: 'Ilość',
     price: 'Kurs za jednostkę (opcjonalnie)',
@@ -161,6 +162,15 @@ const pl: MessageSchema = {
     deleteTitle: 'Usunąć transakcję?',
     deleteMessage: 'Aktywa źródła zostaną przeliczone ponownie.',
     importedBadge: 'zaimportowano',
+    transferModalTitle: 'Połącz jako transfer',
+    transferHint:
+      'Połącz tę transakcję z jej odpowiednikiem w innym źródle. W raporcie podatkowym (DE) koszt nabycia przechodzi wtedy razem z aktywami, zamiast przepadać.',
+    transferBadge: 'Transfer ↔ {source}',
+    noCandidates: 'Nie znaleziono pasującego odpowiednika (przeciwny typ, to samo aktywo, ilość/czas muszą się zgadzać).',
+    linkFailed: 'Połączenie nie powiodło się',
+    unlink: 'Rozłącz',
+    unlinkTitle: 'Rozłączyć powiązanie transferu?',
+    unlinkMessage: 'Koszt nabycia nie będzie wtedy przenoszony w raporcie podatkowym.',
   },
   tax: {
     title: 'Raport podatkowy',
@@ -172,6 +182,7 @@ const pl: MessageSchema = {
     countryAT: 'Austria',
     loadFailed: 'Nie udało się utworzyć raportu',
     exportCsv: 'Eksportuj CSV',
+    exportPdf: 'Eksportuj PDF',
     totalGain: 'Wynik łączny',
     taxFreeGain: 'Wolne od podatku (okres posiadania)',
     taxableGain: 'Podlegające opodatkowaniu (przed progiem zwolnienia)',
@@ -180,6 +191,9 @@ const pl: MessageSchema = {
     thresholdNotApplied: 'poniżej progu zwolnienia',
     taxableAfterThreshold: 'Wynik podlegający opodatkowaniu',
     neuvermoegenGain: 'w tym Neuvermögen (specjalna stawka 27,5 %)',
+    stakingIncome: 'Przychody ze stakingu w momencie otrzymania (§22 Nr. 3 EStG)',
+    stakingThreshold: 'Próg zwolnienia dla stakingu',
+    stakingTaxable: 'Opodatkowane przychody ze stakingu',
     disposals: 'Zbycia',
     noDisposals: 'Brak zbyć w wybranym roku.',
     acquired: 'Nabycie',
@@ -197,12 +211,13 @@ const pl: MessageSchema = {
     warningsTitle: 'Uwagi',
     disclaimerTitle: 'To nie jest doradztwo podatkowe',
     disclaimer:
-      'Ten raport to niewiążąca pomoc obliczeniowa. Założenia: FIFO globalnie dla wszystkich źródeł (DE), Altvermögen jest zużywane w pierwszej kolejności (AT); wymiany krypto-krypto, staking/lending/airdropy oraz przeliczanie walut obcych nie są uwzględnione. Przy zeznaniu podatkowym skorzystaj z porady specjalisty.',
+      'Ten raport to niewiążąca pomoc obliczeniowa. Założenia: FIFO osobno dla każdego źródła/portfela (DE, ujęcie portfelowe zgodnie z BMF-Schreiben v. 10.05.2022) — połączone transfery przenoszą koszt nabycia, niepołączone wypłaty go tracą; Altvermögen jest zużywane w pierwszej kolejności (AT); wymiany krypto-krypto oraz przeliczanie walut obcych nie są uwzględnione. Przy zeznaniu podatkowym skorzystaj z porady specjalisty.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: nabycie bez kursu — przyjęto koszt nabycia 0 ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: zbycie bez możliwego do ustalenia kursu — nieuwzględnione w sumach ({count}×)',
       SOLD_MORE_THAN_ACQUIRED: '{symbol}: zbyto więcej, niż zarejestrowano nabyć — niepokryta część z bazą 0 ({count}×)',
-      WITHDRAWAL_REMOVED_LOTS: '{symbol}: wypłaty usunęły aktywa ze śledzenia ({count}×)',
+      WITHDRAWAL_REMOVED_LOTS:
+        '{symbol}: wypłaty usunęły aktywa ze śledzenia ({count}×) — połącz jako transfer, aby zachować koszt nabycia',
       TRANSFERS_IGNORED: '{symbol}: transakcje typu transfer/inne zostały zignorowane ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: odrzucono kurs w walucie obcej — użyto historycznej dziennej ceny w EUR ({count}×)',
       PRICE_LOOKUP_LIMIT_REACHED: 'Osiągnięto limit zapytań o kursy — utwórz raport ponownie, aby pobrać kolejne kursy',
@@ -239,6 +254,13 @@ const pl: MessageSchema = {
     COINGECKO_ID_TAKEN: 'To ID CoinGecko jest już przypisane do innego aktywa',
     SOURCE_HAS_TRANSACTIONS:
       'Aktywa tego źródła są obliczane na podstawie transakcji — edytuj transakcje',
+    TRANSFER_LINK_TYPES_INVALID: 'Transfer łączy dokładnie jedną wypłatę z jedną wpłatą',
+    TRANSFER_LINK_ASSET_MISMATCH: 'Obie strony muszą dotyczyć tego samego aktywa',
+    TRANSFER_LINK_QUANTITY_INVALID: 'Ilość wpłaty nie może przekraczać ilości wypłaty',
+    TRANSFER_LINK_TIMESTAMP_INVALID: 'Wpłata nastąpiła zbyt długo przed wypłatą',
+    TRANSFER_LINK_ALREADY_LINKED: 'Jedna z transakcji jest już połączona',
+    TRANSFER_LINKED_TX_IMMUTABLE:
+      'Ta transakcja jest połączona jako transfer — najpierw rozłącz powiązanie',
   },
   relative: {
     never: 'nigdy',

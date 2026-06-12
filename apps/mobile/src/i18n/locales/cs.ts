@@ -150,6 +150,7 @@ const cs: MessageSchema = {
     typeDEPOSIT: 'Vklad',
     typeWITHDRAWAL: 'Výběr',
     typeTRANSFER: 'Převod',
+    typeSTAKING_REWARD: 'Odměna za staking',
     typeOTHER: 'Ostatní',
     quantity: 'Množství',
     price: 'Kurz za jednotku (volitelné)',
@@ -161,6 +162,15 @@ const cs: MessageSchema = {
     deleteTitle: 'Smazat transakci?',
     deleteMessage: 'Aktiva zdroje budou přepočítána.',
     importedBadge: 'importováno',
+    transferModalTitle: 'Propojit jako převod',
+    transferHint:
+      'Propojte tuto transakci s jejím protějškem v jiném zdroji. V daňovém reportu (DE) se pak pořizovací náklady přenesou, místo aby se ztratily.',
+    transferBadge: 'Převod ↔ {source}',
+    noCandidates: 'Nebyl nalezen žádný odpovídající protějšek (opačný typ, stejné aktivum, množství/čas musí odpovídat).',
+    linkFailed: 'Propojení se nezdařilo',
+    unlink: 'Zrušit propojení',
+    unlinkTitle: 'Zrušit propojení převodu?',
+    unlinkMessage: 'Pořizovací náklady se pak v daňovém reportu už nepřenesou.',
   },
   tax: {
     title: 'Daňový report',
@@ -172,6 +182,7 @@ const cs: MessageSchema = {
     countryAT: 'Rakousko',
     loadFailed: 'Report se nepodařilo vytvořit',
     exportCsv: 'Exportovat CSV',
+    exportPdf: 'Exportovat PDF',
     totalGain: 'Celkový výsledek',
     taxFreeGain: 'Osvobozeno od daně (doba držení)',
     taxableGain: 'Zdanitelné (před hranicí osvobození)',
@@ -180,6 +191,9 @@ const cs: MessageSchema = {
     thresholdNotApplied: 'pod hranicí osvobození',
     taxableAfterThreshold: 'Zdanitelný výsledek',
     neuvermoegenGain: 'z toho Neuvermögen (zvláštní sazba 27,5 %)',
+    stakingIncome: 'Příjmy ze stakingu při přijetí (§22 Nr. 3 EStG)',
+    stakingThreshold: 'Hranice osvobození pro staking',
+    stakingTaxable: 'Zdanitelné příjmy ze stakingu',
     disposals: 'Prodeje',
     noDisposals: 'Ve vybraném roce žádné prodeje.',
     acquired: 'Pořízení',
@@ -197,12 +211,13 @@ const cs: MessageSchema = {
     warningsTitle: 'Upozornění',
     disclaimerTitle: 'Nejedná se o daňové poradenství',
     disclaimer:
-      'Tento report je nezávazná výpočetní pomůcka. Předpoklady: FIFO globálně přes všechny zdroje (DE), Altvermögen se spotřebovává jako první (AT); směny krypto-krypto, staking/lending/airdropy a přepočet cizích měn nejsou zohledněny. Pro daňové přiznání si prosím vyžádejte odbornou radu.',
+      'Tento report je nezávazná výpočetní pomůcka. Předpoklady: FIFO za každý zdroj/peněženku zvlášť (DE, posuzování po peněženkách podle BMF-Schreiben v. 10.05.2022) — propojené převody přenášejí pořizovací náklady, nepropojené výběry je ztrácejí; Altvermögen se spotřebovává jako první (AT); směny krypto-krypto a přepočet cizích měn nejsou zohledněny. Pro daňové přiznání si prosím vyžádejte odbornou radu.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: pořízení bez kurzu — použity pořizovací náklady 0 ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: prodej bez zjistitelného kurzu — nezahrnuto v součtech ({count}×)',
       SOLD_MORE_THAN_ACQUIRED: '{symbol}: prodáno více, než bylo evidováno pořízeno — nepokrytá část se základem 0 ({count}×)',
-      WITHDRAWAL_REMOVED_LOTS: '{symbol}: výběry odstranily aktiva ze sledování ({count}×)',
+      WITHDRAWAL_REMOVED_LOTS:
+        '{symbol}: výběry odstranily aktiva ze sledování ({count}×) — propojte je jako převod, aby se zachovaly pořizovací náklady',
       TRANSFERS_IGNORED: '{symbol}: transakce typu převod/ostatní byly ignorovány ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: kurz v cizí měně zahozen — použita historická denní cena v EUR ({count}×)',
       PRICE_LOOKUP_LIMIT_REACHED: 'Dosažen limit dotazů na kurzy — vytvořte report znovu, aby se načetly další kurzy',
@@ -239,6 +254,13 @@ const cs: MessageSchema = {
     COINGECKO_ID_TAKEN: 'Toto CoinGecko ID je už přiřazeno jinému aktivu',
     SOURCE_HAS_TRANSACTIONS:
       'Aktiva tohoto zdroje se počítají z transakcí — upravte prosím transakce',
+    TRANSFER_LINK_TYPES_INVALID: 'Převod propojuje právě jeden výběr s jedním vkladem',
+    TRANSFER_LINK_ASSET_MISMATCH: 'Obě strany musí mít stejné aktivum',
+    TRANSFER_LINK_QUANTITY_INVALID: 'Množství vkladu nesmí překročit množství výběru',
+    TRANSFER_LINK_TIMESTAMP_INVALID: 'Vklad je příliš dlouho před výběrem',
+    TRANSFER_LINK_ALREADY_LINKED: 'Jedna z transakcí je již propojena',
+    TRANSFER_LINKED_TX_IMMUTABLE:
+      'Tato transakce je propojena jako převod — nejprve prosím zrušte propojení',
   },
   relative: {
     never: 'nikdy',

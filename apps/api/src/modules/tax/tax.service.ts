@@ -22,7 +22,18 @@ import {
 
 // Bewusst Express-frei (wie sync.service) — später auch aus Worker/Cron aufrufbar.
 
-type TxWithAsset = Prisma.TransactionGetPayload<{ include: { asset: true } }>
+const TAX_TX_INCLUDE = {
+  asset: true,
+  source: { select: { label: true } },
+  transferOut: { select: { id: true } },
+  transferIn: { select: { id: true } },
+} satisfies Prisma.TransactionInclude
+
+type TxWithAsset = Prisma.TransactionGetPayload<{ include: typeof TAX_TX_INCLUDE }>
+
+function transferGroupId(tx: TxWithAsset): string | null {
+  return tx.transferOut?.id ?? tx.transferIn?.id ?? null
+}
 
 // Engine rechnet nur in EUR. Kurs in Fremdwährung wird verworfen (keine
 // FX-Umrechnung in V1) und — wie fehlende Kurse — per Tagespreis-Backfill ersetzt.
@@ -56,9 +67,12 @@ async function enrichTransactions(
   }
 
   // Nur Typen backfillen, deren Kurs steuerlich relevant ist
-  // (STAKING_REWARD: DE braucht den Zuflusswert als Einkommen + Kostenbasis)
+  // (STAKING_REWARD: DE braucht den Zuflusswert als Einkommen + Kostenbasis).
+  // Verlinkte Transfer-Deposits brauchen keinen Kurs — ihre Basis kommt aus
+  // den umgezogenen Slices (spart CoinGecko-Budget).
   const requests: HistoricalPriceRequest[] = pending
     .filter((p) => p.needsBackfill && ['BUY', 'SELL', 'DEPOSIT', 'STAKING_REWARD'].includes(p.tx.type))
+    .filter((p) => !(p.tx.type === 'DEPOSIT' && transferGroupId(p.tx) !== null))
     .map((p) => ({ assetId: p.tx.assetId, coingeckoId: p.tx.asset.coingeckoId, date: p.tx.timestamp }))
 
   const { prices, limitReached } = await resolveHistoricalPrices(requests)
@@ -76,6 +90,7 @@ async function enrichTransactions(
     }
     return {
       id: p.tx.id,
+      sourceId: p.tx.sourceId,
       assetId: p.tx.assetId,
       assetSymbol: p.tx.asset.symbol,
       assetName: p.tx.asset.name,
@@ -85,14 +100,16 @@ async function enrichTransactions(
       feeEur: p.feeEur,
       timestamp: p.tx.timestamp,
       priceSource,
+      transferGroupId: transferGroupId(p.tx),
     }
   })
 
   return { engineTxs, warnings }
 }
 
-function toDisposalDto(d: EngineDisposal): TaxDisposalDto {
+function toDisposalDto(d: EngineDisposal, sourceLabels: Map<string, string>): TaxDisposalDto {
   return {
+    sourceLabel: sourceLabels.get(d.sourceId),
     assetSymbol: d.assetSymbol,
     assetName: d.assetName,
     acquiredAt: d.acquiredAt?.toISOString() ?? null,
@@ -114,9 +131,10 @@ export async function getReport(
 ): Promise<TaxReportDto> {
   const txs = await prisma.transaction.findMany({
     where: { source: { userId } },
-    include: { asset: true },
+    include: TAX_TX_INCLUDE,
     orderBy: { timestamp: 'asc' },
   })
+  const sourceLabels = new Map(txs.map((tx) => [tx.sourceId, tx.source.label]))
 
   const { engineTxs, warnings: enrichmentWarnings } = await enrichTransactions(txs)
   const report: EngineReport =
@@ -134,7 +152,7 @@ export async function getReport(
     year,
     country,
     currency: 'EUR',
-    disposals: report.disposals.map(toDisposalDto),
+    disposals: report.disposals.map((d) => toDisposalDto(d, sourceLabels)),
     totals: {
       totalGainEur: report.totals.totalGainEur.toFixed(2),
       taxFreeGainEur: report.totals.taxFreeGainEur.toFixed(2),

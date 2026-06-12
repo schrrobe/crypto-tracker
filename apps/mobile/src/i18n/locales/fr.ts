@@ -150,6 +150,7 @@ const fr: MessageSchema = {
     typeDEPOSIT: 'Dépôt',
     typeWITHDRAWAL: 'Retrait',
     typeTRANSFER: 'Transfert',
+    typeSTAKING_REWARD: 'Récompense de staking',
     typeOTHER: 'Autre',
     quantity: 'Quantité',
     price: 'Cours par unité (optionnel)',
@@ -161,6 +162,15 @@ const fr: MessageSchema = {
     deleteTitle: 'Supprimer la transaction ?',
     deleteMessage: 'Les avoirs de la source seront recalculés.',
     importedBadge: 'importé',
+    transferModalTitle: 'Lier comme transfert',
+    transferHint:
+      "Liez cette transaction à sa contrepartie dans une autre source. Dans le rapport fiscal (DE), le coût d'acquisition est alors transféré au lieu d'être perdu.",
+    transferBadge: 'Transfert ↔ {source}',
+    noCandidates: 'Aucune contrepartie correspondante trouvée (type opposé, même actif, quantité/date doivent correspondre).',
+    linkFailed: 'Échec de la liaison',
+    unlink: 'Délier',
+    unlinkTitle: 'Supprimer la liaison de transfert ?',
+    unlinkMessage: "Le coût d'acquisition ne sera alors plus transféré dans le rapport fiscal.",
   },
   tax: {
     title: 'Rapport fiscal',
@@ -172,6 +182,7 @@ const fr: MessageSchema = {
     countryAT: 'Autriche',
     loadFailed: "Le rapport n'a pas pu être généré",
     exportCsv: 'Exporter en CSV',
+    exportPdf: 'Exporter en PDF',
     totalGain: 'Résultat total',
     taxFreeGain: 'Exonéré (durée de détention)',
     taxableGain: "Imposable (avant seuil d'exonération)",
@@ -180,6 +191,9 @@ const fr: MessageSchema = {
     thresholdNotApplied: "sous le seuil d'exonération",
     taxableAfterThreshold: 'Résultat imposable',
     neuvermoegenGain: 'dont Neuvermögen (taux spécial de 27,5 %)',
+    stakingIncome: 'Revenus de staking à la réception (§22 Nr. 3 EStG)',
+    stakingThreshold: "Seuil d'exonération staking",
+    stakingTaxable: 'Revenus de staking imposables',
     disposals: 'Cessions',
     noDisposals: "Aucune cession dans l'année sélectionnée.",
     acquired: 'Acquisition',
@@ -197,12 +211,13 @@ const fr: MessageSchema = {
     warningsTitle: 'Remarques',
     disclaimerTitle: 'Pas un conseil fiscal',
     disclaimer:
-      "Ce rapport est une aide au calcul sans valeur contractuelle. Hypothèses : FIFO global sur toutes les sources (DE), l'Altvermögen est consommé en premier (AT) ; les échanges crypto-crypto, le staking/lending/les airdrops et la conversion de devises étrangères ne sont pas pris en compte. Pour la déclaration fiscale, veuillez consulter un professionnel.",
+      "Ce rapport est une aide au calcul sans valeur contractuelle. Hypothèses : FIFO par source/portefeuille (DE, approche par portefeuille selon le BMF-Schreiben v. 10.05.2022) — les transferts liés transmettent le coût d'acquisition, les retraits non liés le perdent ; l'Altvermögen est consommé en premier (AT) ; les échanges crypto-crypto et la conversion de devises étrangères ne sont pas pris en compte. Pour la déclaration fiscale, veuillez consulter un professionnel.",
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: "{symbol} : acquisition sans cours — coût d'acquisition de 0 retenu ({count}×)",
       MISSING_DISPOSAL_PRICE: '{symbol} : cession sans cours déterminable — non incluse dans les totaux ({count}×)',
       SOLD_MORE_THAN_ACQUIRED: "{symbol} : plus de cessions que d'acquisitions enregistrées — part non couverte avec une base de 0 ({count}×)",
-      WITHDRAWAL_REMOVED_LOTS: '{symbol} : des retraits ont supprimé des avoirs du suivi ({count}×)',
+      WITHDRAWAL_REMOVED_LOTS:
+        "{symbol} : des retraits ont supprimé des avoirs du suivi ({count}×) — liez-les comme transfert pour conserver le coût d'acquisition",
       TRANSFERS_IGNORED: '{symbol} : les transactions de type transfert/autre ont été ignorées ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol} : cours en devise étrangère écarté — prix journalier EUR historique utilisé ({count}×)',
       PRICE_LOOKUP_LIMIT_REACHED: "Limite de requêtes de cours atteinte — régénérez le rapport pour charger d'autres cours",
@@ -239,6 +254,13 @@ const fr: MessageSchema = {
     COINGECKO_ID_TAKEN: 'Cet identifiant CoinGecko est déjà associé à un autre actif',
     SOURCE_HAS_TRANSACTIONS:
       'Les avoirs de cette source sont calculés à partir des transactions — veuillez modifier les transactions',
+    TRANSFER_LINK_TYPES_INVALID: 'Un transfert lie exactement un retrait à un dépôt',
+    TRANSFER_LINK_ASSET_MISMATCH: 'Les deux côtés doivent porter sur le même actif',
+    TRANSFER_LINK_QUANTITY_INVALID: 'La quantité du dépôt ne peut pas dépasser celle du retrait',
+    TRANSFER_LINK_TIMESTAMP_INVALID: 'Le dépôt est trop antérieur au retrait',
+    TRANSFER_LINK_ALREADY_LINKED: "L'une des transactions est déjà liée",
+    TRANSFER_LINKED_TX_IMMUTABLE:
+      "Cette transaction est liée comme transfert — veuillez d'abord supprimer la liaison",
   },
   relative: {
     never: 'jamais',

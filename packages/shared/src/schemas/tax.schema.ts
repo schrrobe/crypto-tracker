@@ -47,6 +47,8 @@ export interface TaxDisposalDto {
   taxable: boolean
   regime: TaxRegime
   priceQuality: TaxPriceQuality
+  // Quelle der Veräußerung — relevant seit wallet-bezogenem FIFO (DE)
+  sourceLabel?: string
 }
 
 export interface TaxReportTotalsDto {

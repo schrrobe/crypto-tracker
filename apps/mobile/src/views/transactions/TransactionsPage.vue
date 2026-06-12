@@ -22,6 +22,13 @@
             <h3>
               {{ tx.asset.symbol }} · {{ $t(`transactions.type${tx.type}`) }}
               <ion-badge v-if="!tx.editable" color="medium">{{ $t('transactions.importedBadge') }}</ion-badge>
+              <ion-badge
+                v-if="tx.transferLink"
+                color="tertiary"
+                :data-testid="`tx-transfer-badge-${tx.asset.symbol}`"
+              >
+                {{ $t('transactions.transferBadge', { source: tx.transferLink.counterpartSourceLabel }) }}
+              </ion-badge>
             </h3>
             <p>
               {{ formatQuantity(tx.quantity) }}
@@ -31,6 +38,20 @@
             <p>{{ tx.sourceLabel }}</p>
           </ion-label>
           <ion-buttons slot="end">
+            <ion-button
+              v-if="isLinkable(tx)"
+              :data-testid="`tx-link-${tx.asset.symbol}`"
+              @click="openLink(tx)"
+            >
+              <ion-icon :icon="gitMergeOutline" slot="icon-only" />
+            </ion-button>
+            <ion-button
+              v-if="tx.transferLink"
+              :data-testid="`tx-unlink-${tx.asset.symbol}`"
+              @click="confirmUnlink(tx)"
+            >
+              <ion-icon :icon="unlinkOutline" slot="icon-only" />
+            </ion-button>
             <ion-button
               v-if="tx.editable"
               :data-testid="`tx-edit-${tx.asset.symbol}`"
@@ -69,6 +90,12 @@
         @close="modalOpen = false"
         @saved="onSaved"
       />
+      <TransferLinkModal
+        :is-open="linkModalOpen"
+        :transaction="linkTransaction"
+        @close="linkModalOpen = false"
+        @linked="onSaved"
+      />
     </ion-content>
   </ion-page>
 </template>
@@ -93,10 +120,11 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { addOutline, createOutline, trashOutline } from 'ionicons/icons'
+import { addOutline, createOutline, gitMergeOutline, trashOutline, unlinkOutline } from 'ionicons/icons'
 import { ref } from 'vue'
 import type { TransactionDto } from '@crypto-tracker/shared'
 import TransactionFormModal from '../../components/TransactionFormModal.vue'
+import TransferLinkModal from '../../components/TransferLinkModal.vue'
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
 import ErrorState from '../../components/ErrorState.vue'
 import { useTransactionsStore } from '../../stores/transactions.store'
@@ -111,6 +139,36 @@ const pageLoading = ref(false)
 const pageError = ref(false)
 const modalOpen = ref(false)
 const editTransaction = ref<TransactionDto | null>(null)
+const linkModalOpen = ref(false)
+const linkTransaction = ref<TransactionDto | null>(null)
+
+// nur unverlinkte Auszahlungen/Einzahlungen sind als Transfer verknüpfbar
+function isLinkable(tx: TransactionDto): boolean {
+  return !tx.transferLink && (tx.type === 'WITHDRAWAL' || tx.type === 'DEPOSIT')
+}
+
+function openLink(tx: TransactionDto) {
+  linkTransaction.value = tx
+  linkModalOpen.value = true
+}
+
+async function confirmUnlink(tx: TransactionDto) {
+  const alert = await alertController.create({
+    header: t('transactions.unlinkTitle'),
+    message: t('transactions.unlinkMessage'),
+    buttons: [
+      { text: t('common.cancel'), role: 'cancel' },
+      {
+        text: t('transactions.unlink'),
+        role: 'destructive',
+        handler: () => {
+          store.unlinkTransfer(tx.id)
+        },
+      },
+    ],
+  })
+  await alert.present()
+}
 
 async function loadData() {
   pageLoading.value = true

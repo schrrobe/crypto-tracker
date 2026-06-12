@@ -11,9 +11,32 @@ import { computeNetBalances } from './tx-net-balance'
 
 const MANUAL_TX_SOURCE_LABEL = 'Manuelle Transaktionen'
 
-type TxWithRelations = Prisma.TransactionGetPayload<{ include: { asset: true; source: true } }>
+// Includes für DTO-Mapping: Gegenseite des Transfer-Links inkl. Quelle
+const TX_INCLUDE = {
+  asset: true,
+  source: true,
+  transferOut: { include: { depositTx: { include: { source: true } } } },
+  transferIn: { include: { withdrawalTx: { include: { source: true } } } },
+} satisfies Prisma.TransactionInclude
+
+type TxWithRelations = Prisma.TransactionGetPayload<{ include: typeof TX_INCLUDE }>
 
 function toTransactionDto(tx: TxWithRelations): TransactionDto {
+  const transferLink = tx.transferOut
+    ? {
+        id: tx.transferOut.id,
+        counterpartTxId: tx.transferOut.depositTx.id,
+        counterpartSourceLabel: tx.transferOut.depositTx.source.label,
+        direction: 'OUT' as const,
+      }
+    : tx.transferIn
+      ? {
+          id: tx.transferIn.id,
+          counterpartTxId: tx.transferIn.withdrawalTx.id,
+          counterpartSourceLabel: tx.transferIn.withdrawalTx.source.label,
+          direction: 'IN' as const,
+        }
+      : null
   return {
     id: tx.id,
     sourceId: tx.sourceId,
@@ -33,6 +56,7 @@ function toTransactionDto(tx: TxWithRelations): TransactionDto {
     feeAmount: tx.feeAmount?.toString() ?? null,
     currency: tx.currency,
     timestamp: tx.timestamp.toISOString(),
+    transferLink,
   }
 }
 
@@ -85,7 +109,7 @@ export async function listTransactions(
   }
   const txs = await prisma.transaction.findMany({
     where,
-    include: { asset: true, source: true },
+    include: TX_INCLUDE,
     orderBy: { timestamp: 'desc' },
   })
   return txs.map(toTransactionDto)
@@ -110,7 +134,7 @@ export async function createTransaction(
       currency: input.currency ?? null,
       timestamp: new Date(input.timestamp),
     },
-    include: { asset: true, source: true },
+    include: TX_INCLUDE,
   })
   await recomputeHoldings(source.id)
   return toTransactionDto(tx)
@@ -120,7 +144,7 @@ export async function createTransaction(
 async function getOwnedManualTransaction(userId: string, txId: string) {
   const tx = await prisma.transaction.findFirst({
     where: { id: txId, source: { userId } },
-    include: { source: true },
+    include: { source: true, transferOut: true, transferIn: true },
   })
   if (!tx || tx.source.type !== 'MANUAL') throw AppError.notFound('Transaktion nicht gefunden')
   return tx
@@ -132,6 +156,20 @@ export async function updateTransaction(
   input: UpdateTransactionInput,
 ): Promise<TransactionDto> {
   const existing = await getOwnedManualTransaction(userId, txId)
+
+  // Verlinkte Transfer-Seiten dürfen die Link-Invarianten (Typ/Asset/Menge/Zeit)
+  // nicht nachträglich brechen — erst entlinken, dann editieren
+  const touchesLinkInvariants =
+    input.type !== undefined ||
+    input.assetId !== undefined ||
+    input.quantity !== undefined ||
+    input.timestamp !== undefined
+  if ((existing.transferOut || existing.transferIn) && touchesLinkInvariants) {
+    throw AppError.conflict(
+      'TRANSFER_LINKED_TX_IMMUTABLE',
+      'Diese Transaktion ist als Transfer verknüpft — bitte zuerst die Verknüpfung lösen',
+    )
+  }
 
   if (input.assetId) {
     const asset = await prisma.asset.findUnique({ where: { id: input.assetId } })
@@ -149,7 +187,7 @@ export async function updateTransaction(
       currency: input.currency,
       timestamp: input.timestamp ? new Date(input.timestamp) : undefined,
     },
-    include: { asset: true, source: true },
+    include: TX_INCLUDE,
   })
   await recomputeHoldings(existing.sourceId)
   return toTransactionDto(tx)

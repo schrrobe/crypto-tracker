@@ -14,11 +14,14 @@ function tx(input: {
   ts: string
   symbol?: string
   missing?: boolean
+  source?: string
+  transferGroup?: string
 }): EngineTx {
   counter += 1
   const priceEur = input.price === null || input.price === undefined ? null : dec(input.price)
   return {
     id: `tx-${counter}`,
+    sourceId: input.source ?? 'src-1',
     assetId: input.symbol ?? 'BTC',
     assetSymbol: input.symbol ?? 'BTC',
     assetName: input.symbol ?? 'Bitcoin',
@@ -28,6 +31,7 @@ function tx(input: {
     feeEur: input.fee === undefined ? null : dec(input.fee),
     timestamp: new Date(input.ts),
     priceSource: input.missing ? 'MISSING' : priceEur === null ? 'MISSING' : 'ORIGINAL',
+    transferGroupId: input.transferGroup ?? null,
   }
 }
 
@@ -287,6 +291,129 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     expect(report.warnings).toHaveLength(0)
   })
 
+  it('wallet-FIFO: SELL auf Quelle B trifft nicht die Lots von Quelle A', () => {
+    const report = computeReportDE(
+      [
+        tx({ type: 'BUY', qty: 1, price: 100, ts: '2024-01-01T00:00:00Z', source: 'A' }),
+        tx({ type: 'SELL', qty: 1, price: 200, ts: '2024-03-01T00:00:00Z', source: 'B' }),
+        // Beweis: A ist unberührt — Verkauf auf A nutzt das A-Lot
+        tx({ type: 'SELL', qty: 1, price: 300, ts: '2024-06-01T00:00:00Z', source: 'A' }),
+      ],
+      2024,
+    )
+    const onB = report.disposals.find((d) => d.sourceId === 'B')
+    const onA = report.disposals.find((d) => d.sourceId === 'A')
+    // B hat keine Lots → Oversell mit Basis 0
+    expect(onB?.costBasisEur.toString()).toBe('0')
+    expect(onB?.acquiredAt).toBeNull()
+    // A verkauft sein eigenes Lot mit Basis 100
+    expect(onA?.costBasisEur.toString()).toBe('100')
+    expect(warningCodes(report)).toContain('SOLD_MORE_THAN_ACQUIRED')
+  })
+
+  it('verknüpfter Transfer: Kostenbasis und Haltefrist ziehen mit um', () => {
+    const report = computeReportDE(
+      [
+        tx({ type: 'BUY', qty: 1, price: 1000, ts: '2020-05-01T00:00:00Z', source: 'A' }),
+        tx({ type: 'WITHDRAWAL', qty: 1, ts: '2023-02-01T00:00:00Z', source: 'A', transferGroup: 'g1' }),
+        tx({ type: 'DEPOSIT', qty: 1, ts: '2023-02-01T01:00:00Z', source: 'B', transferGroup: 'g1' }),
+        tx({ type: 'SELL', qty: 1, price: 50000, ts: '2024-06-01T00:00:00Z', source: 'B' }),
+      ],
+      2024,
+    )
+    expect(report.disposals).toHaveLength(1)
+    // Anschaffung 2020 bleibt erhalten → > 1 Jahr → steuerfrei
+    expect(report.disposals[0]?.costBasisEur.toString()).toBe('1000')
+    expect(report.disposals[0]?.taxable).toBe(false)
+    // keine Transfer-bezogenen Warnungen
+    expect(warningCodes(report)).not.toContain('WITHDRAWAL_REMOVED_LOTS')
+    expect(warningCodes(report)).not.toContain('UNKNOWN_ACQUISITION_BASIS')
+  })
+
+  it('Transfer mit Netzwerkgebühr: Differenz verfällt still, älteste Anteile bleiben', () => {
+    const report = computeReportDE(
+      [
+        tx({ type: 'BUY', qty: 1, price: 1000, ts: '2022-01-01T00:00:00Z', source: 'A' }),
+        tx({ type: 'WITHDRAWAL', qty: 1, ts: '2023-01-01T00:00:00Z', source: 'A', transferGroup: 'g1' }),
+        tx({ type: 'DEPOSIT', qty: '0.995', ts: '2023-01-01T01:00:00Z', source: 'B', transferGroup: 'g1' }),
+        tx({ type: 'SELL', qty: '0.995', price: 2000, ts: '2023-06-01T00:00:00Z', source: 'B' }),
+      ],
+      2023,
+    )
+    expect(report.disposals).toHaveLength(1)
+    // Basis anteilig: 0,995 × 1000 = 995
+    expect(report.disposals[0]?.costBasisEur.toString()).toBe('995')
+    expect(report.disposals[0]?.quantity.toString()).toBe('0.995')
+  })
+
+  it('Transfer: umgezogenes altes Lot wird im Ziel zuerst verbraucht (FIFO)', () => {
+    const report = computeReportDE(
+      [
+        tx({ type: 'BUY', qty: 1, price: 100, ts: '2022-06-01T00:00:00Z', source: 'B' }),
+        tx({ type: 'BUY', qty: 1, price: 1000, ts: '2020-01-01T00:00:00Z', source: 'A' }),
+        tx({ type: 'WITHDRAWAL', qty: 1, ts: '2023-01-01T00:00:00Z', source: 'A', transferGroup: 'g1' }),
+        tx({ type: 'DEPOSIT', qty: 1, ts: '2023-01-01T01:00:00Z', source: 'B', transferGroup: 'g1' }),
+        tx({ type: 'SELL', qty: 1, price: 5000, ts: '2024-01-01T00:00:00Z', source: 'B' }),
+      ],
+      2024,
+    )
+    // verkauft wird das 2020er-Lot (Basis 1000), nicht das 2022er B-Lot
+    expect(report.disposals).toHaveLength(1)
+    expect(report.disposals[0]?.costBasisEur.toString()).toBe('1000')
+    expect(report.disposals[0]?.taxable).toBe(false)
+  })
+
+  it('Transfer-Toleranz: Deposit nominell vor Withdrawal wird normalisiert', () => {
+    const report = computeReportDE(
+      [
+        tx({ type: 'BUY', qty: 1, price: 100, ts: '2022-01-01T00:00:00Z', source: 'A' }),
+        // CSV-Tagesgranularität: Deposit 6 h „vor" dem Withdrawal
+        tx({ type: 'DEPOSIT', qty: 1, ts: '2023-01-01T00:00:00Z', source: 'B', transferGroup: 'g1' }),
+        tx({ type: 'WITHDRAWAL', qty: 1, ts: '2023-01-01T06:00:00Z', source: 'A', transferGroup: 'g1' }),
+        tx({ type: 'SELL', qty: 1, price: 500, ts: '2024-06-01T00:00:00Z', source: 'B' }),
+      ],
+      2024,
+    )
+    expect(report.disposals[0]?.costBasisEur.toString()).toBe('100')
+    expect(warningCodes(report)).not.toContain('UNKNOWN_ACQUISITION_BASIS')
+  })
+
+  it('verknüpftes Deposit ohne Withdrawal im Stream fällt auf Normalverhalten zurück', () => {
+    const report = computeReportDE(
+      [
+        tx({ type: 'DEPOSIT', qty: 1, ts: '2023-01-01T00:00:00Z', source: 'B', transferGroup: 'g-verwaist' }),
+        tx({ type: 'SELL', qty: 1, price: 500, ts: '2024-06-01T00:00:00Z', source: 'B' }),
+      ],
+      2024,
+    )
+    // Deposit ohne Kurs → Basis 0 + Warnung, wie unverlinkt
+    expect(report.disposals[0]?.costBasisEur.toString()).toBe('0')
+    expect(warningCodes(report)).toContain('UNKNOWN_ACQUISITION_BASIS')
+  })
+
+  it('Oversell-Anteil zieht beim Transfer mit und bleibt steuerpflichtig', () => {
+    const report = computeReportDE(
+      [
+        tx({ type: 'BUY', qty: '0.4', price: 1000, ts: '2020-01-01T00:00:00Z', source: 'A' }),
+        // Withdrawal über mehr als getrackt: 0,6 ungedeckt
+        tx({ type: 'WITHDRAWAL', qty: 1, ts: '2023-01-01T00:00:00Z', source: 'A', transferGroup: 'g1' }),
+        tx({ type: 'DEPOSIT', qty: 1, ts: '2023-01-01T01:00:00Z', source: 'B', transferGroup: 'g1' }),
+        tx({ type: 'SELL', qty: 1, price: 1000, ts: '2024-06-01T00:00:00Z', source: 'B' }),
+      ],
+      2024,
+    )
+    expect(report.disposals).toHaveLength(2)
+    const covered = report.disposals.find((d) => d.acquiredAt !== null)
+    const uncovered = report.disposals.find((d) => d.acquiredAt === null)
+    // gedeckter Anteil: 2020er-Basis, > 1 Jahr → steuerfrei
+    expect(covered?.costBasisEur.toString()).toBe('400')
+    expect(covered?.taxable).toBe(false)
+    // ungedeckter Anteil: Basis 0, steuerpflichtig
+    expect(uncovered?.costBasisEur.toString()).toBe('0')
+    expect(uncovered?.taxable).toBe(true)
+    expect(warningCodes(report)).toContain('SOLD_MORE_THAN_ACQUIRED')
+  })
+
   it('Staking-Zufluss: Einkommen zum Marktwert, Freigrenze 256 €', () => {
     const under = computeReportDE(
       [tx({ type: 'STAKING_REWARD', qty: 1, price: 255, ts: '2024-03-01T00:00:00Z' })],
@@ -466,6 +593,28 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
     expect(report.disposals[0]?.regime).toBe('AT_NEUVERMOEGEN')
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('200')
     expect(warningCodes(report)).toContain('WITHDRAWAL_REMOVED_LOTS')
+  })
+
+  it('AT: verknüpfter Transfer ist neutral (globale Pools unverändert)', () => {
+    const base = [
+      tx({ type: 'BUY', qty: 2, price: 100, ts: '2022-01-01T00:00:00Z', source: 'A' }),
+      tx({ type: 'SELL', qty: 1, price: 400, ts: '2024-06-01T00:00:00Z', source: 'B' }),
+    ]
+    const withTransfer = [
+      base[0] as EngineTx,
+      tx({ type: 'WITHDRAWAL', qty: 1, ts: '2023-01-01T00:00:00Z', source: 'A', transferGroup: 'g1' }),
+      tx({ type: 'DEPOSIT', qty: 1, ts: '2023-01-01T01:00:00Z', source: 'B', transferGroup: 'g1' }),
+      base[1] as EngineTx,
+    ]
+    const without = computeReportAT(base, 2024)
+    const withTx = computeReportAT(withTransfer, 2024)
+    // identische Ergebnisse, keine Warnungen durch den Transfer
+    expect(withTx.totals.taxableAfterThresholdEur.toString()).toBe(
+      without.totals.taxableAfterThresholdEur.toString(),
+    )
+    expect(withTx.disposals[0]?.costBasisEur.toString()).toBe(without.disposals[0]?.costBasisEur.toString())
+    expect(warningCodes(withTx)).not.toContain('WITHDRAWAL_REMOVED_LOTS')
+    expect(warningCodes(withTx)).not.toContain('UNKNOWN_ACQUISITION_BASIS')
   })
 
   it('Staking AT: kein Zufluss-Einkommen, Anschaffungskosten 0, Verkauf voll steuerpflichtig', () => {

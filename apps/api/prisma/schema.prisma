@@ -156,8 +156,23 @@ model Transaction {
   timestamp    DateTime
   source       PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   asset        Asset           @relation(fields: [assetId], references: [id])
+  transferOut  TransferLink?   @relation("TransferWithdrawal")
+  transferIn   TransferLink?   @relation("TransferDeposit")
 
   @@index([sourceId, timestamp])
+}
+
+// Verknüpft eine WITHDRAWAL- mit einer DEPOSIT-Transaktion zu einem Transfer
+// zwischen zwei Quellen: die Kostenbasis zieht im Steuerreport (DE, wallet-
+// bezogenes FIFO) mit um. Beide FKs unique → maximal ein Link pro Transaktion;
+// Cascade räumt den Link auf, wenn eine Seite (oder ihre Quelle) gelöscht wird.
+model TransferLink {
+  id             String      @id @default(uuid())
+  withdrawalTxId String      @unique
+  depositTxId    String      @unique
+  createdAt      DateTime    @default(now())
+  withdrawalTx   Transaction @relation("TransferWithdrawal", fields: [withdrawalTxId], references: [id], onDelete: Cascade)
+  depositTx      Transaction @relation("TransferDeposit", fields: [depositTxId], references: [id], onDelete: Cascade)
 }
 
 model CsvImport {

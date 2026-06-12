@@ -160,6 +160,15 @@ const de = {
     deleteTitle: 'Transaktion löschen?',
     deleteMessage: 'Die Bestände der Quelle werden neu berechnet.',
     importedBadge: 'importiert',
+    transferModalTitle: 'Als Transfer verknüpfen',
+    transferHint:
+      'Verknüpfe diese Transaktion mit ihrem Gegenstück in einer anderen Quelle. Im Steuerreport (DE) zieht die Kostenbasis dann mit um, statt verloren zu gehen.',
+    transferBadge: 'Transfer ↔ {source}',
+    noCandidates: 'Kein passendes Gegenstück gefunden (Gegentyp, gleiches Asset, Menge/Zeit müssen passen).',
+    linkFailed: 'Verknüpfen fehlgeschlagen',
+    unlink: 'Lösen',
+    unlinkTitle: 'Transfer-Verknüpfung lösen?',
+    unlinkMessage: 'Die Kostenbasis wird im Steuerreport dann nicht mehr übertragen.',
   },
   tax: {
     title: 'Steuerreport',
@@ -171,6 +180,7 @@ const de = {
     countryAT: 'Österreich',
     loadFailed: 'Report konnte nicht erstellt werden',
     exportCsv: 'CSV exportieren',
+    exportPdf: 'PDF exportieren',
     totalGain: 'Gesamtergebnis',
     taxFreeGain: 'Steuerfrei (Haltefrist)',
     taxableGain: 'Steuerpflichtig (vor Freigrenze)',
@@ -199,12 +209,13 @@ const de = {
     warningsTitle: 'Hinweise',
     disclaimerTitle: 'Keine Steuerberatung',
     disclaimer:
-      'Dieser Report ist eine unverbindliche Berechnungshilfe. Annahmen: FIFO global über alle Quellen (DE), Altvermögen wird zuerst verbraucht (AT); Crypto-zu-Crypto-Tausch, Staking/Lending/Airdrops und Fremdwährungsumrechnung sind nicht abgebildet. Für die Steuererklärung bitte fachlichen Rat einholen.',
+      'Dieser Report ist eine unverbindliche Berechnungshilfe. Annahmen: FIFO je Quelle/Wallet (DE, walletbezogene Betrachtung nach BMF-Schreiben v. 10.05.2022) — verknüpfte Transfers übertragen die Kostenbasis, unverknüpfte Auszahlungen verlieren sie; Altvermögen wird zuerst verbraucht (AT); Crypto-zu-Crypto-Tausch und Fremdwährungsumrechnung sind nicht abgebildet. Für die Steuererklärung bitte fachlichen Rat einholen.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: Erwerb ohne Kurs — Anschaffungskosten 0 angesetzt ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: Veräußerung ohne ermittelbaren Kurs — nicht in den Summen ({count}×)',
       SOLD_MORE_THAN_ACQUIRED: '{symbol}: mehr veräußert als angeschafft erfasst — ungedeckter Anteil mit Basis 0 ({count}×)',
-      WITHDRAWAL_REMOVED_LOTS: '{symbol}: Auszahlungen haben Bestände aus der Verfolgung entfernt ({count}×)',
+      WITHDRAWAL_REMOVED_LOTS:
+        '{symbol}: Auszahlungen haben Bestände aus der Verfolgung entfernt ({count}×) — als Transfer verknüpfen, um die Kostenbasis zu erhalten',
       TRANSFERS_IGNORED: '{symbol}: Transfer-/Sonstige-Transaktionen wurden ignoriert ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: Kurs in Fremdwährung verworfen — historischer EUR-Tagespreis verwendet ({count}×)',
       PRICE_LOOKUP_LIMIT_REACHED: 'Kurs-Abfragelimit erreicht — Report erneut erstellen, um weitere Kurse zu laden',
@@ -241,6 +252,13 @@ const de = {
     COINGECKO_ID_TAKEN: 'Diese CoinGecko-ID ist bereits einem Asset zugeordnet',
     SOURCE_HAS_TRANSACTIONS:
       'Bestände dieser Quelle werden aus Transaktionen berechnet — bitte die Transaktionen bearbeiten',
+    TRANSFER_LINK_TYPES_INVALID: 'Ein Transfer verknüpft genau eine Auszahlung mit einer Einzahlung',
+    TRANSFER_LINK_ASSET_MISMATCH: 'Beide Seiten müssen dasselbe Asset haben',
+    TRANSFER_LINK_QUANTITY_INVALID: 'Die Einzahlungsmenge darf die Auszahlungsmenge nicht übersteigen',
+    TRANSFER_LINK_TIMESTAMP_INVALID: 'Die Einzahlung liegt zu weit vor der Auszahlung',
+    TRANSFER_LINK_ALREADY_LINKED: 'Eine der Transaktionen ist bereits verknüpft',
+    TRANSFER_LINKED_TX_IMMUTABLE:
+      'Diese Transaktion ist als Transfer verknüpft — bitte zuerst die Verknüpfung lösen',
   },
   relative: {
     never: 'noch nie',

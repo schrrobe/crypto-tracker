@@ -40,6 +40,19 @@ export const listTransactionsQuerySchema = z.object({
   assetId: z.string().uuid().optional(),
 })
 
+export const transferLinkSchema = z.object({
+  counterpartId: z.string().uuid(),
+})
+export type TransferLinkInput = z.infer<typeof transferLinkSchema>
+
+export interface TransactionTransferLinkDto {
+  id: string
+  counterpartTxId: string
+  counterpartSourceLabel: string
+  // OUT = diese Tx ist die Auszahlung, IN = die Einzahlung
+  direction: 'OUT' | 'IN'
+}
+
 export interface TransactionDto {
   id: string
   sourceId: string
@@ -53,4 +66,6 @@ export interface TransactionDto {
   feeAmount: string | null
   currency: string | null
   timestamp: string
+  // gesetzt, wenn diese WITHDRAWAL/DEPOSIT-Tx als Transfer-Paar verknüpft ist
+  transferLink: TransactionTransferLinkDto | null
 }

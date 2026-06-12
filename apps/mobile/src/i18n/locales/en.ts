@@ -150,6 +150,7 @@ const en: MessageSchema = {
     typeDEPOSIT: 'Deposit',
     typeWITHDRAWAL: 'Withdrawal',
     typeTRANSFER: 'Transfer',
+    typeSTAKING_REWARD: 'Staking reward',
     typeOTHER: 'Other',
     quantity: 'Quantity',
     price: 'Price per unit (optional)',
@@ -161,6 +162,15 @@ const en: MessageSchema = {
     deleteTitle: 'Delete transaction?',
     deleteMessage: 'The holdings of this source will be recalculated.',
     importedBadge: 'imported',
+    transferModalTitle: 'Link as transfer',
+    transferHint:
+      'Link this transaction with its counterpart in another source. In the tax report (DE), the cost basis then moves along instead of being lost.',
+    transferBadge: 'Transfer ↔ {source}',
+    noCandidates: 'No matching counterpart found (opposite type, same asset, quantity/time must match).',
+    linkFailed: 'Linking failed',
+    unlink: 'Unlink',
+    unlinkTitle: 'Remove transfer link?',
+    unlinkMessage: 'The cost basis will then no longer be carried over in the tax report.',
   },
   tax: {
     title: 'Tax report',
@@ -172,6 +182,7 @@ const en: MessageSchema = {
     countryAT: 'Austria',
     loadFailed: 'The report could not be generated',
     exportCsv: 'Export CSV',
+    exportPdf: 'Export PDF',
     totalGain: 'Total result',
     taxFreeGain: 'Tax-free (holding period)',
     taxableGain: 'Taxable (before exemption limit)',
@@ -180,6 +191,9 @@ const en: MessageSchema = {
     thresholdNotApplied: 'below the exemption limit',
     taxableAfterThreshold: 'Taxable result',
     neuvermoegenGain: 'of which Neuvermögen (27.5% special tax rate)',
+    stakingIncome: 'Staking income at receipt (§22 Nr. 3 EStG)',
+    stakingThreshold: 'Staking exemption limit',
+    stakingTaxable: 'Taxable staking income',
     disposals: 'Disposals',
     noDisposals: 'No disposals in the selected year.',
     acquired: 'Acquired',
@@ -197,12 +211,13 @@ const en: MessageSchema = {
     warningsTitle: 'Notes',
     disclaimerTitle: 'No tax advice',
     disclaimer:
-      'This report is a non-binding calculation aid. Assumptions: FIFO globally across all sources (DE), Altvermögen is consumed first (AT); crypto-to-crypto swaps, staking/lending/airdrops, and foreign currency conversion are not covered. Please seek professional advice for your tax return.',
+      'This report is a non-binding calculation aid. Assumptions: FIFO per source/wallet (DE, wallet-based view per BMF-Schreiben v. 10.05.2022) — linked transfers carry the cost basis over, unlinked withdrawals lose it; Altvermögen is consumed first (AT); crypto-to-crypto swaps and foreign currency conversion are not covered. Please seek professional advice for your tax return.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: acquisition without price — cost basis of 0 assumed ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: disposal without a determinable price — not included in totals ({count}×)',
       SOLD_MORE_THAN_ACQUIRED: '{symbol}: more disposed of than recorded as acquired — uncovered portion with basis 0 ({count}×)',
-      WITHDRAWAL_REMOVED_LOTS: '{symbol}: withdrawals removed holdings from tracking ({count}×)',
+      WITHDRAWAL_REMOVED_LOTS:
+        '{symbol}: withdrawals removed holdings from tracking ({count}×) — link as transfer to preserve the cost basis',
       TRANSFERS_IGNORED: '{symbol}: transfer/other transactions were ignored ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: price in foreign currency discarded — historical EUR daily price used ({count}×)',
       PRICE_LOOKUP_LIMIT_REACHED: 'Price lookup limit reached — generate the report again to load more prices',
@@ -239,6 +254,13 @@ const en: MessageSchema = {
     COINGECKO_ID_TAKEN: 'This CoinGecko ID is already assigned to another asset',
     SOURCE_HAS_TRANSACTIONS:
       'Holdings of this source are calculated from transactions — please edit the transactions instead',
+    TRANSFER_LINK_TYPES_INVALID: 'A transfer links exactly one withdrawal with one deposit',
+    TRANSFER_LINK_ASSET_MISMATCH: 'Both sides must have the same asset',
+    TRANSFER_LINK_QUANTITY_INVALID: 'The deposit quantity must not exceed the withdrawal quantity',
+    TRANSFER_LINK_TIMESTAMP_INVALID: 'The deposit is too far before the withdrawal',
+    TRANSFER_LINK_ALREADY_LINKED: 'One of the transactions is already linked',
+    TRANSFER_LINKED_TX_IMMUTABLE:
+      'This transaction is linked as a transfer — please remove the link first',
   },
   relative: {
     never: 'never',

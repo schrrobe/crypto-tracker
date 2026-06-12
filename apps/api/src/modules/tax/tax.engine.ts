@@ -7,10 +7,12 @@ import { TaxWarningCode } from '@crypto-tracker/shared'
 // Rechnet ausschließlich mit Prisma.Decimal (decimal.js), nie mit float.
 //
 // Rechtliche Grundlagen und dokumentierte Annahmen:
-// - DE: §23 EStG (private Veräußerungsgeschäfte). FIFO pro Asset, GLOBAL über
-//   alle Quellen — das BMF-Schreiben v. 10.05.2022 erlaubt wallet-bezogene
-//   Betrachtung, aber ohne modellierte Transfers zwischen Quellen wäre
-//   per-Quelle-FIFO falsch. Bewusste Vereinfachung, im Report ausgewiesen.
+// - DE: §23 EStG (private Veräußerungsgeschäfte). FIFO pro Quelle/Wallet und
+//   Asset (walletbezogene Betrachtung nach BMF-Schreiben v. 10.05.2022).
+//   Verknüpfte Transfer-Paare (transferGroupId) ziehen die Kostenbasis samt
+//   Anschaffungsdatum in die Ziel-Quelle um; die Mengendifferenz (Netzwerk-
+//   gebühr) verlässt das System still — ihre Basis verfällt (konservativ).
+//   Unverknüpfte Auszahlungen entfernen die Basis wie bisher (Warnung).
 // - DE: Haltefrist > 1 Jahr → steuerfrei (§23 Abs. 1 Nr. 2). Exakt 1 Jahr ist
 //   noch steuerpflichtig. Freigrenze (kein Freibetrag!) 600 € bis VZ 2023,
 //   1.000 € ab VZ 2024: wird sie erreicht, ist der GESAMTE Gewinn steuerpflichtig.
@@ -31,6 +33,7 @@ export type EnginePriceSource = 'ORIGINAL' | 'BACKFILLED' | 'MISSING'
 
 export interface EngineTx {
   id: string
+  sourceId: string
   assetId: string
   assetSymbol: string
   assetName: string
@@ -41,9 +44,12 @@ export interface EngineTx {
   feeEur: Decimal | null
   timestamp: Date
   priceSource: EnginePriceSource
+  // gesetzt = Teil eines verknüpften Transfer-Paars (WITHDRAWAL ↔ DEPOSIT)
+  transferGroupId: string | null
 }
 
 export interface EngineDisposal {
+  sourceId: string
   assetSymbol: string
   assetName: string
   // null = Anschaffung unbekannt (Oversell/Durchschnittspool) → konservativ behandelt
@@ -115,7 +121,8 @@ class WarningCollector {
 }
 
 interface Lot {
-  acquiredAt: Date
+  // null = Anschaffung unbekannt (z.B. umgezogener Oversell-Anteil)
+  acquiredAt: Date | null
   remaining: Decimal
   costPerUnit: Decimal
 }
@@ -170,6 +177,50 @@ function chronological(txs: EngineTx[]): EngineTx[] {
   return [...txs].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
 }
 
+// Wie chronological, aber Transfer-Paare werden normalisiert: das Deposit-Leg
+// darf nominell bis 24 h vor dem Withdrawal-Leg liegen (CSV-Tagesgranularität) —
+// sein Sortierschlüssel wird auf den Withdrawal-Zeitpunkt angehoben, Tie-Break
+// „Withdrawal zuerst". Damit ist das Withdrawal-Leg garantiert vorher dran.
+function chronologicalWithTransferOrder(txs: EngineTx[]): EngineTx[] {
+  const withdrawalTsByGroup = new Map<string, number>()
+  for (const tx of txs) {
+    if (tx.type === 'WITHDRAWAL' && tx.transferGroupId !== null) {
+      withdrawalTsByGroup.set(tx.transferGroupId, tx.timestamp.getTime())
+    }
+  }
+  const sortKey = (tx: EngineTx): number => {
+    const own = tx.timestamp.getTime()
+    if (tx.type === 'DEPOSIT' && tx.transferGroupId !== null) {
+      const withdrawalTs = withdrawalTsByGroup.get(tx.transferGroupId)
+      if (withdrawalTs !== undefined && withdrawalTs > own) return withdrawalTs
+    }
+    return own
+  }
+  const legOrder = (tx: EngineTx): number => (tx.type === 'WITHDRAWAL' ? 0 : 1)
+  return [...txs].sort((a, b) => sortKey(a) - sortKey(b) || legOrder(a) - legOrder(b))
+}
+
+// Übernimmt umgezogene Slices als Ziel-Lots, FIFO-getrimmt auf die Einzahlungs-
+// menge: die Differenz (Netzwerkgebühr) sind die jüngsten verbrauchten Anteile,
+// ihre Kostenbasis verfällt still (konservativ, kein Abzug). Danach wird die
+// FIFO-Ordnung im Ziel nach Anschaffungsdatum wiederhergestellt — ein altes,
+// umgezogenes Lot muss vor jüngeren Ziel-Lots verbraucht werden (null zuletzt).
+function receiveTransferSlices(lots: Lot[], moved: ConsumedSlice[], quantity: Decimal): void {
+  let open = quantity
+  for (const slice of moved) {
+    if (open.lte(0)) break
+    const take = Prisma.Decimal.min(slice.quantity, open)
+    const costPerUnit = slice.quantity.gt(0) ? slice.costBasisEur.div(slice.quantity) : ZERO
+    lots.push({ acquiredAt: slice.acquiredAt, remaining: take, costPerUnit })
+    open = open.sub(take)
+  }
+  lots.sort(
+    (a, b) =>
+      (a.acquiredAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+      (b.acquiredAt?.getTime() ?? Number.MAX_SAFE_INTEGER),
+  )
+}
+
 // Erzeugt aus den verbrauchten Slices die Veräußerungszeilen; der Erlös wird
 // mengenproportional verteilt. Keine Warnung-Logik — die liegt beim Aufrufer.
 function buildDisposals(
@@ -182,6 +233,7 @@ function buildDisposals(
   return slices.map((slice) => {
     const sliceProceeds = proceeds.mul(slice.quantity).div(tx.quantity)
     return {
+      sourceId: tx.sourceId,
       assetSymbol: tx.assetSymbol,
       assetName: tx.assetName,
       acquiredAt: slice.acquiredAt,
@@ -213,17 +265,31 @@ const DE_STAKING_THRESHOLD = new Prisma.Decimal(256)
 
 export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
   const warnings = new WarningCollector()
-  const lotsByAsset = new Map<string, Lot[]>()
+  // walletbezogenes FIFO: Lots je (Quelle, Asset)
+  const lotsByWallet = new Map<string, Lot[]>()
+  // umgezogene Slices verknüpfter Transfers, bis das Deposit-Leg sie abholt
+  const pendingTransfers = new Map<string, ConsumedSlice[]>()
   const allDisposals: EngineDisposal[] = []
   let stakingIncome = ZERO
 
-  for (const tx of chronological(txs)) {
-    const lots = lotsByAsset.get(tx.assetId) ?? []
-    lotsByAsset.set(tx.assetId, lots)
+  for (const tx of chronologicalWithTransferOrder(txs)) {
+    const walletKey = `${tx.sourceId}|${tx.assetId}`
+    const lots = lotsByWallet.get(walletKey) ?? []
+    lotsByWallet.set(walletKey, lots)
 
     switch (tx.type) {
       case 'BUY':
       case 'DEPOSIT': {
+        if (tx.type === 'DEPOSIT' && tx.transferGroupId !== null) {
+          const moved = pendingTransfers.get(tx.transferGroupId)
+          if (moved) {
+            // verknüpfter Transfer: Kostenbasis + Anschaffungsdatum ziehen mit um
+            pendingTransfers.delete(tx.transferGroupId)
+            receiveTransferSlices(lots, moved, tx.quantity)
+            break
+          }
+          // Withdrawal-Leg fehlt im Stream (defensiv) → wie unverlinkt behandeln
+        }
         const cost = acquisitionCost(tx, warnings)
         lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
         break
@@ -241,7 +307,7 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
       case 'SELL': {
         const slices = consumeFifo(lots, tx.quantity)
         if (tx.priceEur === null) warnings.add(TaxWarningCode.MISSING_DISPOSAL_PRICE, tx.assetSymbol)
-        if (slices.some((s) => s.acquiredAt === null)) {
+        if (slices.some((s) => s.acquiredAt === null && s.costBasisEur.eq(ZERO))) {
           warnings.add(TaxWarningCode.SOLD_MORE_THAN_ACQUIRED, tx.assetSymbol)
         }
         allDisposals.push(
@@ -252,17 +318,25 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
         )
         break
       }
-      case 'WITHDRAWAL':
-        // kein steuerbarer Vorgang, aber die Kostenbasis verlässt die Verfolgung
-        consumeFifo(lots, tx.quantity)
-        warnings.add(TaxWarningCode.WITHDRAWAL_REMOVED_LOTS, tx.assetSymbol)
+      case 'WITHDRAWAL': {
+        const slices = consumeFifo(lots, tx.quantity)
+        if (tx.transferGroupId !== null) {
+          // verknüpfter Transfer: Slices warten auf das Deposit-Leg — keine Warnung
+          pendingTransfers.set(tx.transferGroupId, slices)
+        } else {
+          // kein steuerbarer Vorgang, aber die Kostenbasis verlässt die Verfolgung
+          warnings.add(TaxWarningCode.WITHDRAWAL_REMOVED_LOTS, tx.assetSymbol)
+        }
         break
+      }
       case 'TRANSFER':
       case 'OTHER':
         warnings.add(TaxWarningCode.TRANSFERS_IGNORED, tx.assetSymbol)
         break
     }
   }
+  // verbleibende pendingTransfers (Deposit-Leg fehlt im Stream): Basis hat das
+  // System verlassen — wie unverlinktes Withdrawal, bewusst ohne weitere Aktion
 
   const disposals = allDisposals.filter((d) => inYear(d.disposedAt, year))
   // Zeilen ohne Veräußerungskurs sind unvollständig — sie würden die Summen
@@ -323,6 +397,9 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
     switch (tx.type) {
       case 'BUY':
       case 'DEPOSIT': {
+        // verknüpfter Transfer: bei globalen Pools genuin neutral → Leg überspringen
+        // (Vereinfachung: die Netzwerkgebühr bleibt im Pool, Bestand minimal überzeichnet)
+        if (tx.type === 'DEPOSIT' && tx.transferGroupId !== null) break
         const cost = acquisitionCost(tx, warnings)
         if (tx.timestamp.getTime() < AT_ALT_CUTOFF.getTime()) {
           // Altvermögen: einzelne Lots, alte Spekulationsfrist gilt
@@ -347,6 +424,8 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
       }
       case 'SELL':
       case 'WITHDRAWAL': {
+        // verknüpfter Transfer: Gegenstück zum übersprungenen Deposit-Leg
+        if (tx.type === 'WITHDRAWAL' && tx.transferGroupId !== null) break
         // Altvermögen zuerst verbrauchen (dokumentierte Annahme), dann Durchschnittspool
         const altSlices: ConsumedSlice[] = []
         const neuSlices: ConsumedSlice[] = []
