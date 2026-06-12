@@ -1,10 +1,12 @@
 import { Prisma } from '@prisma/client'
+import { env } from '../../config/env'
 import { prisma } from '../../lib/prisma'
 import { fetchHistoricalPrice } from '../../coingecko/coingecko.client'
 
-// CoinGecko-Demo-Tier erlaubt ~30 Calls/min — pro Report-Lauf hart begrenzen.
-// Nicht aufgelöste Daten kommen beim nächsten Lauf aus dem Cache nach.
-const LOOKUP_CAP_PER_RUN = 40
+// Pro Report-Lauf hart begrenzen; nicht aufgelöste Daten kommen beim nächsten
+// Lauf aus dem Cache nach. Mit Demo-Key (~30 Calls/min, 10k/Monat) deutlich
+// großzügiger als ohne Key (öffentliches Limit ist erheblich schärfer).
+const LOOKUP_CAP_PER_RUN = env.COINGECKO_API_KEY ? 150 : 40
 
 export interface HistoricalPriceRequest {
   assetId: string
