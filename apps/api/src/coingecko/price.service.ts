@@ -44,6 +44,15 @@ export async function refreshPrices(assetIds: string[]): Promise<{ ok: boolean; 
   }
 }
 
+// Cron-Einstieg (Queue-Worker): Preise aller aktuell gehaltenen Assets auffrischen
+export async function refreshAllHeldPrices(): Promise<{ ok: boolean; error?: string; assets: number }> {
+  const held = await prisma.holding.findMany({ select: { assetId: true }, distinct: ['assetId'] })
+  const assetIds = held.map((h) => h.assetId)
+  if (assetIds.length === 0) return { ok: true, assets: 0 }
+  const result = await refreshPrices(assetIds)
+  return { ...result, assets: assetIds.length }
+}
+
 // Jüngster Preis je Asset (append-only Tabelle → distinct + orderBy)
 export async function getLatestPrices(assetIds: string[]): Promise<Map<string, LatestPrice>> {
   if (assetIds.length === 0) return new Map()

@@ -26,18 +26,21 @@ sourcesRoutes.post(
   }),
 )
 
-// Sync: Provider-Fehler landen im Run (status ERROR), nicht als HTTP-Fehler
+// Sync: Provider-Fehler landen im Run (status ERROR), nicht als HTTP-Fehler.
+// Queue-Modus (REDIS_URL gesetzt): 202 + RUNNING-Run, Worker führt aus, Frontend pollt.
 sourcesRoutes.post(
   '/sync-all',
   asyncHandler(async (req, res) => {
-    res.json({ results: await syncService.syncAllSources(req.userId) })
+    const { results, queued } = await syncService.syncAllSources(req.userId)
+    res.status(queued ? 202 : 200).json({ results })
   }),
 )
 
 sourcesRoutes.post(
   '/:id/sync',
   asyncHandler(async (req, res) => {
-    res.json({ run: await syncService.syncSource(req.userId, routeParam(req, 'id')) })
+    const { run, queued } = await syncService.requestSync(req.userId, routeParam(req, 'id'))
+    res.status(queued ? 202 : 200).json({ run })
   }),
 )
 

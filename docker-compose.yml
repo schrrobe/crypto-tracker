@@ -17,6 +17,19 @@ services:
       timeout: 3s
       retries: 10
 
+  # Optional: Job-Queue für Background-Sync (nur nötig, wenn REDIS_URL gesetzt ist)
+  redis:
+    image: redis:7-alpine
+    container_name: crypto-tracker-redis
+    # 6379 könnte auf diesem Host belegt sein (gleiche Lage wie bei 5432/5433)
+    ports:
+      - "6381:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   adminer:
     image: adminer:latest
     container_name: crypto-tracker-adminer

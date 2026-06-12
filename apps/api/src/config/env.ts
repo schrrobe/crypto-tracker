@@ -19,6 +19,8 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, 'ENCRYPTION_KEY muss 32 Bytes hex sein (64 Zeichen)'),
   CORS_ORIGINS: z.string().transform((s) => s.split(',').map((o) => o.trim()).filter(Boolean)),
   COINGECKO_API_KEY: z.string().optional(),
+  // Optional: aktiviert den Queue-Modus für Background-Sync (BullMQ-Worker nötig)
+  REDIS_URL: z.string().url().optional(),
   SOLANA_RPC_URL: z.string().url().default('https://api.mainnet-beta.solana.com'),
   MEMPOOL_API_URL: z.string().url().default('https://mempool.space/api'),
   // Nur für Tests/lokale Entwicklung: deterministische Preise und Provider statt echter APIs

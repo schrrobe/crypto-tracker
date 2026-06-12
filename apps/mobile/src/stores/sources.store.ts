@@ -37,12 +37,30 @@ export const useSourcesStore = defineStore('sources', () => {
 
   const syncing = ref<Set<string>>(new Set())
 
+  // Queue-Modus: API antwortet sofort mit einem RUNNING-Run — bis zum Abschluss
+  // die Sync-Historie pollen (Inline-Modus liefert direkt das fertige Ergebnis)
+  const POLL_INTERVAL_MS = 2000
+  const POLL_TIMEOUT_MS = 60_000
+
+  async function waitForRun(sourceId: string, run: SyncRunDto): Promise<SyncRunDto> {
+    if (run.status !== 'RUNNING') return run
+    const deadline = Date.now() + POLL_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+      const { runs } = await api.get<{ runs: SyncRunDto[] }>(`/sources/${sourceId}/sync-runs`)
+      const current = runs.find((r) => r.id === run.id)
+      if (current && current.status !== 'RUNNING') return current
+    }
+    return run
+  }
+
   async function sync(sourceId: string): Promise<SyncRunDto> {
     syncing.value.add(sourceId)
     try {
       const { run } = await api.post<{ run: SyncRunDto }>(`/sources/${sourceId}/sync`)
+      const finished = await waitForRun(sourceId, run)
       await load()
-      return run
+      return finished
     } finally {
       syncing.value.delete(sourceId)
     }
@@ -52,7 +70,10 @@ export const useSourcesStore = defineStore('sources', () => {
     const syncable = sources.value.filter((s) => s.type === 'EXCHANGE' || s.type === 'WALLET')
     syncable.forEach((s) => syncing.value.add(s.id))
     try {
-      await api.post('/sources/sync-all')
+      const { results } = await api.post<{ results: Array<{ sourceId: string; run: SyncRunDto }> }>(
+        '/sources/sync-all',
+      )
+      await Promise.all(results.map((r) => waitForRun(r.sourceId, r.run)))
       await load()
     } finally {
       syncable.forEach((s) => syncing.value.delete(s.id))

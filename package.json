@@ -9,6 +9,7 @@
     "dev:api": "pnpm --filter @crypto-tracker/api dev",
     "dev:app": "pnpm --filter @crypto-tracker/mobile dev",
     "db:up": "docker compose up -d postgres",
+    "queue:up": "docker compose up -d redis",
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @crypto-tracker/api db:migrate",
     "db:seed": "pnpm --filter @crypto-tracker/api db:seed",

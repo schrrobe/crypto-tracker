@@ -78,3 +78,31 @@ describe('Sync-Flow (Integration)', () => {
     expect(list.body.sources).toHaveLength(0)
   })
 })
+
+// Queue-Vorbereitung: Start und Ausführung sind getrennt (Worker ruft executeSyncRun)
+describe('Sync-Split: startSyncRun / executeSyncRun', () => {
+  it('startSyncRun legt RUNNING-Run an, executeSyncRun schließt ab und schreibt Holdings', async () => {
+    const { startSyncRun, executeSyncRun } = await import('../modules/sync/sync.service')
+    const user = await registerUser('syncsplit')
+    const source = await createExchangeSource(user, 'Split Exchange')
+
+    const started = await startSyncRun(user.userId, source.id)
+    expect(started.status).toBe('RUNNING')
+
+    // laufender Run blockiert einen zweiten Start (409 über die Route)
+    const second = await request(app).post(`${API}/sources/${source.id}/sync`).set(...bearer(user))
+    expect(second.status).toBe(409)
+    expect(second.body.error.code).toBe('SYNC_ALREADY_RUNNING')
+
+    const finished = await executeSyncRun(started.id)
+    expect(finished.status).toBe('SUCCESS')
+
+    // abgeschlossener Run ist idempotent (Queue-Retry darf nicht doppelt schreiben)
+    const repeated = await executeSyncRun(started.id)
+    expect(repeated.status).toBe('SUCCESS')
+    expect(repeated.finishedAt).toBe(finished.finishedAt)
+
+    const holdings = await request(app).get(`${API}/holdings`).set(...bearer(user))
+    expect(holdings.body.holdings.length).toBeGreaterThan(0)
+  })
+})

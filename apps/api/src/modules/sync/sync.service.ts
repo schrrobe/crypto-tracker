@@ -9,6 +9,7 @@ import { ProviderError, type RawBalance } from '../../providers/provider.types'
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { getOwnedSource } from '../sources/sources.service'
+import { enqueueSyncRun, isQueueEnabled } from './sync.queue'
 
 const RUNNING_STALE_MS = 2 * 60 * 1000
 const FETCH_TIMEOUT_MS = 30 * 1000
@@ -50,9 +51,10 @@ async function fetchBalancesForSource(source: PortfolioSource): Promise<RawBalan
   throw AppError.badRequest('SOURCE_NOT_SYNCABLE', 'Diese Quelle hat keinen Sync')
 }
 
-// Kern des Sync-Flows — bewusst ohne Express-Abhängigkeit (später aus Queue-Worker aufrufbar).
-// Provider-Fehler landen im SyncRun (status ERROR), nicht als HTTP-Fehler.
-export async function syncSource(userId: string, sourceId: string): Promise<SyncRunDto> {
+// Schritt 1: Validierung + Run anlegen (RUNNING). Getrennt von der Ausführung,
+// damit der Queue-Modus den Run sofort zurückgeben und die Arbeit an den
+// Worker übergeben kann.
+export async function startSyncRun(userId: string, sourceId: string): Promise<SyncRunDto> {
   const source = await getOwnedSource(userId, sourceId)
   if (source.type !== 'EXCHANGE' && source.type !== 'WALLET') {
     throw AppError.badRequest('SOURCE_NOT_SYNCABLE', 'Nur Exchange- und Wallet-Quellen können synchronisiert werden')
@@ -66,6 +68,23 @@ export async function syncSource(userId: string, sourceId: string): Promise<Sync
   }
 
   const run = await prisma.syncRun.create({ data: { sourceId, status: 'RUNNING' } })
+  return toSyncRunDto(run)
+}
+
+// Schritt 2: Run ausführen — bewusst ohne Express-Abhängigkeit (läuft inline
+// oder im Queue-Worker). Provider-Fehler landen im SyncRun (status ERROR),
+// nicht als HTTP-Fehler. Bereits abgeschlossene Runs sind ein No-op
+// (Queue-Retries dürfen nicht doppelt schreiben).
+export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
+  const run = await prisma.syncRun.findUnique({
+    where: { id: runId },
+    include: { source: true },
+  })
+  if (!run) throw AppError.notFound('SyncRun nicht gefunden')
+  if (run.status !== 'RUNNING') return toSyncRunDto(run)
+
+  const source = run.source
+  const sourceId = source.id
 
   try {
     const balances = (await fetchBalancesForSource(source)).filter((b) => Number(b.amount) > 0)
@@ -111,29 +130,53 @@ export async function syncSource(userId: string, sourceId: string): Promise<Sync
   }
 }
 
+// Inline-Modus (ohne Queue): Start + Ausführung in einem Aufruf — heutiges Verhalten
+export async function syncSource(userId: string, sourceId: string): Promise<SyncRunDto> {
+  const run = await startSyncRun(userId, sourceId)
+  return executeSyncRun(run.id)
+}
+
+// Einstieg für die Routen: mit Queue wird nur gestartet und enqueued (Run bleibt
+// RUNNING, Frontend pollt /sync-runs), ohne Queue läuft alles inline wie bisher.
+export async function requestSync(
+  userId: string,
+  sourceId: string,
+): Promise<{ run: SyncRunDto; queued: boolean }> {
+  if (!isQueueEnabled()) {
+    return { run: await syncSource(userId, sourceId), queued: false }
+  }
+  const run = await startSyncRun(userId, sourceId)
+  await enqueueSyncRun(run.id)
+  return { run, queued: true }
+}
+
 // Sequenziell (schont Provider-Rate-Limits); ein Fehler bricht die anderen nicht ab
-export async function syncAllSources(userId: string): Promise<Array<{ sourceId: string; run: SyncRunDto }>> {
+export async function syncAllSources(
+  userId: string,
+): Promise<{ results: Array<{ sourceId: string; run: SyncRunDto }>; queued: boolean }> {
   const sources = await prisma.portfolioSource.findMany({
     where: { userId, type: { in: ['EXCHANGE', 'WALLET'] } },
     orderBy: { createdAt: 'asc' },
   })
   const results: Array<{ sourceId: string; run: SyncRunDto }> = []
   for (const source of sources) {
-    const run = await syncSource(userId, source.id).catch((e) => {
-      // z.B. SYNC_ALREADY_RUNNING — als Fehler-Run melden statt abzubrechen
-      const message = e instanceof Error ? e.message : String(e)
-      return {
-        id: 'skipped',
-        status: 'ERROR',
-        startedAt: new Date().toISOString(),
-        finishedAt: null,
-        errorCode: 'SKIPPED',
-        errorMessage: message,
-      } satisfies SyncRunDto
-    })
+    const run = await requestSync(userId, source.id)
+      .then((r) => r.run)
+      .catch((e) => {
+        // z.B. SYNC_ALREADY_RUNNING — als Fehler-Run melden statt abzubrechen
+        const message = e instanceof Error ? e.message : String(e)
+        return {
+          id: 'skipped',
+          status: 'ERROR',
+          startedAt: new Date().toISOString(),
+          finishedAt: null,
+          errorCode: 'SKIPPED',
+          errorMessage: message,
+        } satisfies SyncRunDto
+      })
     results.push({ sourceId: source.id, run })
   }
-  return results
+  return { results, queued: isQueueEnabled() }
 }
 
 export async function listSyncRuns(userId: string, sourceId: string, limit = 20): Promise<SyncRunDto[]> {
