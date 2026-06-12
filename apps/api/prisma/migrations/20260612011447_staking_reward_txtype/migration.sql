@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "TxType" ADD VALUE 'STAKING_REWARD';

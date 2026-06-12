@@ -47,6 +47,7 @@ export const TxType = {
   DEPOSIT: 'DEPOSIT',
   WITHDRAWAL: 'WITHDRAWAL',
   TRANSFER: 'TRANSFER',
+  STAKING_REWARD: 'STAKING_REWARD',
   OTHER: 'OTHER',
 } as const
 export type TxType = (typeof TxType)[keyof typeof TxType]

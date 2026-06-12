@@ -286,6 +286,51 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     expect(report.totals.totalGainEur.toString()).toBe('0')
     expect(report.warnings).toHaveLength(0)
   })
+
+  it('Staking-Zufluss: Einkommen zum Marktwert, Freigrenze 256 €', () => {
+    const under = computeReportDE(
+      [tx({ type: 'STAKING_REWARD', qty: 1, price: 255, ts: '2024-03-01T00:00:00Z' })],
+      2024,
+    )
+    expect(under.totals.stakingIncomeEur?.toString()).toBe('255')
+    expect(under.totals.stakingThresholdEur?.toString()).toBe('256')
+    expect(under.totals.stakingTaxableEur?.toString()).toBe('0')
+
+    const at = computeReportDE(
+      [tx({ type: 'STAKING_REWARD', qty: 2, price: 128, ts: '2024-03-01T00:00:00Z' })],
+      2024,
+    )
+    expect(at.totals.stakingIncomeEur?.toString()).toBe('256')
+    expect(at.totals.stakingTaxableEur?.toString()).toBe('256')
+  })
+
+  it('Staking-Lot: Veräußerung nutzt Zuflusswert als Basis, Haltefrist ab Zufluss', () => {
+    const report = computeReportDE(
+      [
+        tx({ type: 'STAKING_REWARD', qty: 1, price: 100, ts: '2023-01-01T00:00:00Z' }),
+        tx({ type: 'SELL', qty: 1, price: 500, ts: '2024-06-01T00:00:00Z' }),
+      ],
+      2024,
+    )
+    expect(report.disposals[0]?.costBasisEur.toString()).toBe('100')
+    expect(report.disposals[0]?.gainEur.toString()).toBe('400')
+    // > 1 Jahr gehalten → steuerfrei; Zufluss-Einkommen zählt nicht ins Reportjahr 2024
+    expect(report.disposals[0]?.taxable).toBe(false)
+    expect(report.totals.stakingIncomeEur?.toString()).toBe('0')
+  })
+
+  it('Staking ohne Kurs: kein Einkommen, Basis 0 + Warnung', () => {
+    const report = computeReportDE(
+      [
+        tx({ type: 'STAKING_REWARD', qty: 1, price: null, ts: '2024-01-01T00:00:00Z' }),
+        tx({ type: 'SELL', qty: 1, price: 300, ts: '2024-06-01T00:00:00Z' }),
+      ],
+      2024,
+    )
+    expect(report.totals.stakingIncomeEur?.toString()).toBe('0')
+    expect(report.disposals[0]?.costBasisEur.toString()).toBe('0')
+    expect(warningCodes(report)).toContain('UNKNOWN_ACQUISITION_BASIS')
+  })
 })
 
 describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
@@ -421,6 +466,22 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
     expect(report.disposals[0]?.regime).toBe('AT_NEUVERMOEGEN')
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('200')
     expect(warningCodes(report)).toContain('WITHDRAWAL_REMOVED_LOTS')
+  })
+
+  it('Staking AT: kein Zufluss-Einkommen, Anschaffungskosten 0, Verkauf voll steuerpflichtig', () => {
+    const report = computeReportAT(
+      [
+        tx({ type: 'STAKING_REWARD', qty: 1, price: 100, ts: '2022-01-01T00:00:00Z' }),
+        tx({ type: 'SELL', qty: 1, price: 500, ts: '2024-06-01T00:00:00Z' }),
+      ],
+      2024,
+    )
+    // §27b Abs. 2: Basis 0 → voller Erlös ist Gewinn (Neuvermögen, 27,5 %)
+    expect(report.disposals[0]?.regime).toBe('AT_NEUVERMOEGEN')
+    expect(report.disposals[0]?.costBasisEur.toString()).toBe('0')
+    expect(report.disposals[0]?.gainEur.toString()).toBe('500')
+    expect(report.totals.stakingIncomeEur).toBeUndefined()
+    expect(report.warnings).toHaveLength(0)
   })
 
   it('SELL ohne Kurs bleibt aus den AT-Summen draußen', () => {

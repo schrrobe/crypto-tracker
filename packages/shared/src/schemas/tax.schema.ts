@@ -60,6 +60,10 @@ export interface TaxReportTotalsDto {
   taxableAfterThresholdEur: string
   // nur AT: Neuvermögen-Topf (27,5 % Sondersteuersatz), separat vom Altvermögen
   atNeuvermoegenGainEur?: string
+  // nur DE: Staking-Zuflüsse als sonstige Einkünfte (§22 Nr. 3 EStG, Freigrenze 256 €)
+  stakingIncomeEur?: string
+  stakingThresholdEur?: string
+  stakingTaxableEur?: string
 }
 
 export interface TaxWarningDto {

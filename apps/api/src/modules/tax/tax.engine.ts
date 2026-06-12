@@ -67,6 +67,10 @@ export interface EngineTotals {
   thresholdApplied: boolean
   taxableAfterThresholdEur: Decimal
   atNeuvermoegenGainEur?: Decimal
+  // nur DE: sonstige Einkünfte aus Staking (§22 Nr. 3 EStG) bei Zufluss
+  stakingIncomeEur?: Decimal
+  stakingThresholdEur?: Decimal
+  stakingTaxableEur?: Decimal
 }
 
 export interface EngineReport {
@@ -204,10 +208,14 @@ function deThreshold(year: number): Decimal {
   return new Prisma.Decimal(year >= 2024 ? 1000 : 600)
 }
 
+// Freigrenze §22 Nr. 3 EStG für sonstige Einkünfte (Staking-Zuflüsse)
+const DE_STAKING_THRESHOLD = new Prisma.Decimal(256)
+
 export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
   const warnings = new WarningCollector()
   const lotsByAsset = new Map<string, Lot[]>()
   const allDisposals: EngineDisposal[] = []
+  let stakingIncome = ZERO
 
   for (const tx of chronological(txs)) {
     const lots = lotsByAsset.get(tx.assetId) ?? []
@@ -218,6 +226,16 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
       case 'DEPOSIT': {
         const cost = acquisitionCost(tx, warnings)
         lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
+        break
+      }
+      case 'STAKING_REWARD': {
+        // §22 Nr. 3 EStG: Zufluss zum Marktwert = sonstige Einkünfte;
+        // Anschaffungskosten = Zuflusswert, Haltefrist läuft ab Zufluss
+        const cost = acquisitionCost(tx, warnings)
+        lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
+        if (inYear(tx.timestamp, year) && tx.priceEur !== null) {
+          stakingIncome = stakingIncome.add(tx.quantity.mul(tx.priceEur))
+        }
         break
       }
       case 'SELL': {
@@ -259,6 +277,8 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
   // Freigrenze: positiver Gewinn unterhalb der Grenze → 0; ab der Grenze voll steuerpflichtig.
   // Netto-Verlust bleibt als Verlust stehen (Verlustverrechnung nur innerhalb §23).
   const underThreshold = taxableNet.gt(0) && taxableNet.lt(threshold)
+  // Staking: eigene Freigrenze 256 € (§22 Nr. 3 Satz 2 EStG), gleiche Semantik
+  const stakingUnderThreshold = stakingIncome.gt(0) && stakingIncome.lt(DE_STAKING_THRESHOLD)
 
   return {
     disposals,
@@ -269,6 +289,9 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
       thresholdEur: threshold,
       thresholdApplied: taxableNet.gte(threshold),
       taxableAfterThresholdEur: underThreshold ? ZERO : taxableNet,
+      stakingIncomeEur: stakingIncome,
+      stakingThresholdEur: DE_STAKING_THRESHOLD,
+      stakingTaxableEur: stakingUnderThreshold ? ZERO : stakingIncome,
     },
     warnings: warnings.list(),
   }
@@ -308,6 +331,17 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
           // Neuvermögen: gleitender Durchschnittspreis (KryptowährungsVO)
           neuPool.quantity = neuPool.quantity.add(tx.quantity)
           neuPool.totalCost = neuPool.totalCost.add(cost)
+        }
+        break
+      }
+      case 'STAKING_REWARD': {
+        // §27b Abs. 2 EStG: kein Zufluss-Einkommen, Anschaffungskosten 0 —
+        // Besteuerung des vollen Werts erst bei der Veräußerung
+        if (tx.timestamp.getTime() < AT_ALT_CUTOFF.getTime()) {
+          altLots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: ZERO })
+        } else {
+          neuPool.quantity = neuPool.quantity.add(tx.quantity)
+          // totalCost unverändert: Kosten 0
         }
         break
       }

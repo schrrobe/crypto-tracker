@@ -51,7 +51,7 @@ export interface TransactionMapping {
 export interface MappedTransactionRow {
   symbol: string
   quantity: string
-  type: 'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER' | 'OTHER'
+  type: 'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER' | 'STAKING_REWARD' | 'OTHER'
   timestamp: Date
   price?: string
   fee?: string
@@ -65,7 +65,9 @@ const TYPE_ALIASES: Record<string, MappedTransactionRow['type']> = {
   deposit: 'DEPOSIT', einzahlung: 'DEPOSIT', receive: 'DEPOSIT', erhalten: 'DEPOSIT',
   withdrawal: 'WITHDRAWAL', auszahlung: 'WITHDRAWAL', send: 'WITHDRAWAL', gesendet: 'WITHDRAWAL',
   transfer: 'TRANSFER', umbuchung: 'TRANSFER',
-  other: 'OTHER', sonstiges: 'OTHER', reward: 'OTHER', staking: 'OTHER',
+  staking: 'STAKING_REWARD', reward: 'STAKING_REWARD', belohnung: 'STAKING_REWARD',
+  'staking reward': 'STAKING_REWARD', 'staking-reward': 'STAKING_REWARD',
+  other: 'OTHER', sonstiges: 'OTHER',
 }
 
 export function normalizeTxType(value: string): MappedTransactionRow['type'] | null {

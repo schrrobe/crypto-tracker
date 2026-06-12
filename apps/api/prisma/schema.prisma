@@ -48,6 +48,9 @@ enum TxType {
   DEPOSIT
   WITHDRAWAL
   TRANSFER
+  // Staking-/Lending-Belohnung: DE = Zufluss-Einkommen (§22 Nr. 3 EStG),
+  // AT = kein Zufluss-Einkommen, Anschaffungskosten 0 (§27b Abs. 2 EStG)
+  STAKING_REWARD
   OTHER
 }
 

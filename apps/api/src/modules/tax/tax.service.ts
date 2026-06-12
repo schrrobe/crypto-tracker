@@ -56,8 +56,9 @@ async function enrichTransactions(
   }
 
   // Nur Typen backfillen, deren Kurs steuerlich relevant ist
+  // (STAKING_REWARD: DE braucht den Zuflusswert als Einkommen + Kostenbasis)
   const requests: HistoricalPriceRequest[] = pending
-    .filter((p) => p.needsBackfill && ['BUY', 'SELL', 'DEPOSIT'].includes(p.tx.type))
+    .filter((p) => p.needsBackfill && ['BUY', 'SELL', 'DEPOSIT', 'STAKING_REWARD'].includes(p.tx.type))
     .map((p) => ({ assetId: p.tx.assetId, coingeckoId: p.tx.asset.coingeckoId, date: p.tx.timestamp }))
 
   const { prices, limitReached } = await resolveHistoricalPrices(requests)
@@ -143,6 +144,13 @@ export async function getReport(
       taxableAfterThresholdEur: report.totals.taxableAfterThresholdEur.toFixed(2),
       ...(report.totals.atNeuvermoegenGainEur !== undefined
         ? { atNeuvermoegenGainEur: report.totals.atNeuvermoegenGainEur.toFixed(2) }
+        : {}),
+      ...(report.totals.stakingIncomeEur !== undefined
+        ? {
+            stakingIncomeEur: report.totals.stakingIncomeEur.toFixed(2),
+            stakingThresholdEur: report.totals.stakingThresholdEur?.toFixed(2),
+            stakingTaxableEur: report.totals.stakingTaxableEur?.toFixed(2),
+          }
         : {}),
     },
     warnings: [...enrichmentWarnings, ...report.warnings],

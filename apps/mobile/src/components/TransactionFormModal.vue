@@ -153,7 +153,7 @@ import { api } from '../services/api.client'
 import { apiErrorMessage } from '../services/errors'
 import { useTransactionsStore } from '../stores/transactions.store'
 
-const TX_TYPES: TxType[] = ['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL', 'TRANSFER', 'OTHER']
+const TX_TYPES: TxType[] = ['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL', 'TRANSFER', 'STAKING_REWARD', 'OTHER']
 
 const props = defineProps<{
   isOpen: boolean

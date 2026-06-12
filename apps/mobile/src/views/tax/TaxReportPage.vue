@@ -84,6 +84,16 @@
               <span>{{ $t('tax.neuvermoegenGain') }}</span>
               <span data-testid="tax-neuvermoegen">{{ money(report.totals.atNeuvermoegenGainEur) }}</span>
             </div>
+            <template v-if="report.totals.stakingIncomeEur !== undefined">
+              <div class="total-row">
+                <span>{{ $t('tax.stakingIncome') }}</span>
+                <span data-testid="tax-staking-income">{{ money(report.totals.stakingIncomeEur) }}</span>
+              </div>
+              <div v-if="report.totals.stakingThresholdEur" class="total-row threshold">
+                <span>{{ $t('tax.stakingThreshold') }} ({{ money(report.totals.stakingThresholdEur) }})</span>
+                <span>{{ $t('tax.stakingTaxable') }}: {{ money(report.totals.stakingTaxableEur ?? '0') }}</span>
+              </div>
+            </template>
           </ion-card-content>
         </ion-card>
 

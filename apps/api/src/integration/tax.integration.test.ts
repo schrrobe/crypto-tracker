@@ -191,6 +191,30 @@ describe('Steuerreport (Integration)', () => {
     expect(ids).toContain(source.id)
   })
 
+  it('Staking-Reward: DE Zufluss-Einkommen mit Freigrenze, AT Basis 0', async () => {
+    const user = await registerUser('tax-staking')
+    const ethId = await findAssetId(user, 'ETH')
+
+    await createTx(user, {
+      assetId: ethId,
+      type: 'STAKING_REWARD',
+      quantity: '1',
+      pricePerUnit: '300',
+      currency: 'EUR',
+      timestamp: '2024-02-01T00:00:00.000Z',
+    })
+
+    const de = await getReport(user, 2024, 'DE')
+    expect(de.status).toBe(200)
+    expect(de.body.totals.stakingIncomeEur).toBe('300.00')
+    expect(de.body.totals.stakingThresholdEur).toBe('256.00')
+    expect(de.body.totals.stakingTaxableEur).toBe('300.00')
+
+    // AT: kein Zufluss-Einkommen; Verkauf hätte Basis 0
+    const at = await getReport(user, 2024, 'AT')
+    expect(at.body.totals.stakingIncomeEur).toBeUndefined()
+  })
+
   it('Validierung: ungültiges Jahr/Land → 400', async () => {
     const user = await registerUser('tax-val')
     expect((await getReport(user, NaN, 'DE')).status).toBe(400)
