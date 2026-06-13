@@ -180,9 +180,12 @@ export interface CsvUploadResponse {
   // erkanntes Export-Format (Spalten dann vollständig vorbelegt)
   preset: 'KRAKEN' | 'BITPANDA' | null
   // aktive Doppel-Erkennung: Label einer bereits per API verbundenen Quelle
-  // derselben Börse (anhand Preset) im selben Portfolio — sonst null. Warnt vor
-  // Doppelzählung (API-Bestand + CSV-Bestand).
+  // derselben Börse (per Preset erkannt oder beim Upload gewählt) im selben
+  // Portfolio — sonst null. Warnt vor Doppelzählung (API-Bestand + CSV-Bestand).
   duplicateExchangeSource: string | null
+  // Provider der erkannten Doppel-Börse — für die Anzeige des Namens in der
+  // Warnung (deckt alle Exchanges, nicht nur die Preset-Börsen).
+  duplicateExchangeProvider: (typeof EXCHANGE_PROVIDERS)[number] | null
 }
 
 export type HistoryRange = '24h' | '7d' | '30d'

@@ -38,11 +38,16 @@ export function bearer(user: TestUser): [string, string] {
 }
 
 // Fake-Provider-Quelle (FAKE_PROVIDERS=true): Sync liefert 0.1 BTC + 2 ETH
-export async function createExchangeSource(user: TestUser, label: string, apiKey = 'valid-key-1234') {
+export async function createExchangeSource(
+  user: TestUser,
+  label: string,
+  apiKey = 'valid-key-1234',
+  provider = 'KRAKEN',
+) {
   const res = await request(app)
     .post(`${API}/sources`)
     .set(...bearer(user))
-    .send({ type: 'EXCHANGE', provider: 'KRAKEN', label, apiKey, apiSecret: 'valid-secret' })
+    .send({ type: 'EXCHANGE', provider, label, apiKey, apiSecret: 'valid-secret' })
   if (res.status !== 201) throw new Error(`createSource fehlgeschlagen: ${JSON.stringify(res.body)}`)
   return res.body.source as { id: string }
 }

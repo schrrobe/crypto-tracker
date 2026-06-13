@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import multer from 'multer'
-import { confirmMappingSchema, portfolioScopeQuerySchema } from '@crypto-tracker/shared'
+import { confirmMappingSchema, EXCHANGE_PROVIDERS, portfolioScopeQuerySchema } from '@crypto-tracker/shared'
 import { requireAuth } from '../../middleware/auth.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
@@ -24,7 +24,13 @@ importsRoutes.post(
     const label = typeof req.body?.label === 'string' ? req.body.label : undefined
     const kind = req.body?.kind === 'TRANSACTIONS' ? 'TRANSACTIONS' : 'BALANCES'
     const portfolioId = typeof req.body?.portfolioId === 'string' ? req.body.portfolioId : undefined
-    res.status(201).json(await importsService.uploadCsv(req.userId, req.file, kind, label, portfolioId))
+    // optionale Börsen-Angabe für die Doppel-Erkennung; ungültige Werte ignorieren
+    const exchange = (EXCHANGE_PROVIDERS as readonly string[]).includes(req.body?.exchange)
+      ? (req.body.exchange as (typeof EXCHANGE_PROVIDERS)[number])
+      : undefined
+    res
+      .status(201)
+      .json(await importsService.uploadCsv(req.userId, req.file, kind, label, portfolioId, exchange))
   }),
 )
 

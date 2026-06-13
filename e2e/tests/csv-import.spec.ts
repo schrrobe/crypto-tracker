@@ -76,6 +76,35 @@ test('Import-Historie zeigt den Import und löscht ihn samt Quelle', async ({ pa
   await expect(page.getByTestId('total-value')).toHaveText(/0,00\s€/u)
 })
 
+test('aktive Doppel-Erkennung: Börsen-Auswahl warnt bei vorhandener API-Quelle', async ({ page }) => {
+  await register(page, uniqueEmail('csvdup'))
+
+  // Kraken per API verbinden (Default-Provider im Verbinden-Modal)
+  await page.getByRole('tab', { name: 'Quellen' }).click()
+  await page.getByTestId('add-source').click()
+  await input(page, 'source-label').fill('Kraken API')
+  await input(page, 'source-api-key').fill('valid-key-1234')
+  await input(page, 'source-api-secret').fill('valid-secret')
+  await page.getByTestId('source-save').click()
+  await expect(page.getByTestId('source-Kraken API')).toBeVisible()
+
+  // generische CSV importieren (kein Preset), Börse explizit auf Kraken setzen
+  await page.getByTestId('open-csv-import').click()
+  await input(page, 'csv-label').fill('Doppel-Test')
+  await page.getByTestId('csv-exchange').click()
+  await page.getByRole('radio', { name: 'Kraken' }).click()
+  await page.getByTestId('csv-file').setInputFiles({
+    name: 'generisch.csv',
+    mimeType: 'text/csv',
+    buffer: GERMAN_CSV,
+  })
+  await page.getByTestId('csv-upload').click()
+
+  // Warnung erscheint im Mapping-Schritt mit Quellennamen
+  await expect(page.getByTestId('csv-duplicate-warning')).toBeVisible()
+  await expect(page.getByTestId('csv-duplicate-warning')).toContainText('Kraken API')
+})
+
 test('unbrauchbare CSV wird beim Upload abgelehnt', async ({ page }) => {
   await register(page, uniqueEmail('csvbad'))
   await page.getByRole('tab', { name: 'Quellen' }).click()

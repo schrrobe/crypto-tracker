@@ -34,6 +34,21 @@
             data-testid="csv-label"
           />
         </ion-item>
+        <!-- Optionale Börse → aktive Doppel-Erkennung gegen vorhandene API-Quellen -->
+        <ion-item>
+          <ion-select
+            :label="$t('csv.exchangeOptional')"
+            interface="popover"
+            :value="exchange"
+            data-testid="csv-exchange"
+            @ionChange="exchange = $event.detail.value"
+          >
+            <ion-select-option value="">{{ $t('csv.exchangeNone') }}</ion-select-option>
+            <ion-select-option v-for="p in EXCHANGE_PROVIDERS" :key="p" :value="p">
+              {{ PROVIDER_LABELS[p] }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
         <input
           type="file"
           accept=".csv,text/csv"
@@ -66,7 +81,7 @@
             ⚠
             {{
               $t('csv.duplicateExchange', {
-                provider: presetName(uploadResult.preset),
+                provider: PROVIDER_LABELS[uploadResult.duplicateExchangeProvider ?? ''] ?? '',
                 source: uploadResult.duplicateExchangeSource,
               })
             }}
@@ -217,8 +232,9 @@ import {
   IonToolbar,
 } from '@ionic/vue'
 import { ref, watch } from 'vue'
-import type { CsvImportDto, CsvUploadResponse } from '@crypto-tracker/shared'
+import { EXCHANGE_PROVIDERS, type CsvImportDto, type CsvUploadResponse } from '@crypto-tracker/shared'
 import { apiErrorMessage } from '../../../services/errors'
+import { PROVIDER_LABELS } from '../../../services/provider-labels'
 import { useImportsStore } from '../../../stores/imports.store'
 
 const props = defineProps<{ isOpen: boolean }>()
@@ -232,6 +248,7 @@ const step = ref<'upload' | 'mapping' | 'result'>('upload')
 const kind = ref<ImportKind>('BALANCES')
 const file = ref<File | null>(null)
 const label = ref('')
+const exchange = ref('')
 const uploadResult = ref<CsvUploadResponse | null>(null)
 const mappingSymbol = ref<string | null>(null)
 const mappingQuantity = ref<string | null>(null)
@@ -252,6 +269,7 @@ watch(
     kind.value = 'BALANCES'
     file.value = null
     label.value = ''
+    exchange.value = ''
     uploadResult.value = null
     result.value = null
     error.value = ''
@@ -271,7 +289,12 @@ async function doUpload() {
   error.value = ''
   uploading.value = true
   try {
-    uploadResult.value = await importsStore.upload(file.value, label.value, kind.value)
+    uploadResult.value = await importsStore.upload(
+      file.value,
+      label.value,
+      kind.value,
+      exchange.value || undefined,
+    )
     const suggestion = uploadResult.value.suggestedMapping
     mappingSymbol.value = suggestion.symbol
     mappingQuantity.value = suggestion.quantity

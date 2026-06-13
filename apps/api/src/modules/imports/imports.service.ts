@@ -1,5 +1,5 @@
 import { Prisma, type CsvImport } from '@prisma/client'
-import type { CsvImportDto, CsvUploadResponse, ImportErrorRow } from '@crypto-tracker/shared'
+import { EXCHANGE_PROVIDERS, type CsvImportDto, type CsvUploadResponse, type ImportErrorRow } from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import { parseCsv, suggestMappingWithPreset } from '../../csv/csv.parser'
@@ -41,6 +41,7 @@ export async function uploadCsv(
   kind: 'BALANCES' | 'TRANSACTIONS',
   label?: string,
   portfolioId?: string,
+  exchange?: (typeof EXCHANGE_PROVIDERS)[number],
 ): Promise<CsvUploadResponse> {
   const pid = await resolvePortfolioId(userId, portfolioId)
   const { headers, rows } = parseCsv(file.buffer.toString('utf8'))
@@ -69,16 +70,22 @@ export async function uploadCsv(
 
   const { mapping, preset } = suggestMappingWithPreset(headers, kind)
 
-  // Aktive Doppel-Erkennung: erkennt das Preset die Börse (KRAKEN/BITPANDA =
-  // ProviderId), und existiert im selben Portfolio bereits eine API-Quelle
-  // dieser Börse, würde der Import dieselben Bestände ein zweites Mal zählen.
+  // Aktive Doppel-Erkennung: Börse entweder explizit gewählt (deckt alle 11)
+  // oder per Preset erkannt (KRAKEN/BITPANDA = ProviderId). Existiert im selben
+  // Portfolio bereits eine API-Quelle dieser Börse, würde der Import dieselben
+  // Bestände ein zweites Mal zählen.
+  const candidateProvider = exchange ?? preset ?? null
   let duplicateExchangeSource: string | null = null
-  if (preset) {
+  let duplicateExchangeProvider: (typeof EXCHANGE_PROVIDERS)[number] | null = null
+  if (candidateProvider) {
     const existing = await prisma.portfolioSource.findFirst({
-      where: { userId, portfolioId: pid, type: 'EXCHANGE', provider: preset },
+      where: { userId, portfolioId: pid, type: 'EXCHANGE', provider: candidateProvider },
       select: { label: true },
     })
-    duplicateExchangeSource = existing?.label ?? null
+    if (existing) {
+      duplicateExchangeSource = existing.label
+      duplicateExchangeProvider = candidateProvider
+    }
   }
 
   return {
@@ -88,6 +95,7 @@ export async function uploadCsv(
     suggestedMapping: mapping,
     preset,
     duplicateExchangeSource,
+    duplicateExchangeProvider,
   }
 }
 

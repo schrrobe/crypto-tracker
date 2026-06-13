@@ -1,0 +1,28 @@
+// Anzeigenamen aller Provider (Exchanges + Chains) — geteilt zwischen
+// Quellen-Modal und CSV-Import-Wizard.
+export const PROVIDER_LABELS: Record<string, string> = {
+  COINBASE: 'Coinbase',
+  KRAKEN: 'Kraken',
+  BITVAVO: 'Bitvavo',
+  BITPANDA: 'Bitpanda',
+  BINANCE: 'Binance',
+  OKX: 'OKX',
+  BYBIT: 'Bybit',
+  KUCOIN: 'KuCoin',
+  BITSTAMP: 'Bitstamp',
+  GATEIO: 'Gate.io',
+  CRYPTOCOM: 'Crypto.com',
+  BITCOIN: 'Bitcoin',
+  SOLANA: 'Solana',
+  ETHEREUM: 'Ethereum',
+  POLYGON: 'Polygon',
+  ARBITRUM: 'Arbitrum',
+  BASE: 'Base',
+  BSC: 'BNB Smart Chain',
+  LITECOIN: 'Litecoin',
+  DOGECOIN: 'Dogecoin',
+  CARDANO: 'Cardano',
+  XRP: 'XRP Ledger',
+  TRON: 'Tron',
+  COSMOS: 'Cosmos Hub',
+}

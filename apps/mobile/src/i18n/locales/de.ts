@@ -179,6 +179,8 @@ const de = {
       'Importiere keine CSV einer Börse, die du bereits per API verbunden hast — sonst werden Bestände doppelt gezählt. Importe lassen sich jederzeit unter „CSV-Import-Historie" wieder löschen.',
     labelOptional: 'Bezeichnung (optional)',
     labelPlaceholder: 'z.B. Export Bitpanda',
+    exchangeOptional: 'Börse (optional)',
+    exchangeNone: '— keine / generische CSV —',
     upload: 'Hochladen',
     uploadFailed: 'Upload fehlgeschlagen',
     rowsDetected: '{n} Zeilen erkannt — ordne die Spalten zu:',

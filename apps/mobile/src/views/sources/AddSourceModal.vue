@@ -206,6 +206,7 @@ import {
 } from '@crypto-tracker/shared'
 import { apiErrorMessage } from '../../services/errors'
 import { openExternal } from '../../services/external-link'
+import { PROVIDER_LABELS } from '../../services/provider-labels'
 import { t } from '../../i18n'
 import { useSourcesStore } from '../../stores/sources.store'
 
@@ -226,32 +227,6 @@ const GUIDE_URLS: Record<string, string> = {
   CRYPTOCOM: 'https://exchange.crypto.com/settings/api-management',
 }
 
-const PROVIDER_LABELS: Record<string, string> = {
-  COINBASE: 'Coinbase',
-  KRAKEN: 'Kraken',
-  BITVAVO: 'Bitvavo',
-  BITPANDA: 'Bitpanda',
-  BINANCE: 'Binance',
-  OKX: 'OKX',
-  BYBIT: 'Bybit',
-  KUCOIN: 'KuCoin',
-  BITSTAMP: 'Bitstamp',
-  GATEIO: 'Gate.io',
-  CRYPTOCOM: 'Crypto.com',
-  BITCOIN: 'Bitcoin',
-  SOLANA: 'Solana',
-  ETHEREUM: 'Ethereum',
-  POLYGON: 'Polygon',
-  ARBITRUM: 'Arbitrum',
-  BASE: 'Base',
-  BSC: 'BNB Smart Chain',
-  LITECOIN: 'Litecoin',
-  DOGECOIN: 'Dogecoin',
-  CARDANO: 'Cardano',
-  XRP: 'XRP Ledger',
-  TRON: 'Tron',
-  COSMOS: 'Cosmos Hub',
-}
 
 const props = defineProps<{ isOpen: boolean }>()
 const emit = defineEmits<{ close: []; created: [] }>()

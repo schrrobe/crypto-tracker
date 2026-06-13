@@ -180,6 +180,8 @@ const pl: MessageSchema = {
       'Nie importuj pliku CSV z giełdy już połączonej przez API — w przeciwnym razie aktywa zostaną policzone podwójnie. Importy można w każdej chwili usunąć w „Historii importów CSV".',
     labelOptional: 'Nazwa (opcjonalnie)',
     labelPlaceholder: 'np. eksport Bitpanda',
+    exchangeOptional: 'Giełda (opcjonalnie)',
+    exchangeNone: '— brak / ogólny CSV —',
     upload: 'Wgraj',
     uploadFailed: 'Wgrywanie nie powiodło się',
     rowsDetected: 'Wykryto {n} wierszy — przypisz kolumny:',

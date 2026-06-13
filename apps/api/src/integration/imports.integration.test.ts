@@ -8,13 +8,21 @@ const KRAKEN_CSV =
   'txid,refid,time,type,asset,amount,fee,balance\n' +
   'L1,R1,2024-01-01T00:00:00Z,deposit,XXBT,0.5,0,0.5\n'
 
-async function uploadRaw(user: { token: string }, csv: string) {
-  const res = await request(app)
+// Generische CSV ohne Preset-Signatur (Heuristik greift, kein Preset erkannt)
+const GENERIC_CSV = 'Coin,Menge\nBTC,0.5\nETH,2\n'
+
+async function uploadRaw(user: { token: string }, csv: string, exchange?: string) {
+  const req = request(app)
     .post(`${API}/imports`)
     .set('Authorization', `Bearer ${user.token}`)
     .field('kind', 'TRANSACTIONS')
-    .attach('file', Buffer.from(csv, 'utf8'), 'kraken.csv')
-  return res.body as { preset: string | null; duplicateExchangeSource: string | null }
+  if (exchange) req.field('exchange', exchange)
+  const res = await req.attach('file', Buffer.from(csv, 'utf8'), 'import.csv')
+  return res.body as {
+    preset: string | null
+    duplicateExchangeSource: string | null
+    duplicateExchangeProvider: string | null
+  }
 }
 
 let symbolCounter = 0
@@ -147,6 +155,25 @@ describe('CSV-Import (Integration)', () => {
     const user = await registerUser('dup-none')
     const res = await uploadRaw(user, KRAKEN_CSV)
     expect(res.preset).toBe('KRAKEN')
+    expect(res.duplicateExchangeSource).toBeNull()
+    expect(res.duplicateExchangeProvider).toBeNull()
+  })
+
+  it('Doppel-Erkennung via Börsen-Auswahl: erkennt alle Exchanges (ohne Preset)', async () => {
+    const user = await registerUser('dup-pick')
+    await createExchangeSource(user, 'Bitvavo Haupt', 'valid-key-1234', 'BITVAVO')
+
+    // generische CSV (kein Preset) + explizit gewählte Börse
+    const res = await uploadRaw(user, GENERIC_CSV, 'BITVAVO')
+    expect(res.preset).toBeNull()
+    expect(res.duplicateExchangeSource).toBe('Bitvavo Haupt')
+    expect(res.duplicateExchangeProvider).toBe('BITVAVO')
+  })
+
+  it('Doppel-Erkennung via Auswahl: keine Warnung bei anderer Börse', async () => {
+    const user = await registerUser('dup-pick-miss')
+    await createExchangeSource(user, 'Bitvavo Haupt', 'valid-key-1234', 'BITVAVO')
+    const res = await uploadRaw(user, GENERIC_CSV, 'KRAKEN')
     expect(res.duplicateExchangeSource).toBeNull()
   })
 })

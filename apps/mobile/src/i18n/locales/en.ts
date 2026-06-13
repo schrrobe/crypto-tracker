@@ -180,6 +180,8 @@ const en: MessageSchema = {
       "Don't import a CSV from an exchange you've already connected via API — otherwise balances are counted twice. You can delete imports anytime under \"CSV import history\".",
     labelOptional: 'Name (optional)',
     labelPlaceholder: 'e.g. Bitpanda export',
+    exchangeOptional: 'Exchange (optional)',
+    exchangeNone: '— none / generic CSV —',
     upload: 'Upload',
     uploadFailed: 'Upload failed',
     rowsDetected: '{n} rows detected — map the columns:',

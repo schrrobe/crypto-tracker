@@ -16,6 +16,7 @@ export const useImportsStore = defineStore('imports', () => {
     file: File,
     label: string,
     kind: 'BALANCES' | 'TRANSACTIONS',
+    exchange?: string,
   ): Promise<CsvUploadResponse> {
     const form = new FormData()
     form.append('file', file)
@@ -23,6 +24,7 @@ export const useImportsStore = defineStore('imports', () => {
     if (label.trim()) form.append('label', label.trim())
     const portfolioId = usePortfoliosStore().scopeId()
     if (portfolioId) form.append('portfolioId', portfolioId)
+    if (exchange) form.append('exchange', exchange)
     return api.upload<CsvUploadResponse>('/imports', form)
   }
 

@@ -180,6 +180,8 @@ const cs: MessageSchema = {
       'Neimportuj CSV z burzy, kterou jsi už připojil přes API — jinak se zůstatky započítají dvakrát. Importy lze kdykoli smazat v „Historii CSV importů".',
     labelOptional: 'Název (volitelné)',
     labelPlaceholder: 'např. export Bitpanda',
+    exchangeOptional: 'Burza (volitelné)',
+    exchangeNone: '— žádná / obecné CSV —',
     upload: 'Nahrát',
     uploadFailed: 'Nahrání se nezdařilo',
     rowsDetected: 'Rozpoznáno {n} řádků — přiřaďte sloupce:',
