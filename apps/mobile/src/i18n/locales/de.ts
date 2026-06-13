@@ -113,7 +113,7 @@ const de = {
     apiKey: 'API-Key (nur Lese-Rechte!)',
     apiSecret: 'API-Secret',
     privateKey: 'CDP Private Key (PEM)',
-    passphrase: 'Passphrase (optional)',
+    passphrase: 'Passphrase',
     address: 'Öffentliche Wallet-Adresse',
     includeUnknownTokens: 'Unbekannte Tokens importieren (Spam-Risiko)',
     readOnlyHint:
@@ -128,6 +128,20 @@ const de = {
       '1. Im Coinbase Developer Portal (CDP) anmelden.\n2. „Create API Key" — als Berechtigung nur „View" wählen.\n3. Die heruntergeladene Key-Datei enthält Name und Private Key (PEM, mehrzeilig).\n4. Key-Name hier als API-Key, den kompletten PEM-Block (inkl. BEGIN/END-Zeilen) als Private Key eintragen.',
     keyGuideBITPANDA:
       '1. Bei Bitpanda anmelden → Profil-Menü → API-Schlüssel.\n2. Neuen Schlüssel erstellen, als Berechtigung nur „Guthaben anzeigen" (Balance) wählen.\n3. Bitpanda nutzt nur einen API-Key — kein Secret nötig.\n4. Den angezeigten Key hier eintragen; er wird nur einmal angezeigt.',
+    keyGuideBINANCE:
+      '1. Bei Binance anmelden → Profil → API-Verwaltung.\n2. „Create API" (System-generiert) wählen.\n3. Nur „Enable Reading" aktiviert lassen — Trading/Withdrawals aus.\n4. API Key und Secret Key hier eintragen; das Secret wird nur einmal angezeigt.',
+    keyGuideOKX:
+      '1. Bei OKX anmelden → Profil → API.\n2. „API-Key erstellen" wählen, Berechtigung nur „Lesen".\n3. Eine Passphrase festlegen — die brauchst du hier zusätzlich zu Key und Secret.\n4. Alle drei Werte eintragen; das Secret wird nur einmal angezeigt.',
+    keyGuideBYBIT:
+      '1. Bei Bybit anmelden → Profil → API.\n2. „Create New Key" → System-generated API Keys.\n3. Berechtigung „Read-Only" wählen, Kontotyp Unified Trading.\n4. API Key und Secret hier eintragen; das Secret wird nur einmal angezeigt.',
+    keyGuideKUCOIN:
+      '1. Bei KuCoin anmelden → API-Verwaltung.\n2. „Create API" wählen, nur Berechtigung „General" (Lesen) — kein Trade/Transfer.\n3. Eine API-Passphrase festlegen — die brauchst du hier zusätzlich.\n4. Key, Secret und Passphrase eintragen (API-Version 2).',
+    keyGuideBITSTAMP:
+      '1. Bei Bitstamp anmelden → Einstellungen → Sicherheit → API-Zugriff.\n2. Neuen Key erstellen, nur Berechtigung „Account balance".\n3. Key aktivieren (Bestätigungs-Mail).\n4. API-Key und Secret hier eintragen.',
+    keyGuideGATEIO:
+      '1. Bei Gate.io anmelden → Profil → API-Verwaltung.\n2. Neuen Key erstellen, Berechtigung nur „Read Only" für Spot.\n3. API-Key und Secret hier eintragen; das Secret wird nur einmal angezeigt.',
+    keyGuideCRYPTOCOM:
+      '1. Im Crypto.com Exchange (nicht der App!) anmelden → Einstellungen → API-Keys.\n2. Neuen Key erstellen, Berechtigung nur „Read".\n3. API-Key und Secret hier eintragen; das Secret wird nur einmal angezeigt.',
     connect: 'Verbinden',
     connectFailed: 'Verbinden fehlgeschlagen',
     providerBitcoin: 'Bitcoin-Wallet',

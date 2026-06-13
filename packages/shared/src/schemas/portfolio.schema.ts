@@ -14,8 +14,17 @@ export const createManualSourceSchema = z.object({
   portfolioId: z.string().uuid().optional(),
 })
 
-export const EXCHANGE_PROVIDERS = ['COINBASE', 'KRAKEN', 'BITVAVO', 'BITPANDA'] as const
-export const WALLET_PROVIDERS = ['BITCOIN', 'SOLANA', 'ETHEREUM'] as const
+export const EXCHANGE_PROVIDERS = [
+  'COINBASE', 'KRAKEN', 'BITVAVO', 'BITPANDA',
+  'BINANCE', 'OKX', 'BYBIT', 'KUCOIN', 'BITSTAMP', 'GATEIO', 'CRYPTOCOM',
+] as const
+// OKX und KuCoin verlangen zwingend eine API-Passphrase
+export const PASSPHRASE_REQUIRED_PROVIDERS = ['OKX', 'KUCOIN'] as const
+export const WALLET_PROVIDERS = [
+  'BITCOIN', 'SOLANA', 'ETHEREUM',
+  'POLYGON', 'ARBITRUM', 'BASE', 'BSC',
+  'LITECOIN', 'DOGECOIN', 'CARDANO', 'XRP', 'TRON', 'COSMOS',
+] as const
 
 export const createExchangeSourceSchema = z.object({
   type: z.literal('EXCHANGE'),
@@ -44,10 +53,14 @@ export const createSourceSchema = z
     createExchangeSourceSchema,
     createWalletSourceSchema,
   ])
-  // Bitpanda ist der einzige Exchange ohne Secret
+  // Bitpanda ist der einzige Exchange ohne Secret; OKX/KuCoin verlangen eine Passphrase
   .superRefine((value, ctx) => {
-    if (value.type === 'EXCHANGE' && value.provider !== 'BITPANDA' && !value.apiSecret) {
+    if (value.type !== 'EXCHANGE') return
+    if (value.provider !== 'BITPANDA' && !value.apiSecret) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['apiSecret'], message: 'API-Secret fehlt' })
+    }
+    if ((PASSPHRASE_REQUIRED_PROVIDERS as readonly string[]).includes(value.provider) && !value.passphrase) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['passphrase'], message: 'Passphrase fehlt' })
     }
   })
 export type CreateSourceInput = z.infer<typeof createSourceSchema>

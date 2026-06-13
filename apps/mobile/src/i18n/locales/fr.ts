@@ -115,7 +115,7 @@ const fr: MessageSchema = {
     apiKey: 'Clé API (lecture seule !)',
     apiSecret: 'Secret API',
     privateKey: 'Clé privée CDP (PEM)',
-    passphrase: 'Phrase secrète (optionnel)',
+    passphrase: 'Phrase secrète',
     address: 'Adresse publique du portefeuille',
     includeUnknownTokens: 'Importer les jetons inconnus (risque de spam)',
     readOnlyHint:
@@ -130,6 +130,20 @@ const fr: MessageSchema = {
       "1. Connectez-vous au Coinbase Developer Portal (CDP).\n2. « Create API Key » — choisissez uniquement la permission « View ».\n3. Le fichier de clé téléchargé contient le nom et la clé privée (PEM, multiligne).\n4. Saisissez ici le nom de la clé comme clé API, le bloc PEM complet (lignes BEGIN/END incluses) comme clé privée.",
     keyGuideBITPANDA:
       "1. Connectez-vous à Bitpanda → menu du profil → Clés API.\n2. Créez une nouvelle clé et choisissez uniquement la permission « Afficher le solde » (Balance).\n3. Bitpanda n'utilise qu'une clé API — aucun secret nécessaire.\n4. Saisissez ici la clé affichée ; elle n'est affichée qu'une seule fois.",
+    keyGuideBINANCE:
+      "1. Connectez-vous à Binance → Profil → Gestion des API.\n2. Choisissez « Create API » (générée par le système).\n3. Laissez uniquement « Enable Reading » activé — trading/retraits désactivés.\n4. Saisissez ici la clé API et la clé secrète ; le secret n'est affiché qu'une seule fois.",
+    keyGuideOKX:
+      "1. Connectez-vous à OKX → Profil → API.\n2. Choisissez « Créer une clé API », permission « Lecture » uniquement.\n3. Définissez une phrase secrète — vous en aurez besoin ici en plus de la clé et du secret.\n4. Saisissez les trois valeurs ; le secret n'est affiché qu'une seule fois.",
+    keyGuideBYBIT:
+      "1. Connectez-vous à Bybit → Profil → API.\n2. « Create New Key » → System-generated API Keys.\n3. Choisissez la permission « Read-Only », type de compte Unified Trading.\n4. Saisissez ici la clé API et le secret ; le secret n'est affiché qu'une seule fois.",
+    keyGuideKUCOIN:
+      "1. Connectez-vous à KuCoin → Gestion des API.\n2. Choisissez « Create API », uniquement la permission « General » (lecture) — pas de trade/transfert.\n3. Définissez une phrase secrète API — vous en aurez aussi besoin ici.\n4. Saisissez la clé, le secret et la phrase secrète (API version 2).",
+    keyGuideBITSTAMP:
+      "1. Connectez-vous à Bitstamp → Paramètres → Sécurité → Accès API.\n2. Créez une nouvelle clé, uniquement la permission « Account balance ».\n3. Activez la clé (e-mail de confirmation).\n4. Saisissez ici la clé API et le secret.",
+    keyGuideGATEIO:
+      "1. Connectez-vous à Gate.io → Profil → Gestion des API.\n2. Créez une nouvelle clé, permission « Read Only » pour le spot uniquement.\n3. Saisissez ici la clé API et le secret ; le secret n'est affiché qu'une seule fois.",
+    keyGuideCRYPTOCOM:
+      "1. Connectez-vous au Crypto.com Exchange (pas l'application !) → Paramètres → Clés API.\n2. Créez une nouvelle clé, permission « Read » uniquement.\n3. Saisissez ici la clé API et le secret ; le secret n'est affiché qu'une seule fois.",
     connect: 'Connecter',
     connectFailed: 'Échec de la connexion',
     providerBitcoin: 'Portefeuille Bitcoin',

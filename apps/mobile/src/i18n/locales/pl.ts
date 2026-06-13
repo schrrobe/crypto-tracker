@@ -115,7 +115,7 @@ const pl: MessageSchema = {
     apiKey: 'Klucz API (tylko do odczytu!)',
     apiSecret: 'Sekret API',
     privateKey: 'Klucz prywatny CDP (PEM)',
-    passphrase: 'Hasło dodatkowe (opcjonalnie)',
+    passphrase: 'Hasło dodatkowe',
     address: 'Publiczny adres portfela',
     includeUnknownTokens: 'Importuj nieznane tokeny (ryzyko spamu)',
     readOnlyHint:
@@ -130,6 +130,20 @@ const pl: MessageSchema = {
       '1. Zaloguj się w Coinbase Developer Portal (CDP).\n2. „Create API Key" — jako uprawnienie wybierz tylko „View".\n3. Pobrany plik klucza zawiera nazwę i klucz prywatny (PEM, wielowierszowy).\n4. Nazwę klucza wpisz tutaj jako klucz API, a cały blok PEM (wraz z liniami BEGIN/END) jako klucz prywatny.',
     keyGuideBITPANDA:
       '1. Zaloguj się w Bitpanda → menu profilu → Klucze API.\n2. Utwórz nowy klucz i jako uprawnienie wybierz tylko „Pokaż saldo" (Balance).\n3. Bitpanda używa tylko klucza API — sekret nie jest potrzebny.\n4. Wpisz tutaj wyświetlony klucz; jest pokazywany tylko raz.',
+    keyGuideBINANCE:
+      '1. Zaloguj się w Binance → Profil → Zarządzanie API.\n2. Wybierz „Create API" (generowany systemowo).\n3. Pozostaw włączone tylko „Enable Reading" — trading/wypłaty wyłączone.\n4. Wpisz tutaj klucz API i sekret; sekret jest wyświetlany tylko raz.',
+    keyGuideOKX:
+      '1. Zaloguj się w OKX → Profil → API.\n2. Wybierz „Utwórz klucz API", uprawnienie tylko „Odczyt".\n3. Ustaw hasło dodatkowe — będzie tu potrzebne oprócz klucza i sekretu.\n4. Wpisz wszystkie trzy wartości; sekret jest wyświetlany tylko raz.',
+    keyGuideBYBIT:
+      '1. Zaloguj się w Bybit → Profil → API.\n2. „Create New Key" → System-generated API Keys.\n3. Wybierz uprawnienie „Read-Only", typ konta Unified Trading.\n4. Wpisz tutaj klucz API i sekret; sekret jest wyświetlany tylko raz.',
+    keyGuideKUCOIN:
+      '1. Zaloguj się w KuCoin → Zarządzanie API.\n2. Wybierz „Create API", tylko uprawnienie „General" (odczyt) — bez trade/transfer.\n3. Ustaw hasło dodatkowe API — będzie tu również potrzebne.\n4. Wpisz klucz, sekret i hasło dodatkowe (API w wersji 2).',
+    keyGuideBITSTAMP:
+      '1. Zaloguj się w Bitstamp → Ustawienia → Bezpieczeństwo → Dostęp API.\n2. Utwórz nowy klucz, tylko uprawnienie „Account balance".\n3. Aktywuj klucz (e-mail potwierdzający).\n4. Wpisz tutaj klucz API i sekret.',
+    keyGuideGATEIO:
+      '1. Zaloguj się w Gate.io → Profil → Zarządzanie API.\n2. Utwórz nowy klucz, uprawnienie tylko „Read Only" dla rynku spot.\n3. Wpisz tutaj klucz API i sekret; sekret jest wyświetlany tylko raz.',
+    keyGuideCRYPTOCOM:
+      '1. Zaloguj się w Crypto.com Exchange (nie w aplikacji!) → Ustawienia → Klucze API.\n2. Utwórz nowy klucz, uprawnienie tylko „Read".\n3. Wpisz tutaj klucz API i sekret; sekret jest wyświetlany tylko raz.',
     connect: 'Połącz',
     connectFailed: 'Połączenie nie powiodło się',
     providerBitcoin: 'Portfel Bitcoin',

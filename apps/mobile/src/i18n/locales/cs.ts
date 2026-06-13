@@ -115,7 +115,7 @@ const cs: MessageSchema = {
     apiKey: 'API klíč (pouze ke čtení!)',
     apiSecret: 'API secret',
     privateKey: 'Privátní klíč CDP (PEM)',
-    passphrase: 'Passphrase (volitelné)',
+    passphrase: 'Passphrase',
     address: 'Veřejná adresa peněženky',
     includeUnknownTokens: 'Importovat neznámé tokeny (riziko spamu)',
     readOnlyHint:
@@ -130,6 +130,20 @@ const cs: MessageSchema = {
       '1. Přihlaste se do Coinbase Developer Portal (CDP).\n2. „Create API Key" — jako oprávnění zvolte pouze „View".\n3. Stažený soubor s klíčem obsahuje název a privátní klíč (PEM, víceřádkový).\n4. Název klíče zadejte sem jako API klíč, celý blok PEM (včetně řádků BEGIN/END) jako privátní klíč.',
     keyGuideBITPANDA:
       '1. Přihlaste se na Bitpanda → menu profilu → API klíče.\n2. Vytvořte nový klíč a jako oprávnění zvolte pouze „Zobrazit zůstatek" (Balance).\n3. Bitpanda používá jen API klíč — secret není potřeba.\n4. Zadejte sem zobrazený klíč; zobrazí se jen jednou.',
+    keyGuideBINANCE:
+      '1. Přihlaste se na Binance → Profil → Správa API.\n2. Zvolte „Create API" (generovaný systémem).\n3. Nechte aktivní pouze „Enable Reading" — trading/výběry vypnuté.\n4. Zadejte sem API klíč a secret; secret se zobrazí jen jednou.',
+    keyGuideOKX:
+      '1. Přihlaste se na OKX → Profil → API.\n2. Zvolte „Vytvořit API klíč", oprávnění pouze „Čtení".\n3. Nastavte passphrase — budete ji zde potřebovat navíc ke klíči a secretu.\n4. Zadejte všechny tři hodnoty; secret se zobrazí jen jednou.',
+    keyGuideBYBIT:
+      '1. Přihlaste se na Bybit → Profil → API.\n2. „Create New Key" → System-generated API Keys.\n3. Zvolte oprávnění „Read-Only", typ účtu Unified Trading.\n4. Zadejte sem API klíč a secret; secret se zobrazí jen jednou.',
+    keyGuideKUCOIN:
+      '1. Přihlaste se na KuCoin → Správa API.\n2. Zvolte „Create API", pouze oprávnění „General" (čtení) — žádný trade/transfer.\n3. Nastavte API passphrase — budete ji zde také potřebovat.\n4. Zadejte klíč, secret a passphrase (API verze 2).',
+    keyGuideBITSTAMP:
+      '1. Přihlaste se na Bitstamp → Nastavení → Zabezpečení → Přístup k API.\n2. Vytvořte nový klíč, pouze oprávnění „Account balance".\n3. Aktivujte klíč (potvrzovací e-mail).\n4. Zadejte sem API klíč a secret.',
+    keyGuideGATEIO:
+      '1. Přihlaste se na Gate.io → Profil → Správa API.\n2. Vytvořte nový klíč, oprávnění pouze „Read Only" pro spot.\n3. Zadejte sem API klíč a secret; secret se zobrazí jen jednou.',
+    keyGuideCRYPTOCOM:
+      '1. Přihlaste se na Crypto.com Exchange (ne v aplikaci!) → Nastavení → API klíče.\n2. Vytvořte nový klíč, oprávnění pouze „Read".\n3. Zadejte sem API klíč a secret; secret se zobrazí jen jednou.',
     connect: 'Připojit',
     connectFailed: 'Připojení se nezdařilo',
     providerBitcoin: 'Bitcoinová peněženka',

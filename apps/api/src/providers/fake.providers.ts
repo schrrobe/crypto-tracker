@@ -24,6 +24,16 @@ const FAKE_WALLET_BALANCES: Record<string, RawBalance[]> = {
     { symbol: 'ETH', amount: '1.5' },
     { symbol: 'STETH', amount: '3' },
   ],
+  POLYGON: [{ symbol: 'POL', amount: '100' }],
+  ARBITRUM: [{ symbol: 'ETH', amount: '0.4' }],
+  BASE: [{ symbol: 'ETH', amount: '0.3' }],
+  BSC: [{ symbol: 'BNB', amount: '2' }],
+  LITECOIN: [{ symbol: 'LTC', amount: '5' }],
+  DOGECOIN: [{ symbol: 'DOGE', amount: '1000' }],
+  CARDANO: [{ symbol: 'ADA', amount: '500' }],
+  XRP: [{ symbol: 'XRP', amount: '200' }],
+  TRON: [{ symbol: 'TRX', amount: '300' }],
+  COSMOS: [{ symbol: 'ATOM', amount: '25' }],
 }
 
 // Deterministische Rewards für Integrationstests: feste externalRefs →

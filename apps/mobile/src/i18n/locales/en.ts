@@ -115,7 +115,7 @@ const en: MessageSchema = {
     apiKey: 'API key (read-only permissions!)',
     apiSecret: 'API secret',
     privateKey: 'CDP private key (PEM)',
-    passphrase: 'Passphrase (optional)',
+    passphrase: 'Passphrase',
     address: 'Public wallet address',
     includeUnknownTokens: 'Import unknown tokens (spam risk)',
     readOnlyHint:
@@ -130,6 +130,20 @@ const en: MessageSchema = {
       '1. Sign in to the Coinbase Developer Portal (CDP).\n2. "Create API Key" — select only the "View" permission.\n3. The downloaded key file contains the name and the private key (PEM, multi-line).\n4. Enter the key name here as the API key, the full PEM block (including the BEGIN/END lines) as the private key.',
     keyGuideBITPANDA:
       '1. Sign in to Bitpanda → profile menu → API keys.\n2. Create a new key and select only the "View balance" permission (Balance).\n3. Bitpanda uses just an API key — no secret needed.\n4. Enter the displayed key here; it is shown only once.',
+    keyGuideBINANCE:
+      '1. Sign in to Binance → Profile → API Management.\n2. Choose "Create API" (system-generated).\n3. Leave only "Enable Reading" enabled — trading/withdrawals off.\n4. Enter the API key and secret key here; the secret is shown only once.',
+    keyGuideOKX:
+      '1. Sign in to OKX → Profile → API.\n2. Choose "Create API key", permission "Read" only.\n3. Set a passphrase — you need it here in addition to the key and secret.\n4. Enter all three values; the secret is shown only once.',
+    keyGuideBYBIT:
+      '1. Sign in to Bybit → Profile → API.\n2. "Create New Key" → System-generated API Keys.\n3. Choose the "Read-Only" permission, account type Unified Trading.\n4. Enter the API key and secret here; the secret is shown only once.',
+    keyGuideKUCOIN:
+      '1. Sign in to KuCoin → API Management.\n2. Choose "Create API", only the "General" permission (read) — no trade/transfer.\n3. Set an API passphrase — you need it here as well.\n4. Enter the key, secret and passphrase (API version 2).',
+    keyGuideBITSTAMP:
+      '1. Sign in to Bitstamp → Settings → Security → API access.\n2. Create a new key, only the "Account balance" permission.\n3. Activate the key (confirmation e-mail).\n4. Enter the API key and secret here.',
+    keyGuideGATEIO:
+      '1. Sign in to Gate.io → Profile → API Management.\n2. Create a new key, permission "Read Only" for spot only.\n3. Enter the API key and secret here; the secret is shown only once.',
+    keyGuideCRYPTOCOM:
+      '1. Sign in to the Crypto.com Exchange (not the app!) → Settings → API keys.\n2. Create a new key, permission "Read" only.\n3. Enter the API key and secret here; the secret is shown only once.',
     connect: 'Connect',
     connectFailed: 'Connecting failed',
     providerBitcoin: 'Bitcoin wallet',

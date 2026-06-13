@@ -14,7 +14,7 @@
 ```
 Error: locator.click: Error: strict mode violation: getByRole('button', { name: /Mein Portfolio/ }) resolved to 2 elements:
     1) <button type="button" id="action-sheet-button-15-0" class="action-sheet-button ion-activatable ion-focusable sc-ion-action-sheet-md">…</button> aka locator('#action-sheet-button-15-0')
-    2) <button type="button" id="action-sheet-button-16-0" class="action-sheet-button ion-activatable ion-focusable sc-ion-action-sheet-md">…</button> aka locator('#action-sheet-button-16-0')
+    2) <button type="button" id="action-sheet-button-3-0" class="action-sheet-button ion-activatable ion-focusable sc-ion-action-sheet-md">…</button> aka locator('#action-sheet-button-3-0')
 
 Call log:
   - waiting for getByRole('button', { name: /Mein Portfolio/ })

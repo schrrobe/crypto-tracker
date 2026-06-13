@@ -104,6 +104,16 @@
               data-testid="source-api-secret"
             />
           </ion-item>
+          <!-- OKX/KuCoin verlangen zusätzlich die API-Passphrase -->
+          <ion-item v-if="needsPassphrase">
+            <ion-input
+              v-model="passphrase"
+              :label="$t('sources.passphrase')"
+              label-placement="floating"
+              type="password"
+              data-testid="source-passphrase"
+            />
+          </ion-item>
         </template>
 
         <!-- Wallet: öffentliche Adresse -->
@@ -176,6 +186,7 @@ import {
 import { computed, ref, watch } from 'vue'
 import {
   EXCHANGE_PROVIDERS,
+  PASSPHRASE_REQUIRED_PROVIDERS,
   WALLET_PROVIDERS,
   type CreateSourceInput,
 } from '@crypto-tracker/shared'
@@ -191,6 +202,13 @@ const GUIDE_URLS: Record<string, string> = {
   BITVAVO: 'https://account.bitvavo.com/user/api',
   COINBASE: 'https://portal.cdp.coinbase.com/access/api',
   BITPANDA: 'https://web.bitpanda.com/apikey',
+  BINANCE: 'https://www.binance.com/en/my/settings/api-management',
+  OKX: 'https://www.okx.com/account/my-api',
+  BYBIT: 'https://www.bybit.com/app/user/api-management',
+  KUCOIN: 'https://www.kucoin.com/account/api',
+  BITSTAMP: 'https://www.bitstamp.net/account/security/api/',
+  GATEIO: 'https://www.gate.io/myaccount/api_key_manage',
+  CRYPTOCOM: 'https://exchange.crypto.com/settings/api-management',
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -198,9 +216,26 @@ const PROVIDER_LABELS: Record<string, string> = {
   KRAKEN: 'Kraken',
   BITVAVO: 'Bitvavo',
   BITPANDA: 'Bitpanda',
+  BINANCE: 'Binance',
+  OKX: 'OKX',
+  BYBIT: 'Bybit',
+  KUCOIN: 'KuCoin',
+  BITSTAMP: 'Bitstamp',
+  GATEIO: 'Gate.io',
+  CRYPTOCOM: 'Crypto.com',
   BITCOIN: 'Bitcoin',
   SOLANA: 'Solana',
   ETHEREUM: 'Ethereum',
+  POLYGON: 'Polygon',
+  ARBITRUM: 'Arbitrum',
+  BASE: 'Base',
+  BSC: 'BNB Smart Chain',
+  LITECOIN: 'Litecoin',
+  DOGECOIN: 'Dogecoin',
+  CARDANO: 'Cardano',
+  XRP: 'XRP Ledger',
+  TRON: 'Tron',
+  COSMOS: 'Cosmos Hub',
 }
 
 const props = defineProps<{ isOpen: boolean }>()
@@ -228,11 +263,16 @@ const labelPlaceholder = computed(() =>
       : t('sources.labelPlaceholderManual'),
 )
 
+const needsPassphrase = computed(() =>
+  (PASSPHRASE_REQUIRED_PROVIDERS as readonly string[]).includes(exchangeProvider.value),
+)
+
 const valid = computed(() => {
   if (!label.value.trim()) return false
   if (type.value === 'EXCHANGE') {
     const secretOk = exchangeProvider.value === 'BITPANDA' || apiSecret.value.trim().length >= 4
-    return apiKey.value.trim().length >= 4 && secretOk
+    const passphraseOk = !needsPassphrase.value || passphrase.value.trim().length > 0
+    return apiKey.value.trim().length >= 4 && secretOk && passphraseOk
   }
   if (type.value === 'WALLET') return address.value.trim().length >= 10
   return true

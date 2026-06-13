@@ -179,6 +179,23 @@ const PROVIDER_NAMES: Record<string, string> = {
   KRAKEN: 'Kraken',
   BITVAVO: 'Bitvavo',
   BITPANDA: 'Bitpanda',
+  BINANCE: 'Binance',
+  OKX: 'OKX',
+  BYBIT: 'Bybit',
+  KUCOIN: 'KuCoin',
+  BITSTAMP: 'Bitstamp',
+  GATEIO: 'Gate.io',
+  CRYPTOCOM: 'Crypto.com',
+  POLYGON: 'Polygon',
+  ARBITRUM: 'Arbitrum',
+  BASE: 'Base',
+  BSC: 'BNB Smart Chain',
+  LITECOIN: 'Litecoin',
+  DOGECOIN: 'Dogecoin',
+  CARDANO: 'Cardano',
+  XRP: 'XRP Ledger',
+  TRON: 'Tron',
+  COSMOS: 'Cosmos Hub',
 }
 
 const hasSyncable = computed(() => sourcesStore.sources.some(isSyncable))
