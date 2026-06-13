@@ -147,6 +147,7 @@ model PortfolioSource {
   transactions Transaction[]
 
   @@index([userId])
+  @@index([portfolioId])
 }
 
 model ExchangeCredential {
