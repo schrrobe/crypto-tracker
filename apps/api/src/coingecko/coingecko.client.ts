@@ -210,7 +210,9 @@ async function fetchMarketsFromCoinGecko(currency: 'eur' | 'usd'): Promise<Marke
   if (!res.ok) {
     throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
   }
-  const json = (await res.json()) as Array<{
+  // Bei Rate-Limit liefert CoinGecko gelegentlich kein JSON (HTML/Text) trotz 200/2xx.
+  // Parse-Fehler als sauberen 502 durchreichen statt als unbehandelten 500.
+  let json: Array<{
     id: string
     symbol: string
     name: string
@@ -220,6 +222,14 @@ async function fetchMarketsFromCoinGecko(currency: 'eur' | 'usd'): Promise<Marke
     market_cap_rank: number
     price_change_percentage_24h: number | null
   }>
+  try {
+    json = await res.json()
+  } catch {
+    throw new AppError('PRICE_PROVIDER_ERROR', 502, 'CoinGecko lieferte keine gültige JSON-Antwort')
+  }
+  if (!Array.isArray(json)) {
+    throw new AppError('PRICE_PROVIDER_ERROR', 502, 'CoinGecko lieferte ein unerwartetes Format')
+  }
   return json.map((c) => ({
     id: c.id,
     symbol: c.symbol.toUpperCase(),
