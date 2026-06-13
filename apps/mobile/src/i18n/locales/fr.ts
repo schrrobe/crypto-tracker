@@ -176,6 +176,8 @@ const fr: MessageSchema = {
     title: 'Import CSV',
     intro:
       'Téléversez un CSV avec vos avoirs (colonnes p. ex. « Coin » et « Quantité »). Vous confirmerez la correspondance des colonnes à l\'étape suivante.',
+    doubleCountHint:
+      "N'importe pas de CSV d'une plateforme déjà connectée via API — sinon les avoirs sont comptés deux fois. Les imports peuvent être supprimés à tout moment dans « Historique des imports CSV ».",
     labelOptional: 'Nom (optionnel)',
     labelPlaceholder: 'p. ex. export Bitpanda',
     upload: 'Téléverser',

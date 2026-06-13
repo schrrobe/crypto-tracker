@@ -175,6 +175,8 @@ const de = {
     title: 'CSV-Import',
     intro:
       'Lade eine CSV mit deinen Beständen hoch (Spalten z.B. „Coin" und „Menge"). Im nächsten Schritt bestätigst du die Spalten-Zuordnung.',
+    doubleCountHint:
+      'Importiere keine CSV einer Börse, die du bereits per API verbunden hast — sonst werden Bestände doppelt gezählt. Importe lassen sich jederzeit unter „CSV-Import-Historie" wieder löschen.',
     labelOptional: 'Bezeichnung (optional)',
     labelPlaceholder: 'z.B. Export Bitpanda',
     upload: 'Hochladen',

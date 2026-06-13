@@ -176,6 +176,8 @@ const en: MessageSchema = {
     title: 'CSV import',
     intro:
       'Upload a CSV with your holdings (columns such as "Coin" and "Amount"). You will confirm the column mapping in the next step.',
+    doubleCountHint:
+      "Don't import a CSV from an exchange you've already connected via API — otherwise balances are counted twice. You can delete imports anytime under \"CSV import history\".",
     labelOptional: 'Name (optional)',
     labelPlaceholder: 'e.g. Bitpanda export',
     upload: 'Upload',

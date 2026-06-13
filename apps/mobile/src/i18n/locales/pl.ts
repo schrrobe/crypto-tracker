@@ -176,6 +176,8 @@ const pl: MessageSchema = {
     title: 'Import CSV',
     intro:
       'Wgraj plik CSV ze swoimi aktywami (kolumny np. „Coin" i „Ilość"). W następnym kroku potwierdzisz przypisanie kolumn.',
+    doubleCountHint:
+      'Nie importuj pliku CSV z giełdy już połączonej przez API — w przeciwnym razie aktywa zostaną policzone podwójnie. Importy można w każdej chwili usunąć w „Historii importów CSV".',
     labelOptional: 'Nazwa (opcjonalnie)',
     labelPlaceholder: 'np. eksport Bitpanda',
     upload: 'Wgraj',

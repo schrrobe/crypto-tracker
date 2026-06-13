@@ -14,6 +14,9 @@
       <!-- Schritt 1: Upload -->
       <template v-if="step === 'upload'">
         <p class="hint">{{ $t('csv.intro') }}</p>
+        <ion-text color="warning">
+          <p class="hint" data-testid="csv-double-count-hint">⚠ {{ $t('csv.doubleCountHint') }}</p>
+        </ion-text>
         <ion-segment :value="kind" @ionChange="kind = $event.detail.value as ImportKind">
           <ion-segment-button value="BALANCES" data-testid="csv-kind-balances">
             <ion-label>{{ $t('csv.kindBalances') }}</ion-label>

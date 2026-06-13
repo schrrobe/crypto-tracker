@@ -176,6 +176,8 @@ const cs: MessageSchema = {
     title: 'CSV import',
     intro:
       'Nahrajte CSV se svými aktivy (sloupce např. „Coin" a „Množství"). V dalším kroku potvrdíte přiřazení sloupců.',
+    doubleCountHint:
+      'Neimportuj CSV z burzy, kterou jsi už připojil přes API — jinak se zůstatky započítají dvakrát. Importy lze kdykoli smazat v „Historii CSV importů".',
     labelOptional: 'Název (volitelné)',
     labelPlaceholder: 'např. export Bitpanda',
     upload: 'Nahrát',
