@@ -164,11 +164,10 @@ export async function fetchMarkets(currency: 'eur' | 'usd'): Promise<MarketCoin[
   const cached = marketsCache.get(currency)
   if (cached && cached.at > Date.now() - MARKETS_CACHE_TTL_MS) return cached.data
 
-  let data: MarketCoin[]
   if (env.FAKE_PRICES) {
     // Deterministisch: 100 Coins, Preis/Cap aus dem Rang ableitbar; jeder dritte
     // Eintrag negativ (für die Verlierer-Liste)
-    data = Array.from({ length: 100 }, (_, i) => {
+    const data = Array.from({ length: 100 }, (_, i) => {
       const rank = i + 1
       return {
         id: `fake-coin-${rank}`,
@@ -181,38 +180,54 @@ export async function fetchMarkets(currency: 'eur' | 'usd'): Promise<MarketCoin[
         change24hPct: (rank % 3 === 0 ? -1 : 1) * (rank % 10),
       }
     })
-  } else {
-    const url =
-      `${BASE}/coins/markets?vs_currency=${currency}` +
-      '&order=market_cap_desc&per_page=100&page=1&price_change_percentage=24h'
-    const res = await fetch(url, {
-      headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
-    })
-    if (!res.ok) {
-      throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
-    }
-    const json = (await res.json()) as Array<{
-      id: string
-      symbol: string
-      name: string
-      image?: string
-      current_price: number
-      market_cap: number
-      market_cap_rank: number
-      price_change_percentage_24h: number | null
-    }>
-    data = json.map((c) => ({
-      id: c.id,
-      symbol: c.symbol.toUpperCase(),
-      name: c.name,
-      iconUrl: c.image ?? null,
-      price: c.current_price,
-      marketCap: c.market_cap,
-      rank: c.market_cap_rank,
-      change24hPct: c.price_change_percentage_24h,
-    }))
+    marketsCache.set(currency, { at: Date.now(), data })
+    return data
   }
 
-  marketsCache.set(currency, { at: Date.now(), data })
-  return data
+  try {
+    const data = await fetchMarketsFromCoinGecko(currency)
+    marketsCache.set(currency, { at: Date.now(), data })
+    return data
+  } catch (err) {
+    // CoinGecko-Free-Tier (ohne Key) rate-limited häufig (429). Statt den ganzen
+    // Markt-Tab fallen zu lassen: letzten bekannten Stand liefern, egal wie alt.
+    // Nur ohne jeden Cache wird der Fehler durchgereicht.
+    if (cached) {
+      console.warn(`[coingecko] Markt-Abruf fehlgeschlagen, liefere Cache-Stand: ${String(err)}`)
+      return cached.data
+    }
+    throw err
+  }
+}
+
+async function fetchMarketsFromCoinGecko(currency: 'eur' | 'usd'): Promise<MarketCoin[]> {
+  const url =
+    `${BASE}/coins/markets?vs_currency=${currency}` +
+    '&order=market_cap_desc&per_page=100&page=1&price_change_percentage=24h'
+  const res = await fetch(url, {
+    headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
+  })
+  if (!res.ok) {
+    throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
+  }
+  const json = (await res.json()) as Array<{
+    id: string
+    symbol: string
+    name: string
+    image?: string
+    current_price: number
+    market_cap: number
+    market_cap_rank: number
+    price_change_percentage_24h: number | null
+  }>
+  return json.map((c) => ({
+    id: c.id,
+    symbol: c.symbol.toUpperCase(),
+    name: c.name,
+    iconUrl: c.image ?? null,
+    price: c.current_price,
+    marketCap: c.market_cap,
+    rank: c.market_cap_rank,
+    change24hPct: c.price_change_percentage_24h,
+  }))
 }
