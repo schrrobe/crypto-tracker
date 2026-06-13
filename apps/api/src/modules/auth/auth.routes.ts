@@ -1,6 +1,12 @@
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
-import { loginSchema, refreshSchema, registerSchema } from '@crypto-tracker/shared'
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  refreshSchema,
+  registerSchema,
+  resetPasswordSchema,
+} from '@crypto-tracker/shared'
 import { z } from 'zod'
 import { validate } from '../../middleware/validate.middleware'
 import { requireAuth } from '../../middleware/auth.middleware'
@@ -50,6 +56,25 @@ authRoutes.post(
   validate(refreshSchema),
   asyncHandler(async (req, res) => {
     await authService.logout(req.body.refreshToken)
+    res.status(204).end()
+  }),
+)
+
+authRoutes.post(
+  '/forgot-password',
+  validate(forgotPasswordSchema),
+  asyncHandler(async (req, res) => {
+    await authService.forgotPassword(req.body.email)
+    // Immer 204 — keine Auskunft, ob die Adresse registriert ist
+    res.status(204).end()
+  }),
+)
+
+authRoutes.post(
+  '/reset-password',
+  validate(resetPasswordSchema),
+  asyncHandler(async (req, res) => {
+    await authService.resetPassword(req.body.token, req.body.password)
     res.status(204).end()
   }),
 )

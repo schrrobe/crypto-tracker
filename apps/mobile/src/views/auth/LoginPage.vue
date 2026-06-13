@@ -41,6 +41,10 @@
           </ion-button>
         </form>
 
+        <ion-button expand="block" fill="clear" router-link="/forgot-password" data-testid="goto-forgot">
+          {{ $t('auth.forgotPassword') }}
+        </ion-button>
+
         <ion-button expand="block" fill="clear" router-link="/register" data-testid="goto-register">
           {{ $t('auth.noAccount') }}
         </ion-button>

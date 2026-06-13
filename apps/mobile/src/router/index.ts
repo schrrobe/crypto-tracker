@@ -8,6 +8,16 @@ const routes: Array<RouteRecordRaw> = [
   { path: '/login', component: () => import('../views/auth/LoginPage.vue'), meta: { guestOnly: true } },
   { path: '/register', component: () => import('../views/auth/RegisterPage.vue'), meta: { guestOnly: true } },
   {
+    path: '/forgot-password',
+    component: () => import('../views/auth/ForgotPasswordPage.vue'),
+    meta: { guestOnly: true },
+  },
+  {
+    path: '/reset-password',
+    component: () => import('../views/auth/ResetPasswordPage.vue'),
+    meta: { guestOnly: true },
+  },
+  {
     path: '/tabs/',
     component: TabsPage,
     meta: { requiresAuth: true },

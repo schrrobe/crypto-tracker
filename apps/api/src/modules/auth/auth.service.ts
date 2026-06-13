@@ -2,11 +2,16 @@ import argon2 from 'argon2'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import {
+  generatePasswordResetToken,
   generateRefreshToken,
+  hashPasswordResetToken,
   hashRefreshToken,
+  PASSWORD_RESET_TTL_MINUTES,
   REFRESH_TTL_DAYS,
   signAccessToken,
 } from '../../lib/jwt'
+import { sendMail } from '../../lib/mailer'
+import { env } from '../../config/env'
 
 export interface UserDto {
   id: string
@@ -85,6 +90,58 @@ export async function refresh(refreshToken: string): Promise<AuthResult> {
 
 export async function logout(refreshToken: string): Promise<void> {
   await prisma.refreshToken.deleteMany({ where: { tokenHash: hashRefreshToken(refreshToken) } })
+}
+
+// Reset anstoßen: existiert die E-Mail, wird ein Einmal-Token erzeugt und der
+// Link versendet (bzw. ins Log geschrieben). Antwortet bewusst immer gleich —
+// keine Auskunft, ob die Adresse registriert ist (keine User-Enumeration).
+export async function forgotPassword(email: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } })
+  if (!user) return
+
+  // Offene Tokens des Nutzers entwerten — pro Anforderung gilt nur der neueste
+  await prisma.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } })
+
+  const token = generatePasswordResetToken()
+  await prisma.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      tokenHash: hashPasswordResetToken(token),
+      expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000),
+    },
+  })
+
+  const resetUrl = `${env.APP_PUBLIC_URL}/reset-password?token=${token}`
+  await sendMail({
+    to: user.email,
+    subject: 'Passwort zurücksetzen — Crypto Tracker',
+    text:
+      `Du hast einen Passwort-Reset angefordert.\n\n` +
+      `Öffne diesen Link, um ein neues Passwort zu setzen (gültig ${PASSWORD_RESET_TTL_MINUTES} Minuten):\n` +
+      `${resetUrl}\n\n` +
+      `Wenn du das nicht warst, ignoriere diese E-Mail — dein Passwort bleibt unverändert.`,
+  })
+}
+
+// Reset abschließen: Token prüfen, Passwort setzen, Token verbrauchen und alle
+// aktiven Sitzungen beenden (Refresh-Tokens löschen).
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const stored = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash: hashPasswordResetToken(token) },
+  })
+  if (!stored || stored.usedAt || stored.expiresAt < new Date()) {
+    throw AppError.badRequest('INVALID_RESET_TOKEN', 'Der Link ist ungültig oder abgelaufen')
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: stored.userId },
+      data: { passwordHash: await argon2.hash(newPassword) },
+    }),
+    prisma.passwordResetToken.update({ where: { id: stored.id }, data: { usedAt: new Date() } }),
+    // Sicherheit: bestehende Sessions nach Passwortwechsel beenden
+    prisma.refreshToken.deleteMany({ where: { userId: stored.userId } }),
+  ])
 }
 
 export async function getMe(userId: string): Promise<UserDto> {

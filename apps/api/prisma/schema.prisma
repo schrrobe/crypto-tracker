@@ -81,6 +81,7 @@ model User {
   sources       PortfolioSource[]
   portfolios    Portfolio[]
   refreshTokens RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model RefreshToken {
@@ -90,6 +91,20 @@ model RefreshToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Passwort-Reset: nur der Hash des opaken Tokens liegt in der DB (wie RefreshToken).
+// Kurze TTL, Einmal-Nutzung (usedAt gesetzt → verbraucht).
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

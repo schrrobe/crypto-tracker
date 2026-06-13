@@ -13,7 +13,7 @@ bewertet in EUR/USD über CoinGecko.
 | V1 „Muss" (Meilensteine 0–7) | ✅ komplett |
 | V1 „Sollte" (Meilenstein 8) | ✅ komplett |
 | Meilenstein 9 (Capacitor/Native) | ⬜ offen |
-| Tests | 120 grün: 58 Unit + 24 Integration (API), 11 Unit (Frontend), 27 E2E (Playwright) |
+| Tests | 293 grün (API: Unit + Integration), 14 Frontend-Unit, ~30 E2E (Playwright) |
 | Deployment | nur local lauffähig; dev/prod per Env-Konzept vorbereitet, nicht deployed |
 
 ## Umgesetzte Meilensteine
@@ -37,6 +37,7 @@ bewertet in EUR/USD über CoinGecko.
 | — | Background-Sync: optionaler Queue-Modus (BullMQ/Redis via `REDIS_URL`, Worker-Prozess, Preis-Refresh-Cron alle 15 min); ohne Redis weiterhin inline. Kleinkram: Quellen-Umbenennen-UI, Solana-Dust-Filter (`includeUnknownTokens`, Default aus), CSV-Presets Kraken/Bitpanda, Transaktionsliste pro CSV-Quelle | `3768a03` |
 | — | On-Chain-Staking-Rewards: Wallet-Syncs erzeugen STAKING_REWARD-Transaktionen (idempotent via `Transaction.externalRef`). Solana: `getInflationReward` je Epoche/Stake-Account (inkrementell, Erst-Import 30 Epochen, nativ gestakte SOL im Bestand). Neuer **Ethereum-Wallet-Provider** (eth_getBalance + 10 kuratierte ERC-20 inkl. stETH/wstETH/rETH); Validator-Rewards via beaconcha.in-Withdrawals (braucht `BEACONCHAIN_API_KEY`, Principal-Filter ≥ 8 ETH). Report-Hinweis `WALLET_REWARDS_ONLY` | `7443a98` |
 | — | **Multi-Portfolio**: strikt getrennte Steuersubjekte unter einem Account (Portfolio-Modell, jede Quelle gehört zu genau einem; optionale `portfolioId` auf allen Lese-/Anlage-Endpunkten, Default-Fallback; eine MANUAL-Quelle pro Portfolio, Transfer-Links nur innerhalb; CRUD mit Löschregeln). UI: Switcher in allen Tab-Headern, Verwaltung in den Einstellungen. **Markt-Tab**: Top 100/Gewinner/Verlierer über CoinGecko `/coins/markets` (Proxy, 60-s-Cache) | `0aece14` |
+| — | **Passwort-Reset**: `POST /auth/forgot-password` (immer 204, keine User-Enumeration) erzeugt Einmal-Token (gehasht, 30 min TTL), Zustellung per SMTP (nodemailer) oder Konsolen-Fallback ohne SMTP-Config; `POST /auth/reset-password` setzt Passwort, verbraucht Token, beendet alle Sessions. Frontend: „Passwort vergessen?"-Link, Anforderungs- und Reset-Seite (Token aus `?token=`), 6 Sprachen | `HEAD` |
 | — | **Provider-Ausbau**: 7 neue Exchanges (Binance inkl. LD-Earn-Normalisierung, OKX, Bybit, KuCoin, Bitstamp, Gate.io, Crypto.com — nur Spot, OKX/KuCoin mit Pflicht-Passphrase) + 10 neue Chains (Polygon/Arbitrum/Base/BSC über generische EVM-Factory mit kuratierten Token-Listen; Litecoin/Dogecoin via Blockchair; Cardano via Koios; XRP via JSON-RPC; Tron via TronGrid inkl. USDT-TRC20; Cosmos via LCD inkl. Staking). Verkabelungs-Smoke-Test über alle Provider, API-Key-Anleitungen je Exchange in 6 Sprachen | `HEAD` |
 
 ## Architektur-Eckpunkte

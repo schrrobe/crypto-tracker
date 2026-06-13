@@ -55,6 +55,33 @@ test('Logout und erneuter Login funktionieren', async ({ page }) => {
   await expect(page).toHaveURL(/\/tabs\/dashboard/)
 })
 
+test('Passwort vergessen: Anfrage zeigt neutrale Bestätigung', async ({ page }) => {
+  const email = uniqueEmail('forgot')
+  await register(page, email)
+  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await page.getByTestId('logout-button').click()
+  await page.waitForURL('**/login')
+
+  await page.getByTestId('goto-forgot').click()
+  await page.waitForURL('**/forgot-password')
+  await input(page, 'forgot-email').fill(email)
+  await page.getByTestId('forgot-submit').click()
+  // Bestätigung ist bewusst neutral (keine User-Enumeration)
+  await expect(page.getByTestId('forgot-sent')).toBeVisible()
+})
+
+test('Reset mit ungültigem Token zeigt Fehler', async ({ page }) => {
+  await page.goto('/reset-password?token=ungueltig')
+  await input(page, 'reset-password').fill('ganzNeuesPasswort9')
+  await page.getByTestId('reset-submit').click()
+  await expect(page.getByTestId('reset-error')).toBeVisible()
+})
+
+test('Reset-Seite ohne Token weist darauf hin', async ({ page }) => {
+  await page.goto('/reset-password')
+  await expect(page.getByTestId('reset-no-token')).toBeVisible()
+})
+
 test('Session überlebt einen Seiten-Reload', async ({ page }) => {
   const email = uniqueEmail('reload')
   await register(page, email)

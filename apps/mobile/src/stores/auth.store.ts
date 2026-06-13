@@ -59,10 +59,29 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = res.user
   }
 
+  async function forgotPassword(email: string): Promise<void> {
+    await api.post('/auth/forgot-password', { email })
+  }
+
+  async function resetPassword(token: string, password: string): Promise<void> {
+    await api.post('/auth/reset-password', { token, password })
+  }
+
   function sessionExpired() {
     setTokens(null)
     user.value = null
   }
 
-  return { user, initialized, init, register, login, logout, updateBaseCurrency, sessionExpired }
+  return {
+    user,
+    initialized,
+    init,
+    register,
+    login,
+    logout,
+    updateBaseCurrency,
+    forgotPassword,
+    resetPassword,
+    sessionExpired,
+  }
 })

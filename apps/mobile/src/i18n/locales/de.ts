@@ -23,6 +23,18 @@ const de = {
     registerFailed: 'Registrierung fehlgeschlagen',
     passwordTooShort: 'Das Passwort muss mindestens 10 Zeichen haben',
     invalidCredentials: 'E-Mail oder Passwort ist falsch',
+    forgotPassword: 'Passwort vergessen?',
+    forgotSubtitle: 'Passwort zurücksetzen',
+    sendResetLink: 'Reset-Link senden',
+    resetLinkSent:
+      'Falls ein Konto mit dieser E-Mail existiert, wurde ein Link zum Zurücksetzen verschickt. Prüfe dein Postfach.',
+    resetRequestFailed: 'Anfrage fehlgeschlagen',
+    backToLogin: 'Zurück zur Anmeldung',
+    resetSubtitle: 'Neues Passwort setzen',
+    resetTokenMissing: 'Der Link ist unvollständig. Fordere den Reset-Link erneut an.',
+    setNewPassword: 'Passwort speichern',
+    resetSuccess: 'Passwort geändert. Du kannst dich jetzt anmelden.',
+    resetFailed: 'Passwort konnte nicht geändert werden',
   },
   tabs: {
     dashboard: 'Dashboard',
@@ -315,6 +327,7 @@ const de = {
       'Beide Seiten müssen zum selben Portfolio gehören — Portfolios sind getrennte Steuersubjekte',
     PORTFOLIO_NOT_EMPTY: 'Das Portfolio enthält noch Quellen — bitte zuerst die Quellen löschen',
     PORTFOLIO_LAST: 'Das letzte Portfolio kann nicht gelöscht werden',
+    INVALID_RESET_TOKEN: 'Der Link ist ungültig oder abgelaufen — fordere einen neuen an',
   },
   relative: {
     never: 'noch nie',

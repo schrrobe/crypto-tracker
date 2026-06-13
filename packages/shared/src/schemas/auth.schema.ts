@@ -17,6 +17,17 @@ export const refreshSchema = z.object({
 })
 export type RefreshInput = z.infer<typeof refreshSchema>
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+})
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(10, 'Passwort muss mindestens 10 Zeichen haben').max(128),
+})
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
+
 export interface AuthTokens {
   accessToken: string
   refreshToken: string

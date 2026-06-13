@@ -27,6 +27,15 @@ const envSchema = z.object({
   // beaconcha.in verlangt ihn inzwischen für alle API-Endpunkte)
   BEACONCHAIN_API_KEY: z.string().optional(),
   MEMPOOL_API_URL: z.string().url().default('https://mempool.space/api'),
+  // Basis-URL der Web-App für Reset-Links (z.B. https://app.example.com). Local-Default
+  // zeigt auf den Vite-Dev-Server; der Reset-Link wird daraus + ?token=… gebaut.
+  APP_PUBLIC_URL: z.string().url().default('http://localhost:5173'),
+  // SMTP optional: ohne SMTP_HOST landet jede Mail (z.B. Reset-Link) nur im API-Log.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
   // Nur für Tests/lokale Entwicklung: deterministische Preise und Provider statt echter APIs
   FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   FAKE_PROVIDERS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
