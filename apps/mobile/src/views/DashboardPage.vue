@@ -7,6 +7,13 @@
         </ion-buttons>
         <ion-title>{{ $t('tabs.dashboard') }}</ion-title>
         <ion-buttons slot="end">
+          <ion-button
+            data-testid="toggle-balances"
+            :title="$t('common.toggleBalances')"
+            @click="toggleBalances"
+          >
+            <ion-icon :icon="balancesHidden ? eyeOffOutline : eyeOutline" />
+          </ion-button>
           <ion-button data-testid="refresh-button" :disabled="portfolio.loading" @click="refresh">
             <ion-spinner v-if="portfolio.loading" name="crescent" />
             <ion-icon v-else :icon="refreshOutline" />
@@ -112,7 +119,7 @@ import {
   onIonViewWillEnter,
   type RefresherCustomEvent,
 } from '@ionic/vue'
-import { refreshOutline } from 'ionicons/icons'
+import { eyeOffOutline, eyeOutline, refreshOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import AllocationDonut from '../components/AllocationDonut.vue'
 import PortfolioChart from '../components/PortfolioChart.vue'
@@ -122,6 +129,7 @@ import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { useAuthStore } from '../stores/auth.store'
 import { formatCurrency, formatQuantity, formatRelativeTime } from '../services/format'
+import { balancesHidden, toggleBalances } from '../services/privacy'
 
 const portfolio = usePortfolioStore()
 const auth = useAuthStore()

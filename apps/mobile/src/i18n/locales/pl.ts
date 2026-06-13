@@ -9,6 +9,7 @@ const pl: MessageSchema = {
     done: 'Gotowe',
     retry: 'Spróbuj ponownie',
     loadFailed: 'Nie udało się wczytać danych',
+    toggleBalances: 'Pokaż/ukryj salda',
   },
   auth: {
     appTitle: 'Crypto Tracker',

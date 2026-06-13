@@ -18,6 +18,7 @@ export type StorageKey =
   | 'taxCountry'
   | 'language'
   | 'theme-preference'
+  | 'balances-hidden'
 
 const ALL_KEYS: StorageKey[] = [
   'refresh-token',
@@ -25,6 +26,7 @@ const ALL_KEYS: StorageKey[] = [
   'taxCountry',
   'language',
   'theme-preference',
+  'balances-hidden',
 ]
 
 // Nur der Refresh-Token ist sicherheitskritisch → verschlüsseltes Secure Storage.

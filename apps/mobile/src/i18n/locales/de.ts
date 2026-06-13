@@ -7,6 +7,7 @@ const de = {
     done: 'Fertig',
     retry: 'Erneut versuchen',
     loadFailed: 'Daten konnten nicht geladen werden',
+    toggleBalances: 'Beträge ein-/ausblenden',
   },
   auth: {
     appTitle: 'Crypto Tracker',

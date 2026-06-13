@@ -9,6 +9,7 @@ const ru: MessageSchema = {
     done: 'Готово',
     retry: 'Повторить',
     loadFailed: 'Не удалось загрузить данные',
+    toggleBalances: 'Показать/скрыть суммы',
   },
   auth: {
     appTitle: 'Crypto Tracker',

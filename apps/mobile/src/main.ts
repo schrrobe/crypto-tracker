@@ -6,6 +6,7 @@ import App from './App.vue'
 import { router } from './router'
 import { applyDetectedLocale, i18n } from './i18n'
 import { preloadStorage } from './services/storage'
+import { initPrivacy } from './services/privacy'
 
 /* Ionic Core-Styles */
 import '@ionic/vue/css/core.css'
@@ -29,6 +30,7 @@ async function bootstrap(): Promise<void> {
   // Storage in den synchronen Cache laden, bevor die App gemountet wird.
   await preloadStorage()
   applyDetectedLocale()
+  initPrivacy()
 
   const app = createApp(App).use(IonicVue).use(createPinia()).use(router).use(i18n)
   await router.isReady()

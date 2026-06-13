@@ -9,6 +9,7 @@ const fr: MessageSchema = {
     done: 'Terminé',
     retry: 'Réessayer',
     loadFailed: 'Impossible de charger les données',
+    toggleBalances: 'Afficher/masquer les montants',
   },
   auth: {
     appTitle: 'Crypto Tracker',

@@ -9,6 +9,7 @@ const cs: MessageSchema = {
     done: 'Hotovo',
     retry: 'Zkusit znovu',
     loadFailed: 'Data se nepodařilo načíst',
+    toggleBalances: 'Zobrazit/skrýt částky',
   },
   auth: {
     appTitle: 'Crypto Tracker',

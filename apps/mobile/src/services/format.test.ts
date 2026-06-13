@@ -39,4 +39,18 @@ describe('format (Locale de)', () => {
 
     vi.useRealTimers()
   })
+
+  it('Privatsphäre-Modus maskiert Beträge/Mengen, Roh-Variante nicht', async () => {
+    const { formatCurrency, formatCurrencyRaw, formatQuantity } = await import('./format')
+    const { balancesHidden, BALANCE_MASK } = await import('./privacy')
+
+    balancesHidden.value = true
+    expect(formatCurrency('25000', 'EUR')).toBe(BALANCE_MASK)
+    expect(formatQuantity('0.5')).toBe(BALANCE_MASK)
+    // Roh-Formatter (Markt-Preise) bleibt sichtbar
+    expect(plain(formatCurrencyRaw('25000', 'EUR'))).toBe('25.000,00 €')
+
+    balancesHidden.value = false
+    expect(plain(formatCurrency('25000', 'EUR'))).toBe('25.000,00 €')
+  })
 })

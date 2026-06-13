@@ -39,7 +39,7 @@
             <p>{{ $t('market.marketCap') }}: {{ compact(coin.marketCap) }}</p>
           </ion-label>
           <div slot="end" class="price-block">
-            <strong>{{ formatCurrency(String(coin.price), currency) }}</strong>
+            <strong>{{ formatCurrencyRaw(String(coin.price), currency) }}</strong>
             <span
               v-if="coin.change24hPct !== null"
               :class="coin.change24hPct >= 0 ? 'up' : 'down'"
@@ -76,7 +76,7 @@ import type { MarketCoinDto, MarketDto } from '@crypto-tracker/shared'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
 import { api } from '../services/api.client'
-import { formatCurrency, intlLocale } from '../services/format'
+import { formatCurrencyRaw, intlLocale } from '../services/format'
 import { useAuthStore } from '../stores/auth.store'
 
 type ViewKind = 'top' | 'gainers' | 'losers'

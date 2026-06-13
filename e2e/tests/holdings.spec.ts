@@ -48,6 +48,28 @@ test('manueller Bestand: anlegen, bewerten, bearbeiten, löschen', async ({ page
   await expect(page.getByTestId('holdings-empty')).toBeVisible()
 })
 
+test('Privatsphäre-Modus blendet Beträge aus und wieder ein', async ({ page }) => {
+  await register(page, uniqueEmail('privacy'))
+
+  await page.getByRole('tab', { name: 'Bestände' }).click()
+  await page.getByTestId('add-holding').click()
+  await page.getByTestId('asset-search').locator('input').fill('bitcoin')
+  await page.getByTestId('asset-option-BTC').click()
+  await input(page, 'holding-quantity').fill('1')
+  await page.getByTestId('holding-save').click()
+
+  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await expect(page.getByTestId('total-value')).toHaveText(/50\.000,00\s€/u)
+
+  // ausblenden → Maske
+  await page.locator('[data-testid="toggle-balances"]:visible').click()
+  await expect(page.getByTestId('total-value')).toContainText('••••')
+
+  // wieder einblenden → Betrag zurück
+  await page.locator('[data-testid="toggle-balances"]:visible').click()
+  await expect(page.getByTestId('total-value')).toHaveText(/50\.000,00\s€/u)
+})
+
 test('doppeltes Asset in derselben Quelle wird abgelehnt', async ({ page }) => {
   await register(page, uniqueEmail('duplicate'))
   await page.getByRole('tab', { name: 'Bestände' }).click()

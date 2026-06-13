@@ -6,6 +6,15 @@
           <PortfolioSwitcher @switched="loadData" />
         </ion-buttons>
         <ion-title>{{ $t('tabs.holdings') }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button
+            data-testid="toggle-balances"
+            :title="$t('common.toggleBalances')"
+            @click="toggleBalances"
+          >
+            <ion-icon :icon="balancesHidden ? eyeOffOutline : eyeOutline" />
+          </ion-button>
+        </ion-buttons>
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
@@ -110,7 +119,14 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { addOutline, createOutline, pricetagOutline, trashOutline } from 'ionicons/icons'
+import {
+  addOutline,
+  createOutline,
+  eyeOffOutline,
+  eyeOutline,
+  pricetagOutline,
+  trashOutline,
+} from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { HoldingDto } from '@crypto-tracker/shared'
@@ -122,6 +138,7 @@ import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { t } from '../i18n'
 import { formatCurrency, formatQuantity } from '../services/format'
+import { balancesHidden, toggleBalances } from '../services/privacy'
 
 const portfolio = usePortfolioStore()
 const route = useRoute()

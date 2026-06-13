@@ -1,15 +1,24 @@
 // Anzeige-Formatierung — Berechnungen passieren ausschließlich im Backend (Decimal).
 // Formate folgen der gewählten App-Sprache.
 import { intlLocale, t } from '../i18n'
+import { balancesHidden, BALANCE_MASK } from './privacy'
 
 export { intlLocale }
 
-export function formatCurrency(value: string | null, currency: 'EUR' | 'USD'): string {
+// Roh-Formatter ohne Privatsphäre-Maskierung — für öffentliche Daten (z.B. Markt-
+// Preise), die keine eigenen Finanzen sind.
+export function formatCurrencyRaw(value: string | null, currency: 'EUR' | 'USD'): string {
   if (value === null) return '–'
   return new Intl.NumberFormat(intlLocale(), { style: 'currency', currency }).format(Number(value))
 }
 
+export function formatCurrency(value: string | null, currency: 'EUR' | 'USD'): string {
+  if (balancesHidden.value) return BALANCE_MASK
+  return formatCurrencyRaw(value, currency)
+}
+
 export function formatQuantity(quantity: string): string {
+  if (balancesHidden.value) return BALANCE_MASK
   return new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: 8 }).format(Number(quantity))
 }
 
