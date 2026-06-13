@@ -148,6 +148,14 @@
         <p class="hint">{{ $t('sources.readOnlyHint') }}</p>
       </ion-text>
 
+      <!-- Abdeckungs-/Doppelzählungs-Hinweis + ggf. börsenspezifischer Staking-Hinweis -->
+      <ion-text v-if="type === 'EXCHANGE'" color="warning">
+        <p class="hint" data-testid="coverage-hint">⚠ {{ $t('sources.coverageHint') }}</p>
+        <p v-if="stakingNoteKey" class="hint" data-testid="staking-note">
+          {{ $t(stakingNoteKey) }}
+        </p>
+      </ion-text>
+
       <ion-text v-if="error" color="danger">
         <p class="error" data-testid="source-error">{{ error }}</p>
       </ion-text>
@@ -273,6 +281,20 @@ const labelPlaceholder = computed(() =>
 const needsPassphrase = computed(() =>
   (PASSPHRASE_REQUIRED_PROVIDERS as readonly string[]).includes(exchangeProvider.value),
 )
+
+// Börsenspezifischer Staking-/Earn-Hinweis. Nur wo die API-Abdeckung relevant
+// abweicht; der allgemeine coverageHint gilt für alle Börsen.
+const STAKING_NOTE_KEY: Record<string, string> = {
+  BITPANDA: 'sources.stakingNoteBitpanda',
+  KRAKEN: 'sources.stakingNoteKraken',
+  BINANCE: 'sources.stakingNoteBinance',
+  OKX: 'sources.stakingNoteSpotOnly',
+  BYBIT: 'sources.stakingNoteSpotOnly',
+  KUCOIN: 'sources.stakingNoteSpotOnly',
+  GATEIO: 'sources.stakingNoteSpotOnly',
+  CRYPTOCOM: 'sources.stakingNoteSpotOnly',
+}
+const stakingNoteKey = computed(() => STAKING_NOTE_KEY[exchangeProvider.value])
 
 const valid = computed(() => {
   if (!label.value.trim()) return false

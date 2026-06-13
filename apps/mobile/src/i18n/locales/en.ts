@@ -134,6 +134,14 @@ const en: MessageSchema = {
       'Create an API key with read-only permissions at your provider. The key is stored encrypted in the backend and never shown in plain text.',
     keyGuideTitle: 'Where do I find my API key?',
     keyGuideLink: 'Open API settings at {provider}',
+    coverageHint:
+      "Only captures the spot/main account. Don't connect both API and CSV import for the same exchange — otherwise balances are counted twice.",
+    stakingNoteBitpanda:
+      "Bitpanda's API does not return staked balances. Add them later as a manual holding.",
+    stakingNoteSpotOnly:
+      'Earn/staking balances sit in a separate account and are not captured — add them manually if needed.',
+    stakingNoteKraken: 'Staking balances (e.g. ETH.S) are captured automatically.',
+    stakingNoteBinance: 'Flexible Earn (LD balances) is captured, locked staking is not.',
     keyGuideKRAKEN:
       '1. Sign in to Kraken → Settings → API.\n2. Choose "Create API Key".\n3. Enable only the "Query Funds" permission (query balances) — no trading, no withdrawals.\n4. Create the key: enter "API Key" here as the API key, "Private Key" as the API secret. The private key is shown only once.',
     keyGuideBITVAVO:

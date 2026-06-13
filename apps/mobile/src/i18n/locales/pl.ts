@@ -134,6 +134,14 @@ const pl: MessageSchema = {
       'Utwórz u dostawcy klucz API wyłącznie z uprawnieniami do odczytu. Klucz jest przechowywany w postaci zaszyfrowanej i nigdy nie jest wyświetlany jawnie.',
     keyGuideTitle: 'Gdzie znajdę swój klucz API?',
     keyGuideLink: 'Otwórz ustawienia API u {provider}',
+    coverageHint:
+      'Obejmuje tylko konto spot/główne. Dla tej samej giełdy nie łącz jednocześnie API i importu CSV — w przeciwnym razie aktywa zostaną policzone podwójnie.',
+    stakingNoteBitpanda:
+      'API Bitpanda nie zwraca aktywów w stakingu. Dodaj je później jako aktywo ręczne.',
+    stakingNoteSpotOnly:
+      'Saldo Earn/staking znajduje się na osobnym koncie i nie jest pobierane — w razie potrzeby uzupełnij je ręcznie.',
+    stakingNoteKraken: 'Salda stakingu (np. ETH.S) są pobierane automatycznie.',
+    stakingNoteBinance: 'Flexible Earn (salda LD) jest pobierane, Locked Staking nie.',
     keyGuideKRAKEN:
       '1. Zaloguj się w Kraken → Ustawienia → API.\n2. Wybierz „Create API Key".\n3. Włącz wyłącznie uprawnienie „Query Funds" (odczyt sald) — bez tradingu, bez wypłat.\n4. Utwórz klucz: „API Key" wpisz tutaj jako klucz API, „Private Key" jako sekret API. Klucz prywatny jest wyświetlany tylko raz.',
     keyGuideBITVAVO:

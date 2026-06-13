@@ -134,6 +134,14 @@ const cs: MessageSchema = {
       'Vytvořte si u poskytovatele API klíč pouze s právy ke čtení. Klíč je uložen šifrovaně na serveru a nikdy se nezobrazuje v čitelné podobě.',
     keyGuideTitle: 'Kde najdu svůj API klíč?',
     keyGuideLink: 'Otevřít nastavení API u {provider}',
+    coverageHint:
+      'Zahrnuje pouze spotový/hlavní účet. Pro stejnou burzu nepropojujte současně API a CSV import — jinak se aktiva započítají dvakrát.',
+    stakingNoteBitpanda:
+      'API Bitpanda nevrací aktiva ve stakingu. Doplňte je dodatečně jako ruční aktivum.',
+    stakingNoteSpotOnly:
+      'Zůstatek Earn/staking je na samostatném účtu a nezachycuje se — v případě potřeby doplňte ručně.',
+    stakingNoteKraken: 'Zůstatky stakingu (např. ETH.S) se zachycují automaticky.',
+    stakingNoteBinance: 'Flexible Earn (zůstatky LD) se zachycuje, Locked Staking nikoliv.',
     keyGuideKRAKEN:
       '1. Přihlaste se na Kraken → Nastavení → API.\n2. Zvolte „Create API Key".\n3. Aktivujte pouze oprávnění „Query Funds" (dotaz na zůstatky) — žádný trading, žádné výběry.\n4. Vytvořte klíč: „API Key" zadejte sem jako API klíč, „Private Key" jako API secret. Privátní klíč se zobrazí jen jednou.',
     keyGuideBITVAVO:
