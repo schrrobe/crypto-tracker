@@ -3,6 +3,27 @@ import { AppError } from '../lib/errors'
 
 const BASE = 'https://api.coingecko.com/api/v3'
 
+// Zentraler CoinGecko-Fetch: setzt den Demo-Key-Header, mappt Fehler auf einen
+// sauberen 502 und parst JSON defensiv. CoinGecko liefert bei Rate-Limit teils
+// 200 mit HTML/Text statt JSON — ohne diesen Guard würde res.json() eine
+// unbehandelte Exception (500) werfen.
+//   notFoundCodes: HTTP-Codes, die als „kein Treffer" gelten und null liefern
+//   (statt 502) — z.B. 401/404 beim historischen Tagespreis.
+async function cgFetchJson<T>(url: string, notFoundCodes: number[] = []): Promise<T | null> {
+  const res = await fetch(url, {
+    headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
+  })
+  if (notFoundCodes.includes(res.status)) return null
+  if (!res.ok) {
+    throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
+  }
+  try {
+    return (await res.json()) as T
+  } catch {
+    throw new AppError('PRICE_PROVIDER_ERROR', 502, 'CoinGecko lieferte keine gültige JSON-Antwort')
+  }
+}
+
 export type SimplePrices = Record<string, { eur?: number; usd?: number }>
 
 // Deterministische Preise für Tests/lokale Entwicklung ohne echte API
@@ -39,14 +60,10 @@ export async function searchCoins(query: string): Promise<CoinSearchResult[]> {
     return [{ id: `${q}-coin`, symbol: q, name: `${q.toUpperCase()} Coin` }]
   }
 
-  const res = await fetch(`${BASE}/search?query=${encodeURIComponent(query)}`, {
-    headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
-  })
-  if (!res.ok) {
-    throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
-  }
-  const json = (await res.json()) as { coins?: Array<{ id: string; symbol: string; name: string }> }
-  return (json.coins ?? []).slice(0, 10).map((c) => ({ id: c.id, symbol: c.symbol, name: c.name }))
+  const json = await cgFetchJson<{ coins?: Array<{ id: string; symbol: string; name: string }> }>(
+    `${BASE}/search?query=${encodeURIComponent(query)}`,
+  )
+  return (json?.coins ?? []).slice(0, 10).map((c) => ({ id: c.id, symbol: c.symbol, name: c.name }))
 }
 
 // [timestampMs, price] — wie von CoinGecko market_chart geliefert
@@ -67,30 +84,35 @@ export async function fetchMarketChart(
   const cached = chartCache.get(cacheKey)
   if (cached && cached.at > Date.now() - CHART_CACHE_TTL_MS) return cached.data
 
-  let data: MarketChartPoint[]
   if (env.FAKE_PRICES) {
     // Deterministisch: linear von 90 % auf 100 % des Fake-Preises, Endpunkt = jetzt
     const current = (FAKE_PRICES[coingeckoId] ?? { eur: 1, usd: 1.1 })[currency]
     const points = 24
     const now = Date.now()
     const span = days * 24 * 60 * 60 * 1000
-    data = Array.from({ length: points + 1 }, (_, i) => {
+    const data = Array.from({ length: points + 1 }, (_, i) => {
       const fraction = i / points
       return [now - span + span * fraction, current * (0.9 + 0.1 * fraction)] as MarketChartPoint
     })
-  } else {
-    const url = `${BASE}/coins/${encodeURIComponent(coingeckoId)}/market_chart?vs_currency=${currency}&days=${days}`
-    const res = await fetch(url, {
-      headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
-    })
-    if (!res.ok) {
-      throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
-    }
-    data = ((await res.json()) as { prices?: MarketChartPoint[] }).prices ?? []
+    chartCache.set(cacheKey, { at: Date.now(), data })
+    return data
   }
 
-  chartCache.set(cacheKey, { at: Date.now(), data })
-  return data
+  const url = `${BASE}/coins/${encodeURIComponent(coingeckoId)}/market_chart?vs_currency=${currency}&days=${days}`
+  try {
+    const json = await cgFetchJson<{ prices?: MarketChartPoint[] }>(url)
+    const data = json?.prices ?? []
+    chartCache.set(cacheKey, { at: Date.now(), data })
+    return data
+  } catch (err) {
+    // Rate-Limit/Ausfall: letzten bekannten Stand liefern (egal wie alt), statt
+    // den ganzen Verlauf scheitern zu lassen. Ohne Cache wird der Fehler gereicht.
+    if (cached) {
+      console.warn(`[coingecko] market_chart fehlgeschlagen, liefere Cache-Stand: ${String(err)}`)
+      return cached.data
+    }
+    throw err
+  }
 }
 
 // EUR-Tagespreis (00:00 UTC) für die Steuer-Kostenbasis. null = CoinGecko hat
@@ -109,16 +131,12 @@ export async function fetchHistoricalPrice(coingeckoId: string, date: Date): Pro
   const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
   const yyyy = date.getUTCFullYear()
   const url = `${BASE}/coins/${encodeURIComponent(coingeckoId)}/history?date=${dd}-${mm}-${yyyy}&localization=false`
-  const res = await fetch(url, {
-    headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
-  })
   // 401: Datum außerhalb des Free-Tier-Fensters; 404: Coin unbekannt — beides „kein Preis"
-  if (res.status === 401 || res.status === 404) return null
-  if (!res.ok) {
-    throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
-  }
-  const json = (await res.json()) as { market_data?: { current_price?: { eur?: number } } }
-  return json.market_data?.current_price?.eur ?? null
+  const json = await cgFetchJson<{ market_data?: { current_price?: { eur?: number } } }>(
+    url,
+    [401, 404],
+  )
+  return json?.market_data?.current_price?.eur ?? null
 }
 
 export async function fetchSimplePrices(coingeckoIds: string[]): Promise<SimplePrices> {
@@ -133,13 +151,7 @@ export async function fetchSimplePrices(coingeckoIds: string[]): Promise<SimpleP
   const result: SimplePrices = {}
   for (const batch of chunk(coingeckoIds, 250)) {
     const url = `${BASE}/simple/price?ids=${batch.join(',')}&vs_currencies=eur,usd`
-    const res = await fetch(url, {
-      headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
-    })
-    if (!res.ok) {
-      throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
-    }
-    Object.assign(result, (await res.json()) as SimplePrices)
+    Object.assign(result, (await cgFetchJson<SimplePrices>(url)) ?? {})
   }
   return result
 }
@@ -204,29 +216,18 @@ async function fetchMarketsFromCoinGecko(currency: 'eur' | 'usd'): Promise<Marke
   const url =
     `${BASE}/coins/markets?vs_currency=${currency}` +
     '&order=market_cap_desc&per_page=100&page=1&price_change_percentage=24h'
-  const res = await fetch(url, {
-    headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
-  })
-  if (!res.ok) {
-    throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
-  }
-  // Bei Rate-Limit liefert CoinGecko gelegentlich kein JSON (HTML/Text) trotz 200/2xx.
-  // Parse-Fehler als sauberen 502 durchreichen statt als unbehandelten 500.
-  let json: Array<{
-    id: string
-    symbol: string
-    name: string
-    image?: string
-    current_price: number
-    market_cap: number
-    market_cap_rank: number
-    price_change_percentage_24h: number | null
-  }>
-  try {
-    json = await res.json()
-  } catch {
-    throw new AppError('PRICE_PROVIDER_ERROR', 502, 'CoinGecko lieferte keine gültige JSON-Antwort')
-  }
+  const json = await cgFetchJson<
+    Array<{
+      id: string
+      symbol: string
+      name: string
+      image?: string
+      current_price: number
+      market_cap: number
+      market_cap_rank: number
+      price_change_percentage_24h: number | null
+    }>
+  >(url)
   if (!Array.isArray(json)) {
     throw new AppError('PRICE_PROVIDER_ERROR', 502, 'CoinGecko lieferte ein unerwartetes Format')
   }

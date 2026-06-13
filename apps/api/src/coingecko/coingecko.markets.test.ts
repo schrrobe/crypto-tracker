@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { env } from '../config/env'
-import { fetchMarkets } from './coingecko.client'
+import { fetchMarketChart, fetchMarkets } from './coingecko.client'
 
 // Tests laufen sonst mit FAKE_PRICES=true (vitest.config). Hier prüfen wir den
 // echten CoinGecko-Pfad inkl. Rate-Limit-Resilienz und schalten Fakes lokal aus.
@@ -65,5 +65,61 @@ describe('fetchMarkets (echter Pfad, Rate-Limit-Resilienz)', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(errorResponse(429)))
     // 'eur' wurde in diesem Test noch nie erfolgreich abgerufen
     await expect(fetchMarkets('eur')).rejects.toThrow()
+  })
+
+  it('Nicht-JSON-Antwort (200) → sauberer 502 statt roher SyntaxError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError('Unexpected token < in JSON')
+        },
+      } as unknown as Response),
+    )
+    // 'eur' hat keinen Cache → Fehler wird gereicht, aber als AppError(502)
+    await expect(fetchMarkets('eur')).rejects.toMatchObject({ status: 502 })
+  })
+})
+
+function chartResponse(prices: Array<[number, number]>): Response {
+  return { ok: true, status: 200, json: async () => ({ prices }) } as unknown as Response
+}
+
+describe('fetchMarketChart (Rate-Limit-Resilienz)', () => {
+  const originalFake = env.FAKE_PRICES
+
+  beforeEach(() => {
+    env.FAKE_PRICES = false
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-13T00:00:00Z'))
+  })
+  afterEach(() => {
+    env.FAKE_PRICES = originalFake
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('liefert bei 429 den letzten Cache-Stand statt zu werfen', async () => {
+    const points: Array<[number, number]> = [[1, 100]]
+    const fetchMock = vi.fn().mockResolvedValueOnce(chartResponse(points))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const first = await fetchMarketChart('solana', 'eur', 1)
+    expect(first).toEqual(points)
+
+    vi.setSystemTime(new Date('2026-06-13T00:40:00Z')) // Cache (30 min) abgelaufen
+    fetchMock.mockResolvedValueOnce(errorResponse(429))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const second = await fetchMarketChart('solana', 'eur', 1)
+    expect(second).toEqual(first)
+  })
+
+  it('wirft bei 429 ohne Cache (Kaltstart)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(errorResponse(429)))
+    await expect(fetchMarketChart('cardano', 'eur', 7)).rejects.toMatchObject({ status: 502 })
   })
 })

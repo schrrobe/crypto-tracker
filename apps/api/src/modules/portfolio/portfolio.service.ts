@@ -148,7 +148,14 @@ export async function getHistory(
   const vsCurrency = currency.toLowerCase() as 'eur' | 'usd'
   const series = new Map<string, MarketChartPoint[]>()
   for (const coinId of topCoins) {
-    series.set(coinId, await fetchMarketChart(coinId, vsCurrency, days))
+    // Pro Asset absichern: ein fehlgeschlagener market_chart-Call (Rate-Limit,
+    // kein Cache) darf nicht die ganze History killen — Asset überspringen.
+    try {
+      series.set(coinId, await fetchMarketChart(coinId, vsCurrency, days))
+    } catch (err) {
+      console.warn(`[history] market_chart für ${coinId} fehlgeschlagen, übersprungen: ${String(err)}`)
+      excludedAssets += 1
+    }
   }
 
   const now = Date.now()
