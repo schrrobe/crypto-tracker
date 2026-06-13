@@ -6,6 +6,7 @@ import { encryptSecret, keyPreview } from '../../lib/crypto'
 import { getExchangeProvider, getWalletProvider } from '../../providers/provider.registry'
 import { ProviderError } from '../../providers/provider.types'
 import { toSyncRunDto } from '../sync/syncRun.mapper'
+import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 type SourceWithRelations = Prisma.PortfolioSourceGetPayload<{
   include: { credential: { select: { keyPreview: true } }; wallet: true; syncRuns: true }
@@ -34,9 +35,10 @@ export function toSourceDto(source: SourceWithRelations): SourceDto {
   }
 }
 
-export async function listSources(userId: string): Promise<SourceDto[]> {
+export async function listSources(userId: string, portfolioId?: string): Promise<SourceDto[]> {
+  const pid = await resolvePortfolioId(userId, portfolioId)
   const sources = await prisma.portfolioSource.findMany({
-    where: { userId },
+    where: { userId, portfolioId: pid },
     include: SOURCE_INCLUDE,
     orderBy: { createdAt: 'asc' },
   })
@@ -59,9 +61,10 @@ async function reloadDto(sourceId: string): Promise<SourceDto> {
 }
 
 export async function createSource(userId: string, input: CreateSourceInput): Promise<SourceDto> {
+  const portfolioId = await resolvePortfolioId(userId, input.portfolioId)
   if (input.type === 'MANUAL') {
     const source = await prisma.portfolioSource.create({
-      data: { userId, type: 'MANUAL', provider: 'MANUAL', label: input.label },
+      data: { userId, portfolioId, type: 'MANUAL', provider: 'MANUAL', label: input.label },
     })
     return reloadDto(source.id)
   }
@@ -81,6 +84,7 @@ export async function createSource(userId: string, input: CreateSourceInput): Pr
     const source = await prisma.portfolioSource.create({
       data: {
         userId,
+        portfolioId,
         type: 'EXCHANGE',
         provider: input.provider,
         label: input.label,
@@ -105,6 +109,7 @@ export async function createSource(userId: string, input: CreateSourceInput): Pr
   const source = await prisma.portfolioSource.create({
     data: {
       userId,
+      portfolioId,
       type: 'WALLET',
       provider: input.provider,
       label: input.label,

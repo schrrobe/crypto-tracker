@@ -1,5 +1,11 @@
 import { Router } from 'express'
-import { createSourceSchema, updateSourceSchema, upsertHoldingSchema, updateHoldingSchema } from '@crypto-tracker/shared'
+import {
+  createSourceSchema,
+  portfolioScopeQuerySchema,
+  updateSourceSchema,
+  upsertHoldingSchema,
+  updateHoldingSchema,
+} from '@crypto-tracker/shared'
 import { requireAuth } from '../../middleware/auth.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
@@ -13,8 +19,10 @@ sourcesRoutes.use(requireAuth)
 
 sourcesRoutes.get(
   '/',
+  validate(portfolioScopeQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    res.json({ sources: await sourcesService.listSources(req.userId) })
+    const { portfolioId } = req.query as { portfolioId?: string }
+    res.json({ sources: await sourcesService.listSources(req.userId, portfolioId) })
   }),
 )
 
@@ -31,7 +39,8 @@ sourcesRoutes.post(
 sourcesRoutes.post(
   '/sync-all',
   asyncHandler(async (req, res) => {
-    const { results, queued } = await syncService.syncAllSources(req.userId)
+    const portfolioId = typeof req.body?.portfolioId === 'string' ? req.body.portfolioId : undefined
+    const { results, queued } = await syncService.syncAllSources(req.userId, portfolioId)
     res.status(queued ? 202 : 200).json({ results })
   }),
 )

@@ -12,6 +12,7 @@ import {
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { computeNetBalances } from '../transactions/tx-net-balance'
+import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 const PREVIEW_ROWS = 10
 
@@ -39,12 +40,15 @@ export async function uploadCsv(
   file: { originalname: string; buffer: Buffer },
   kind: 'BALANCES' | 'TRANSACTIONS',
   label?: string,
+  portfolioId?: string,
 ): Promise<CsvUploadResponse> {
+  const pid = await resolvePortfolioId(userId, portfolioId)
   const { headers, rows } = parseCsv(file.buffer.toString('utf8'))
 
   const source = await prisma.portfolioSource.create({
     data: {
       userId,
+      portfolioId: pid,
       type: 'CSV_IMPORT',
       provider: 'GENERIC_CSV',
       label: label?.trim() || file.originalname,
@@ -211,9 +215,10 @@ async function confirmTransactionImport(
   return toImportDto(updated)
 }
 
-export async function listImports(userId: string): Promise<CsvImportDto[]> {
+export async function listImports(userId: string, portfolioId?: string): Promise<CsvImportDto[]> {
+  const pid = await resolvePortfolioId(userId, portfolioId)
   const records = await prisma.csvImport.findMany({
-    where: { source: { userId } },
+    where: { source: { userId, portfolioId: pid } },
     include: { source: { select: { label: true } } },
     orderBy: { createdAt: 'desc' },
   })

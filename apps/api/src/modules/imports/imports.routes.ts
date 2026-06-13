@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import multer from 'multer'
-import { confirmMappingSchema } from '@crypto-tracker/shared'
+import { confirmMappingSchema, portfolioScopeQuerySchema } from '@crypto-tracker/shared'
 import { requireAuth } from '../../middleware/auth.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
@@ -23,7 +23,8 @@ importsRoutes.post(
     if (!req.file) throw AppError.badRequest('NO_FILE', 'Keine CSV-Datei übermittelt')
     const label = typeof req.body?.label === 'string' ? req.body.label : undefined
     const kind = req.body?.kind === 'TRANSACTIONS' ? 'TRANSACTIONS' : 'BALANCES'
-    res.status(201).json(await importsService.uploadCsv(req.userId, req.file, kind, label))
+    const portfolioId = typeof req.body?.portfolioId === 'string' ? req.body.portfolioId : undefined
+    res.status(201).json(await importsService.uploadCsv(req.userId, req.file, kind, label, portfolioId))
   }),
 )
 
@@ -39,8 +40,10 @@ importsRoutes.post(
 
 importsRoutes.get(
   '/',
+  validate(portfolioScopeQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    res.json({ imports: await importsService.listImports(req.userId) })
+    const { portfolioId } = req.query as { portfolioId?: string }
+    res.json({ imports: await importsService.listImports(req.userId, portfolioId) })
   }),
 )
 

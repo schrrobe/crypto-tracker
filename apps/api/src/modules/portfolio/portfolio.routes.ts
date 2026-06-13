@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
+import { portfolioScopeQuerySchema } from '@crypto-tracker/shared'
 import { requireAuth } from '../../middleware/auth.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
@@ -11,22 +12,25 @@ portfolioRoutes.use(requireAuth)
 
 portfolioRoutes.get(
   '/summary',
+  validate(portfolioScopeQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    res.json(await portfolioService.getSummary(req.userId))
+    const { portfolioId } = req.query as { portfolioId?: string }
+    res.json(await portfolioService.getSummary(req.userId, portfolioId))
   }),
 )
 
 const historyQuerySchema = z.object({
   range: z.enum(['24h', '7d', '30d']).default('24h'),
   currency: z.enum(['EUR', 'USD']).default('EUR'),
+  portfolioId: z.string().uuid().optional(),
 })
 
 portfolioRoutes.get(
   '/history',
   validate(historyQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    const { range, currency } = req.query as unknown as z.infer<typeof historyQuerySchema>
-    res.json(await portfolioService.getHistory(req.userId, range, currency))
+    const { range, currency, portfolioId } = req.query as unknown as z.infer<typeof historyQuerySchema>
+    res.json(await portfolioService.getHistory(req.userId, range, currency, portfolioId))
   }),
 )
 
@@ -35,8 +39,10 @@ holdingsRoutes.use(requireAuth)
 
 holdingsRoutes.get(
   '/',
+  validate(portfolioScopeQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    res.json({ holdings: await holdingsService.listHoldings(req.userId) })
+    const { portfolioId } = req.query as { portfolioId?: string }
+    res.json({ holdings: await holdingsService.listHoldings(req.userId, portfolioId) })
   }),
 )
 
@@ -46,7 +52,8 @@ pricesRoutes.use(requireAuth)
 pricesRoutes.post(
   '/refresh',
   asyncHandler(async (req, res) => {
-    const result = await portfolioService.refreshUserPrices(req.userId)
+    const portfolioId = typeof req.body?.portfolioId === 'string' ? req.body.portfolioId : undefined
+    const result = await portfolioService.refreshUserPrices(req.userId, portfolioId)
     res.json(result)
   }),
 )

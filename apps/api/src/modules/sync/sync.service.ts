@@ -10,6 +10,7 @@ import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { getOwnedSource } from '../sources/sources.service'
 import { enqueueSyncRun, isQueueEnabled } from './sync.queue'
+import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 const RUNNING_STALE_MS = 2 * 60 * 1000
 const FETCH_TIMEOUT_MS = 30 * 1000
@@ -205,9 +206,11 @@ export async function requestSync(
 // Sequenziell (schont Provider-Rate-Limits); ein Fehler bricht die anderen nicht ab
 export async function syncAllSources(
   userId: string,
+  portfolioId?: string,
 ): Promise<{ results: Array<{ sourceId: string; run: SyncRunDto }>; queued: boolean }> {
+  const pid = await resolvePortfolioId(userId, portfolioId)
   const sources = await prisma.portfolioSource.findMany({
-    where: { userId, type: { in: ['EXCHANGE', 'WALLET'] } },
+    where: { userId, portfolioId: pid, type: { in: ['EXCHANGE', 'WALLET'] } },
     orderBy: { createdAt: 'asc' },
   })
   const results: Array<{ sourceId: string; run: SyncRunDto }> = []

@@ -9,12 +9,14 @@ import type {
 import { prisma } from '../../lib/prisma'
 import { getLatestPrices, refreshPrices } from '../../coingecko/price.service'
 import { fetchMarketChart, type MarketChartPoint } from '../../coingecko/coingecko.client'
+import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 const ZERO = new Prisma.Decimal(0)
 
-export async function getSummary(userId: string): Promise<PortfolioSummaryDto> {
+export async function getSummary(userId: string, portfolioId?: string): Promise<PortfolioSummaryDto> {
+  const pid = await resolvePortfolioId(userId, portfolioId)
   const holdings = await prisma.holding.findMany({
-    where: { source: { userId } },
+    where: { source: { userId, portfolioId: pid } },
     include: { asset: true },
   })
 
@@ -104,11 +106,13 @@ export async function getHistory(
   userId: string,
   range: HistoryRange,
   currency: 'EUR' | 'USD',
+  portfolioId?: string,
 ): Promise<PortfolioHistoryDto> {
   const { days, buckets } = RANGE_CONFIG[range]
+  const pid = await resolvePortfolioId(userId, portfolioId)
 
   const holdings = await prisma.holding.findMany({
-    where: { source: { userId } },
+    where: { source: { userId, portfolioId: pid } },
     include: { asset: { select: { coingeckoId: true } } },
   })
 
@@ -164,9 +168,13 @@ export async function getHistory(
 }
 
 // Manueller Preis-Refresh für alle Assets des Users
-export async function refreshUserPrices(userId: string): Promise<{ ok: boolean; error?: string }> {
+export async function refreshUserPrices(
+  userId: string,
+  portfolioId?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const pid = await resolvePortfolioId(userId, portfolioId)
   const holdings = await prisma.holding.findMany({
-    where: { source: { userId } },
+    where: { source: { userId, portfolioId: pid } },
     select: { assetId: true },
   })
   return refreshPrices([...new Set(holdings.map((h) => h.assetId))])

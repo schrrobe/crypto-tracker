@@ -8,6 +8,7 @@ import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import { refreshPrices } from '../../coingecko/price.service'
 import { computeNetBalances } from './tx-net-balance'
+import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 const MANUAL_TX_SOURCE_LABEL = 'Manuelle Transaktionen'
 
@@ -60,22 +61,22 @@ function toTransactionDto(tx: TxWithRelations): TransactionDto {
   }
 }
 
-// Genau eine automatisch verwaltete MANUAL-Quelle pro User für manuelle Transaktionen.
-// Erkennung primär über vorhandene Transaktionen (Label ist über PATCH /sources umbenennbar),
-// sekundär über das Standard-Label, sonst neu anlegen.
-async function getOrCreateManualTxSource(userId: string) {
+// Genau eine automatisch verwaltete MANUAL-Quelle pro Portfolio für manuelle
+// Transaktionen. Erkennung primär über vorhandene Transaktionen (Label ist über
+// PATCH /sources umbenennbar), sekundär über das Standard-Label, sonst neu anlegen.
+async function getOrCreateManualTxSource(userId: string, portfolioId: string) {
   const withTx = await prisma.portfolioSource.findFirst({
-    where: { userId, type: 'MANUAL', transactions: { some: {} } },
+    where: { userId, portfolioId, type: 'MANUAL', transactions: { some: {} } },
   })
   if (withTx) return withTx
 
   const byLabel = await prisma.portfolioSource.findFirst({
-    where: { userId, type: 'MANUAL', label: MANUAL_TX_SOURCE_LABEL },
+    where: { userId, portfolioId, type: 'MANUAL', label: MANUAL_TX_SOURCE_LABEL },
   })
   if (byLabel) return byLabel
 
   return prisma.portfolioSource.create({
-    data: { userId, type: 'MANUAL', provider: 'MANUAL', label: MANUAL_TX_SOURCE_LABEL },
+    data: { userId, portfolioId, type: 'MANUAL', provider: 'MANUAL', label: MANUAL_TX_SOURCE_LABEL },
   })
 }
 
@@ -97,9 +98,10 @@ async function recomputeHoldings(sourceId: string): Promise<void> {
 
 export async function listTransactions(
   userId: string,
-  query: { year?: number; assetId?: string; sourceId?: string },
+  query: { year?: number; assetId?: string; sourceId?: string; portfolioId?: string },
 ): Promise<TransactionDto[]> {
-  const where: Prisma.TransactionWhereInput = { source: { userId } }
+  const pid = await resolvePortfolioId(userId, query.portfolioId)
+  const where: Prisma.TransactionWhereInput = { source: { userId, portfolioId: pid } }
   if (query.assetId) where.assetId = query.assetId
   // Ownership steckt bereits im source.userId-Filter — fremde sourceId liefert leer
   if (query.sourceId) where.sourceId = query.sourceId
@@ -124,7 +126,8 @@ export async function createTransaction(
   const asset = await prisma.asset.findUnique({ where: { id: input.assetId } })
   if (!asset) throw AppError.notFound('Asset nicht gefunden')
 
-  const source = await getOrCreateManualTxSource(userId)
+  const portfolioId = await resolvePortfolioId(userId, input.portfolioId)
+  const source = await getOrCreateManualTxSource(userId, portfolioId)
   const tx = await prisma.transaction.create({
     data: {
       sourceId: source.id,

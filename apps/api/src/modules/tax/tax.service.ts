@@ -12,6 +12,7 @@ import {
   resolveHistoricalPrices,
   type HistoricalPriceRequest,
 } from './historical-price.service'
+import { resolvePortfolioId } from '../portfolios/portfolios.service'
 import {
   computeReportAT,
   computeReportDE,
@@ -128,9 +129,11 @@ export async function getReport(
   userId: string,
   year: number,
   country: TaxCountry,
+  portfolioId?: string,
 ): Promise<TaxReportDto> {
+  const pid = await resolvePortfolioId(userId, portfolioId)
   const txs = await prisma.transaction.findMany({
-    where: { source: { userId } },
+    where: { source: { userId, portfolioId: pid } },
     include: TAX_TX_INCLUDE,
     orderBy: { timestamp: 'asc' },
   })
@@ -143,7 +146,7 @@ export async function getReport(
   // Quellen mit Beständen, aber ohne Transaktionshistorie — für diese kann
   // keine Steuer berechnet werden; der Report weist sie explizit aus
   const uncovered = await prisma.portfolioSource.findMany({
-    where: { userId, holdings: { some: {} }, transactions: { none: {} } },
+    where: { userId, portfolioId: pid, holdings: { some: {} }, transactions: { none: {} } },
     select: { id: true, label: true, type: true },
     orderBy: { createdAt: 'asc' },
   })
@@ -153,6 +156,7 @@ export async function getReport(
   const rewardsOnlyWallets = await prisma.portfolioSource.count({
     where: {
       userId,
+      portfolioId: pid,
       type: 'WALLET',
       transactions: { some: {} },
       NOT: { transactions: { some: { type: { not: 'STAKING_REWARD' } } } },

@@ -11,6 +11,7 @@ export const quantityString = z
 export const createManualSourceSchema = z.object({
   type: z.literal('MANUAL'),
   label: z.string().trim().min(1).max(60),
+  portfolioId: z.string().uuid().optional(),
 })
 
 export const EXCHANGE_PROVIDERS = ['COINBASE', 'KRAKEN', 'BITVAVO', 'BITPANDA'] as const
@@ -24,6 +25,7 @@ export const createExchangeSourceSchema = z.object({
   // optional: Bitpanda braucht kein Secret; Coinbase-CDP-Keys sind PEM (mehrzeilig, lang)
   apiSecret: z.string().trim().min(4).max(2000).optional(),
   passphrase: z.string().trim().max(200).optional(),
+  portfolioId: z.string().uuid().optional(),
 })
 
 export const createWalletSourceSchema = z.object({
@@ -33,6 +35,7 @@ export const createWalletSourceSchema = z.object({
   address: z.string().trim().min(10).max(120),
   // Dust-/Spam-Filter: unbekannte Tokens (Solana-Mints ohne Mapping) standardmäßig überspringen
   includeUnknownTokens: z.boolean().default(false),
+  portfolioId: z.string().uuid().optional(),
 })
 
 export const createSourceSchema = z

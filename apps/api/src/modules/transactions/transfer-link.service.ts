@@ -8,7 +8,7 @@ const TIMESTAMP_TOLERANCE_MS = 24 * 60 * 60 * 1000
 async function getOwnedTx(userId: string, txId: string) {
   const tx = await prisma.transaction.findFirst({
     where: { id: txId, source: { userId } },
-    include: { transferOut: true, transferIn: true },
+    include: { transferOut: true, transferIn: true, source: { select: { portfolioId: true } } },
   })
   if (!tx) throw AppError.notFound('Transaktion nicht gefunden')
   return tx
@@ -30,6 +30,15 @@ export async function linkTransfer(userId: string, txId: string, counterpartId: 
   }
   const withdrawal = a.type === 'WITHDRAWAL' ? a : b
   const deposit = a.type === 'DEPOSIT' ? a : b
+
+  // Portfolios sind getrennte Steuersubjekte — ein Kostenbasis-Umzug über die
+  // Grenze wäre steuerlich Schenkung/Veräußerung, kein Transfer
+  if (a.source.portfolioId !== b.source.portfolioId) {
+    throw AppError.badRequest(
+      'TRANSFER_LINK_PORTFOLIO_MISMATCH',
+      'Beide Seiten müssen zum selben Portfolio gehören',
+    )
+  }
 
   if (withdrawal.assetId !== deposit.assetId) {
     throw AppError.badRequest('TRANSFER_LINK_ASSET_MISMATCH', 'Beide Seiten müssen dasselbe Asset haben')

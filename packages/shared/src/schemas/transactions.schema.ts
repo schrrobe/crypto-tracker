@@ -29,6 +29,7 @@ export const createTransactionSchema = z.object({
     .string()
     .datetime({ offset: true })
     .refine((v) => new Date(v).getTime() <= Date.now(), 'Zeitpunkt liegt in der Zukunft'),
+  portfolioId: z.string().uuid().optional(),
 })
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>
 
@@ -39,6 +40,7 @@ export const listTransactionsQuerySchema = z.object({
   year: z.coerce.number().int().min(2009).max(2100).optional(),
   assetId: z.string().uuid().optional(),
   sourceId: z.string().uuid().optional(),
+  portfolioId: z.string().uuid().optional(),
 })
 
 export const transferLinkSchema = z.object({

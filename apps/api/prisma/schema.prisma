@@ -62,6 +62,7 @@ model User {
   baseCurrency  String            @default("EUR")
   createdAt     DateTime          @default(now())
   sources       PortfolioSource[]
+  portfolios    Portfolio[]
   refreshTokens RefreshToken[]
 }
 
@@ -78,15 +79,34 @@ model RefreshToken {
 
 // Zentrale Abstraktion: jede Verbindung, jeder Import und jeder manuelle Topf
 // ist eine PortfolioSource. Holdings hängen immer an genau einer Quelle.
+// Steuersubjekt-Container: jede Quelle gehört zu genau einem Portfolio (eigenes,
+// Eltern, …). Dashboard, Bestände, Transaktionen und Steuerreport sind je
+// Portfolio strikt getrennt. Max. ein Default pro User (partieller Unique-Index
+// in der Migration — Prisma kann WHERE-Indizes nicht abbilden).
+model Portfolio {
+  id        String            @id @default(uuid())
+  userId    String
+  label     String
+  isDefault Boolean           @default(false)
+  createdAt DateTime          @default(now())
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sources   PortfolioSource[]
+
+  @@index([userId])
+}
+
 model PortfolioSource {
   id           String              @id @default(uuid())
   userId       String
+  // Restrict: Portfolio kann nur gelöscht werden, wenn es keine Quellen mehr hat
+  portfolioId  String
   type         SourceType
   provider     ProviderId
   label        String
   lastSyncAt   DateTime?
   createdAt    DateTime            @default(now())
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolio    Portfolio           @relation(fields: [portfolioId], references: [id], onDelete: Restrict)
   credential   ExchangeCredential?
   wallet       WalletAddress?
   holdings     Holding[]

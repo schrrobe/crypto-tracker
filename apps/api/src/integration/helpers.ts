@@ -71,3 +71,12 @@ export async function uploadCsv(
   if (res.status !== 201) throw new Error(`upload fehlgeschlagen: ${JSON.stringify(res.body)}`)
   return res.body as { import: { id: string; sourceId: string } }
 }
+
+export async function createPortfolio(user: TestUser, label: string) {
+  const res = await request(app)
+    .post(`${API}/portfolios`)
+    .set(...bearer(user))
+    .send({ label })
+  if (res.status !== 201) throw new Error(`createPortfolio fehlgeschlagen: ${JSON.stringify(res.body)}`)
+  return res.body.portfolio as { id: string; label: string; isDefault: boolean }
+}

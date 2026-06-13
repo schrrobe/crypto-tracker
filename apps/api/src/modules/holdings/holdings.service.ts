@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import { getOwnedSource } from '../sources/sources.service'
 import { getLatestPrices, refreshPrices } from '../../coingecko/price.service'
+import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 type HoldingWithRelations = Prisma.HoldingGetPayload<{ include: { asset: true; source: true } }>
 
@@ -30,9 +31,10 @@ function toHoldingDto(
   }
 }
 
-export async function listHoldings(userId: string): Promise<HoldingDto[]> {
+export async function listHoldings(userId: string, portfolioId?: string): Promise<HoldingDto[]> {
+  const pid = await resolvePortfolioId(userId, portfolioId)
   const holdings = await prisma.holding.findMany({
-    where: { source: { userId } },
+    where: { source: { userId, portfolioId: pid } },
     include: { asset: true, source: true },
     orderBy: { updatedAt: 'desc' },
   })

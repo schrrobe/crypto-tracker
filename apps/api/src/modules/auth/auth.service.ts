@@ -49,7 +49,12 @@ export async function register(email: string, password: string): Promise<AuthRes
     throw AppError.conflict('EMAIL_TAKEN', 'Diese E-Mail-Adresse ist bereits registriert')
   }
   const user = await prisma.user.create({
-    data: { email: normalizedEmail, passwordHash: await argon2.hash(password) },
+    data: {
+      email: normalizedEmail,
+      passwordHash: await argon2.hash(password),
+      // Default-Portfolio eager — gescopte Endpunkte ohne portfolioId landen hier
+      portfolios: { create: { label: 'Mein Portfolio', isDefault: true } },
+    },
   })
   return { user: toUserDto(user), ...(await issueTokens(user.id)) }
 }

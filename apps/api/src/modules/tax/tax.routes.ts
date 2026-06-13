@@ -13,7 +13,7 @@ taxRoutes.get(
   '/report',
   validate(taxReportQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    const { year, country } = req.query as unknown as z.infer<typeof taxReportQuerySchema>
-    res.json(await taxService.getReport(req.userId, year, country))
+    const { year, country, portfolioId } = req.query as unknown as z.infer<typeof taxReportQuerySchema>
+    res.json(await taxService.getReport(req.userId, year, country, portfolioId))
   }),
 )

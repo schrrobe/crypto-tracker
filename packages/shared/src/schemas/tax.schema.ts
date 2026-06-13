@@ -9,6 +9,7 @@ export type TaxCountry = (typeof TAX_COUNTRIES)[number]
 export const taxReportQuerySchema = z.object({
   year: z.coerce.number().int().min(2009).max(2100),
   country: z.enum(TAX_COUNTRIES),
+  portfolioId: z.string().uuid().optional(),
 })
 export type TaxReportQuery = z.infer<typeof taxReportQuerySchema>
 
