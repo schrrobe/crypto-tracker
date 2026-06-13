@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Personal crypto portfolio tracker (no trading, no withdrawals): balances from exchanges (read-only API keys), wallets (public addresses), CSV imports, and manual entry — valued in EUR/USD via CoinGecko. Full plan in `docs/PLAN.md`, current state in `docs/IMPLEMENTATION-STATE.md` (keep the latter updated when completing features).
 
-**Language convention:** commit messages, code comments, docs, and server error texts are German. The frontend localizes via stable `error.code` values (6 locales: DE/EN/FR/PL/CS/RU in `apps/mobile/src/i18n/locales/`).
+**Language convention:** **commit messages use English Conventional Commits** (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`); **README files are English**. Code comments, `docs/` files, and server error texts remain German. The frontend localizes via stable `error.code` values (6 locales: DE/EN/FR/PL/CS/RU in `apps/mobile/src/i18n/locales/`).
 
 ## Commands
 
