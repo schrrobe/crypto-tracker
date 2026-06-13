@@ -2,6 +2,9 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
+        <ion-buttons slot="start">
+          <PortfolioSwitcher @switched="loadData" />
+        </ion-buttons>
         <ion-title>{{ $t('tabs.sources') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button data-testid="open-csv-import" @click="csvWizardOpen = true">
@@ -123,6 +126,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { SourceDto } from '@crypto-tracker/shared'
 import AddSourceModal from './AddSourceModal.vue'
 import CsvImportWizard from './csv/CsvImportWizard.vue'
+import PortfolioSwitcher from '../../components/PortfolioSwitcher.vue'
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
 import ErrorState from '../../components/ErrorState.vue'
 import SyncStatusBadge from '../../components/SyncStatusBadge.vue'

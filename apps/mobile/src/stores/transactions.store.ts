@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { CreateTransactionInput, TransactionDto, UpdateTransactionInput } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
+import { usePortfoliosStore } from './portfolios.store'
 
 export const useTransactionsStore = defineStore('transactions', () => {
   const transactions = ref<TransactionDto[]>([])
@@ -11,12 +12,16 @@ export const useTransactionsStore = defineStore('transactions', () => {
   // query angeben = Filter setzen (null hebt auf); ohne query = mit aktuellem Filter neu laden
   async function load(query?: { sourceId: string | null }): Promise<void> {
     if (query !== undefined) filterSourceId.value = query.sourceId
-    const params = filterSourceId.value ? `?sourceId=${encodeURIComponent(filterSourceId.value)}` : ''
-    transactions.value = (await api.get<{ transactions: TransactionDto[] }>(`/transactions${params}`)).transactions
+    const portfolios = usePortfoliosStore()
+    const sourceParam = filterSourceId.value ? `?sourceId=${encodeURIComponent(filterSourceId.value)}` : ''
+    const scope = portfolios.scopeQuery(sourceParam ? '&' : '?')
+    transactions.value = (
+      await api.get<{ transactions: TransactionDto[] }>(`/transactions${sourceParam}${scope}`)
+    ).transactions
   }
 
   async function create(input: CreateTransactionInput): Promise<void> {
-    await api.post('/transactions', input)
+    await api.post('/transactions', { ...input, portfolioId: usePortfoliosStore().scopeId() })
     await load()
   }
 

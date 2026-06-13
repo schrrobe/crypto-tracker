@@ -2,13 +2,15 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { CreateSourceInput, SourceDto, SyncRunDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
+import { usePortfoliosStore } from './portfolios.store'
 
 export const useSourcesStore = defineStore('sources', () => {
   const sources = ref<SourceDto[]>([])
   const loaded = ref(false)
 
   async function load(): Promise<void> {
-    sources.value = (await api.get<{ sources: SourceDto[] }>('/sources')).sources
+    const scope = usePortfoliosStore().scopeQuery()
+    sources.value = (await api.get<{ sources: SourceDto[] }>(`/sources${scope}`)).sources
     loaded.value = true
   }
 
@@ -18,7 +20,11 @@ export const useSourcesStore = defineStore('sources', () => {
     const existing = sources.value.find((s) => s.type === 'MANUAL')
     if (existing) return existing
     const created = (
-      await api.post<{ source: SourceDto }>('/sources', { type: 'MANUAL', label: 'Manuelle Bestände' })
+      await api.post<{ source: SourceDto }>('/sources', {
+        type: 'MANUAL',
+        label: 'Manuelle Bestände',
+        portfolioId: usePortfoliosStore().scopeId(),
+      })
     ).source
     sources.value.push(created)
     return created
@@ -35,7 +41,8 @@ export const useSourcesStore = defineStore('sources', () => {
   }
 
   async function create(input: CreateSourceInput): Promise<SourceDto> {
-    const created = (await api.post<{ source: SourceDto }>('/sources', input)).source
+    const payload = { ...input, portfolioId: input.portfolioId ?? usePortfoliosStore().scopeId() }
+    const created = (await api.post<{ source: SourceDto }>('/sources', payload)).source
     sources.value.push(created)
     return created
   }
@@ -77,6 +84,7 @@ export const useSourcesStore = defineStore('sources', () => {
     try {
       const { results } = await api.post<{ results: Array<{ sourceId: string; run: SyncRunDto }> }>(
         '/sources/sync-all',
+        { portfolioId: usePortfoliosStore().scopeId() },
       )
       await Promise.all(results.map((r) => waitForRun(r.sourceId, r.run)))
       await load()

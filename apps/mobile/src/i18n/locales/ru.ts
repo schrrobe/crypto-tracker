@@ -29,8 +29,29 @@ const ru: MessageSchema = {
   tabs: {
     dashboard: 'Обзор',
     holdings: 'Активы',
+    market: 'Рынок',
     sources: 'Источники',
     settings: 'Настройки',
+  },
+  portfolios: {
+    title: 'Портфели',
+    switchTitle: 'Сменить портфель',
+    manage: 'Управление портфелями…',
+    default: 'По умолчанию',
+    sourceCount: 'Источников: {n}',
+    create: 'Создать портфель',
+    createTitle: 'Новый портфель',
+    renameTitle: 'Переименовать портфель',
+    deleteTitle: 'Удалить «{label}»?',
+    deleteMessage: 'Удалять можно только пустые портфели.',
+  },
+  market: {
+    title: 'Рынок',
+    top: 'Топ-100',
+    gainers: 'Лидеры роста',
+    losers: 'Лидеры падения',
+    marketCap: 'Капитализация',
+    loadFailed: 'Не удалось загрузить данные рынка',
   },
   dashboard: {
     totalValue: 'Общая стоимость ({currency})',
@@ -278,6 +299,10 @@ const ru: MessageSchema = {
     TRANSFER_LINK_ALREADY_LINKED: 'Одна из транзакций уже связана',
     TRANSFER_LINKED_TX_IMMUTABLE:
       'Эта транзакция связана как перевод — сначала удалите связь',
+    TRANSFER_LINK_PORTFOLIO_MISMATCH:
+      'Обе стороны должны принадлежать одному портфелю — портфели являются отдельными налоговыми субъектами',
+    PORTFOLIO_NOT_EMPTY: 'Портфель ещё содержит источники — сначала удалите источники',
+    PORTFOLIO_LAST: 'Последний портфель нельзя удалить',
   },
   relative: {
     never: 'никогда',

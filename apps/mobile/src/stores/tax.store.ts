@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { TaxCountry, TaxReportDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
+import { usePortfoliosStore } from './portfolios.store'
 
 const COUNTRY_KEY = 'taxCountry'
 
@@ -17,7 +18,10 @@ export const useTaxStore = defineStore('tax', () => {
   const country = ref<TaxCountry>(storedCountry())
 
   async function load(): Promise<void> {
-    report.value = await api.get<TaxReportDto>(`/tax/report?year=${year.value}&country=${country.value}`)
+    const scope = usePortfoliosStore().scopeQuery('&')
+    report.value = await api.get<TaxReportDto>(
+      `/tax/report?year=${year.value}&country=${country.value}${scope}`,
+    )
   }
 
   function setCountry(value: TaxCountry): void {

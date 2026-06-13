@@ -2,12 +2,14 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { CsvImportDto, CsvUploadResponse } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
+import { usePortfoliosStore } from './portfolios.store'
 
 export const useImportsStore = defineStore('imports', () => {
   const imports = ref<CsvImportDto[]>([])
 
   async function load(): Promise<void> {
-    imports.value = (await api.get<{ imports: CsvImportDto[] }>('/imports')).imports
+    const scope = usePortfoliosStore().scopeQuery()
+    imports.value = (await api.get<{ imports: CsvImportDto[] }>(`/imports${scope}`)).imports
   }
 
   async function upload(
@@ -19,6 +21,8 @@ export const useImportsStore = defineStore('imports', () => {
     form.append('file', file)
     form.append('kind', kind)
     if (label.trim()) form.append('label', label.trim())
+    const portfolioId = usePortfoliosStore().scopeId()
+    if (portfolioId) form.append('portfolioId', portfolioId)
     return api.upload<CsvUploadResponse>('/imports', form)
   }
 

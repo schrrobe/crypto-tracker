@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import request from 'supertest'
-import { API, app, bearer, createPortfolio, registerUser, uploadCsv, type TestUser } from './helpers'
+import { API, app, bearer, createPortfolio, registerUser, type TestUser } from './helpers'
 
 async function findAssetId(user: TestUser, symbol: string): Promise<string> {
   const res = await request(app).get(`${API}/assets/search?q=${symbol}`).set(...bearer(user))

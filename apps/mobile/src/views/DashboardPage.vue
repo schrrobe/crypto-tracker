@@ -2,6 +2,9 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
+        <ion-buttons slot="start">
+          <PortfolioSwitcher @switched="loadData" />
+        </ion-buttons>
         <ion-title>{{ $t('tabs.dashboard') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button data-testid="refresh-button" :disabled="portfolio.loading" @click="refresh">
@@ -113,6 +116,7 @@ import { refreshOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import AllocationDonut from '../components/AllocationDonut.vue'
 import PortfolioChart from '../components/PortfolioChart.vue'
+import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'

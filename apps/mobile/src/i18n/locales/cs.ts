@@ -29,8 +29,29 @@ const cs: MessageSchema = {
   tabs: {
     dashboard: 'Přehled',
     holdings: 'Aktiva',
+    market: 'Trh',
     sources: 'Zdroje',
     settings: 'Nastavení',
+  },
+  portfolios: {
+    title: 'Portfolia',
+    switchTitle: 'Přepnout portfolio',
+    manage: 'Spravovat portfolia…',
+    default: 'Výchozí',
+    sourceCount: 'Zdroje: {n}',
+    create: 'Vytvořit portfolio',
+    createTitle: 'Nové portfolio',
+    renameTitle: 'Přejmenovat portfolio',
+    deleteTitle: 'Smazat „{label}"?',
+    deleteMessage: 'Smazat lze pouze prázdná portfolia.',
+  },
+  market: {
+    title: 'Trh',
+    top: 'Top 100',
+    gainers: 'Rostoucí',
+    losers: 'Klesající',
+    marketCap: 'Tržní kapitalizace',
+    loadFailed: 'Tržní data se nepodařilo načíst',
   },
   dashboard: {
     totalValue: 'Celková hodnota ({currency})',
@@ -278,6 +299,10 @@ const cs: MessageSchema = {
     TRANSFER_LINK_ALREADY_LINKED: 'Jedna z transakcí je již propojena',
     TRANSFER_LINKED_TX_IMMUTABLE:
       'Tato transakce je propojena jako převod — nejprve prosím zrušte propojení',
+    TRANSFER_LINK_PORTFOLIO_MISMATCH:
+      'Obě strany musí patřit do stejného portfolia — portfolia jsou oddělené daňové subjekty',
+    PORTFOLIO_NOT_EMPTY: 'Portfolio stále obsahuje zdroje — nejprve prosím smažte zdroje',
+    PORTFOLIO_LAST: 'Poslední portfolio nelze smazat',
   },
   relative: {
     never: 'nikdy',

@@ -2,6 +2,9 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
+        <ion-buttons slot="start">
+          <PortfolioSwitcher @switched="portfolios.load" />
+        </ion-buttons>
         <ion-title>{{ $t('tabs.settings') }}</ion-title>
       </ion-toolbar>
     </ion-header>
@@ -52,6 +55,40 @@
         </ion-item>
       </ion-list>
 
+      <!-- Portfolio-Verwaltung: getrennte Steuersubjekte (eigenes, Eltern, …) -->
+      <ion-list inset>
+        <ion-list-header>
+          <ion-label>{{ $t('portfolios.title') }}</ion-label>
+        </ion-list-header>
+        <ion-item v-for="p in portfolios.portfolios" :key="p.id" :data-testid="`portfolio-${p.label}`">
+          <ion-label>
+            <h3>
+              {{ p.label }}
+              <ion-badge v-if="p.isDefault" color="medium">{{ $t('portfolios.default') }}</ion-badge>
+            </h3>
+            <p>{{ $t('portfolios.sourceCount', { n: p.sourceCount }) }}</p>
+          </ion-label>
+          <ion-buttons slot="end">
+            <ion-button :data-testid="`portfolio-rename-${p.label}`" @click="promptRenamePortfolio(p)">
+              <ion-icon :icon="createOutline" slot="icon-only" />
+            </ion-button>
+            <ion-button
+              color="danger"
+              :data-testid="`portfolio-delete-${p.label}`"
+              @click="deletePortfolio(p)"
+            >
+              <ion-icon :icon="trashOutline" slot="icon-only" />
+            </ion-button>
+          </ion-buttons>
+        </ion-item>
+        <ion-item button :detail="false" data-testid="portfolio-create" @click="promptCreatePortfolio">
+          <ion-label color="primary">{{ $t('portfolios.create') }}</ion-label>
+        </ion-item>
+      </ion-list>
+      <ion-text v-if="portfolioError" color="danger">
+        <p class="portfolio-error" data-testid="portfolio-error">{{ portfolioError }}</p>
+      </ion-text>
+
       <ion-list inset>
         <ion-item>
           <ion-label>
@@ -69,30 +106,44 @@
 
 <script setup lang="ts">
 import {
+  alertController,
+  IonBadge,
+  IonButton,
+  IonButtons,
   IonContent,
   IonHeader,
+  IonIcon,
   IonItem,
   IonLabel,
   IonList,
+  IonListHeader,
   IonPage,
   IonSelect,
   IonSelectOption,
+  IonText,
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
+import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { createOutline, trashOutline } from 'ionicons/icons'
+import type { PortfolioDto } from '@crypto-tracker/shared'
 import {
   getThemePreference,
   setThemePreference,
   type ThemePreference,
 } from '../services/theme.service'
-import { getLocale, setLocale, SUPPORTED_LOCALES, type LocaleCode } from '../i18n'
+import { apiErrorMessage } from '../services/errors'
+import { usePortfoliosStore } from '../stores/portfolios.store'
+import { getLocale, setLocale, SUPPORTED_LOCALES, t, type LocaleCode } from '../i18n'
 import { useAuthStore } from '../stores/auth.store'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { useSourcesStore } from '../stores/sources.store'
 
 const auth = useAuthStore()
+const portfolios = usePortfoliosStore()
+const portfolioError = ref('')
 const portfolio = usePortfolioStore()
 const sources = useSourcesStore()
 const router = useRouter()
@@ -117,6 +168,64 @@ async function logout() {
   await auth.logout()
   portfolio.reset()
   sources.reset()
+  portfolios.reset()
   router.replace('/login')
+}
+
+async function promptCreatePortfolio() {
+  const alert = await alertController.create({
+    header: t('portfolios.createTitle'),
+    inputs: [{ name: 'label', type: 'text', attributes: { maxlength: 60 } }],
+    buttons: [
+      { text: t('common.cancel'), role: 'cancel' },
+      {
+        text: t('common.save'),
+        handler: (values: { label: string }) => {
+          const label = values.label.trim()
+          if (label) portfolios.create(label).catch((e) => (portfolioError.value = apiErrorMessage(e, 'common.loadFailed')))
+        },
+      },
+    ],
+  })
+  await alert.present()
+}
+
+async function promptRenamePortfolio(p: PortfolioDto) {
+  const alert = await alertController.create({
+    header: t('portfolios.renameTitle'),
+    inputs: [{ name: 'label', type: 'text', value: p.label, attributes: { maxlength: 60 } }],
+    buttons: [
+      { text: t('common.cancel'), role: 'cancel' },
+      {
+        text: t('common.save'),
+        handler: (values: { label: string }) => {
+          const label = values.label.trim()
+          if (label && label !== p.label) {
+            portfolios.rename(p.id, label).catch((e) => (portfolioError.value = apiErrorMessage(e, 'common.loadFailed')))
+          }
+        },
+      },
+    ],
+  })
+  await alert.present()
+}
+
+async function deletePortfolio(p: PortfolioDto) {
+  portfolioError.value = ''
+  const alert = await alertController.create({
+    header: t('portfolios.deleteTitle', { label: p.label }),
+    message: t('portfolios.deleteMessage'),
+    buttons: [
+      { text: t('common.cancel'), role: 'cancel' },
+      {
+        text: t('common.delete'),
+        role: 'destructive',
+        handler: () => {
+          portfolios.remove(p.id).catch((e) => (portfolioError.value = apiErrorMessage(e, 'common.loadFailed')))
+        },
+      },
+    ],
+  })
+  await alert.present()
 }
 </script>

@@ -29,8 +29,29 @@ const en: MessageSchema = {
   tabs: {
     dashboard: 'Dashboard',
     holdings: 'Holdings',
+    market: 'Market',
     sources: 'Sources',
     settings: 'Settings',
+  },
+  portfolios: {
+    title: 'Portfolios',
+    switchTitle: 'Switch portfolio',
+    manage: 'Manage portfolios…',
+    default: 'Default',
+    sourceCount: '{n} source(s)',
+    create: 'Create portfolio',
+    createTitle: 'New portfolio',
+    renameTitle: 'Rename portfolio',
+    deleteTitle: 'Delete "{label}"?',
+    deleteMessage: 'Only empty portfolios can be deleted.',
+  },
+  market: {
+    title: 'Market',
+    top: 'Top 100',
+    gainers: 'Gainers',
+    losers: 'Losers',
+    marketCap: 'Market cap',
+    loadFailed: 'Market data could not be loaded',
   },
   dashboard: {
     totalValue: 'Total value ({currency})',
@@ -278,6 +299,10 @@ const en: MessageSchema = {
     TRANSFER_LINK_ALREADY_LINKED: 'One of the transactions is already linked',
     TRANSFER_LINKED_TX_IMMUTABLE:
       'This transaction is linked as a transfer — please remove the link first',
+    TRANSFER_LINK_PORTFOLIO_MISMATCH:
+      'Both sides must belong to the same portfolio — portfolios are separate tax entities',
+    PORTFOLIO_NOT_EMPTY: 'The portfolio still contains sources — please delete the sources first',
+    PORTFOLIO_LAST: 'The last portfolio cannot be deleted',
   },
   relative: {
     never: 'never',

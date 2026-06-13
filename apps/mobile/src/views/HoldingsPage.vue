@@ -2,6 +2,9 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
+        <ion-buttons slot="start">
+          <PortfolioSwitcher @switched="loadData" />
+        </ion-buttons>
         <ion-title>{{ $t('tabs.holdings') }}</ion-title>
       </ion-toolbar>
     </ion-header>
@@ -113,6 +116,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { HoldingDto } from '@crypto-tracker/shared'
 import AddHoldingModal from '../components/AddHoldingModal.vue'
 import AssetMappingModal from '../components/AssetMappingModal.vue'
+import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'

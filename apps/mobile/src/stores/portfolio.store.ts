@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { HoldingDto, PortfolioSummaryDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
+import { usePortfoliosStore } from './portfolios.store'
 
 export const usePortfolioStore = defineStore('portfolio', () => {
   const summary = ref<PortfolioSummaryDto | null>(null)
@@ -9,17 +10,19 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   const loading = ref(false)
 
   async function loadSummary(): Promise<void> {
-    summary.value = await api.get<PortfolioSummaryDto>('/portfolio/summary')
+    const scope = usePortfoliosStore().scopeQuery()
+    summary.value = await api.get<PortfolioSummaryDto>(`/portfolio/summary${scope}`)
   }
 
   async function loadHoldings(): Promise<void> {
-    holdings.value = (await api.get<{ holdings: HoldingDto[] }>('/holdings')).holdings
+    const scope = usePortfoliosStore().scopeQuery()
+    holdings.value = (await api.get<{ holdings: HoldingDto[] }>(`/holdings${scope}`)).holdings
   }
 
   async function refresh(): Promise<void> {
     loading.value = true
     try {
-      await api.post('/prices/refresh')
+      await api.post('/prices/refresh', { portfolioId: usePortfoliosStore().scopeId() })
       await Promise.all([loadSummary(), loadHoldings()])
     } finally {
       loading.value = false

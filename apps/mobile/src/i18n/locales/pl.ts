@@ -29,8 +29,29 @@ const pl: MessageSchema = {
   tabs: {
     dashboard: 'Pulpit',
     holdings: 'Aktywa',
+    market: 'Rynek',
     sources: 'Źródła',
     settings: 'Ustawienia',
+  },
+  portfolios: {
+    title: 'Portfolia',
+    switchTitle: 'Przełącz portfolio',
+    manage: 'Zarządzaj portfoliami…',
+    default: 'Domyślne',
+    sourceCount: 'Źródła: {n}',
+    create: 'Utwórz portfolio',
+    createTitle: 'Nowe portfolio',
+    renameTitle: 'Zmień nazwę portfolio',
+    deleteTitle: 'Usunąć „{label}"?',
+    deleteMessage: 'Można usuwać tylko puste portfolia.',
+  },
+  market: {
+    title: 'Rynek',
+    top: 'Top 100',
+    gainers: 'Wzrosty',
+    losers: 'Spadki',
+    marketCap: 'Kapitalizacja',
+    loadFailed: 'Nie udało się wczytać danych rynkowych',
   },
   dashboard: {
     totalValue: 'Wartość łączna ({currency})',
@@ -278,6 +299,10 @@ const pl: MessageSchema = {
     TRANSFER_LINK_ALREADY_LINKED: 'Jedna z transakcji jest już połączona',
     TRANSFER_LINKED_TX_IMMUTABLE:
       'Ta transakcja jest połączona jako transfer — najpierw rozłącz powiązanie',
+    TRANSFER_LINK_PORTFOLIO_MISMATCH:
+      'Obie strony muszą należeć do tego samego portfolio — portfolia są odrębnymi podmiotami podatkowymi',
+    PORTFOLIO_NOT_EMPTY: 'Portfolio zawiera jeszcze źródła — najpierw usuń źródła',
+    PORTFOLIO_LAST: 'Ostatniego portfolio nie można usunąć',
   },
   relative: {
     never: 'nigdy',

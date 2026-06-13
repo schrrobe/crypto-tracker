@@ -27,8 +27,29 @@ const de = {
   tabs: {
     dashboard: 'Dashboard',
     holdings: 'Bestände',
+    market: 'Markt',
     sources: 'Quellen',
     settings: 'Einstellungen',
+  },
+  portfolios: {
+    title: 'Portfolios',
+    switchTitle: 'Portfolio wechseln',
+    manage: 'Portfolios verwalten…',
+    default: 'Standard',
+    sourceCount: '{n} Quelle(n)',
+    create: 'Portfolio anlegen',
+    createTitle: 'Neues Portfolio',
+    renameTitle: 'Portfolio umbenennen',
+    deleteTitle: '„{label}" löschen?',
+    deleteMessage: 'Nur leere Portfolios können gelöscht werden.',
+  },
+  market: {
+    title: 'Markt',
+    top: 'Top 100',
+    gainers: 'Gewinner',
+    losers: 'Verlierer',
+    marketCap: 'Market Cap',
+    loadFailed: 'Marktdaten konnten nicht geladen werden',
   },
   dashboard: {
     totalValue: 'Gesamtwert ({currency})',
@@ -276,6 +297,10 @@ const de = {
     TRANSFER_LINK_ALREADY_LINKED: 'Eine der Transaktionen ist bereits verknüpft',
     TRANSFER_LINKED_TX_IMMUTABLE:
       'Diese Transaktion ist als Transfer verknüpft — bitte zuerst die Verknüpfung lösen',
+    TRANSFER_LINK_PORTFOLIO_MISMATCH:
+      'Beide Seiten müssen zum selben Portfolio gehören — Portfolios sind getrennte Steuersubjekte',
+    PORTFOLIO_NOT_EMPTY: 'Das Portfolio enthält noch Quellen — bitte zuerst die Quellen löschen',
+    PORTFOLIO_LAST: 'Das letzte Portfolio kann nicht gelöscht werden',
   },
   relative: {
     never: 'noch nie',

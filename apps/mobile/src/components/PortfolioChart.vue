@@ -57,6 +57,7 @@ import {
 import { computed, ref, watch } from 'vue'
 import type { HistoryRange, PortfolioHistoryDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
+import { usePortfoliosStore } from '../stores/portfolios.store'
 import { formatCurrency } from '../services/format'
 import { intlLocale } from '../i18n'
 
@@ -73,7 +74,7 @@ async function load() {
   loading.value = true
   try {
     const res = await api.get<PortfolioHistoryDto>(
-      `/portfolio/history?range=${range.value}&currency=${props.currency}`,
+      `/portfolio/history?range=${range.value}&currency=${props.currency}${usePortfoliosStore().scopeQuery('&')}`,
     )
     points.value = res.points
     excludedAssets.value = res.excludedAssets
