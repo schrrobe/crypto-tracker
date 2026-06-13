@@ -11,6 +11,7 @@ import { importsRoutes } from './modules/imports/imports.routes'
 import { transactionsRoutes } from './modules/transactions/transactions.routes'
 import { taxRoutes } from './modules/tax/tax.routes'
 import { portfoliosRoutes } from './modules/portfolios/portfolios.routes'
+import { marketRoutes } from './modules/market/market.routes'
 
 export function createApp() {
   const app = express()
@@ -36,6 +37,7 @@ export function createApp() {
   api.use('/transactions', transactionsRoutes)
   api.use('/tax', taxRoutes)
   api.use('/portfolios', portfoliosRoutes)
+  api.use('/market', marketRoutes)
 
   app.use((_req, res) => {
     res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route nicht gefunden' } })

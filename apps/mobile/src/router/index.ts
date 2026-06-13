@@ -15,6 +15,7 @@ const routes: Array<RouteRecordRaw> = [
       { path: '', redirect: '/tabs/dashboard' },
       { path: 'dashboard', component: () => import('../views/DashboardPage.vue') },
       { path: 'holdings', component: () => import('../views/HoldingsPage.vue') },
+      { path: 'market', component: () => import('../views/MarketPage.vue') },
       { path: 'sources', component: () => import('../views/sources/SourcesPage.vue') },
       { path: 'sources/imports', component: () => import('../views/sources/csv/ImportsPage.vue') },
       { path: 'sources/transactions', component: () => import('../views/transactions/TransactionsPage.vue') },
