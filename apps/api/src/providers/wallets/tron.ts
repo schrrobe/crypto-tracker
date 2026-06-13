@@ -17,6 +17,7 @@ const ADDRESS_RE = /^T[1-9A-HJ-NP-Za-km-z]{33}$/
 interface TronAccount {
   // fehlt, wenn das Konto 0 TRX hält
   balance?: number
+  frozenV2?: Array<{ amount?: number }>
   trc20?: Array<Record<string, string>>
 }
 
@@ -55,7 +56,10 @@ export const tronProvider: WalletProvider = {
     if (!account) return []
     const balances: RawBalance[] = []
 
-    const sun = BigInt(account.balance ?? 0)
+    let sun = BigInt(account.balance ?? 0)
+    for (const frozen of account.frozenV2 ?? []) {
+      sun += BigInt(frozen.amount ?? 0)
+    }
     if (sun > 0n) balances.push({ symbol: 'TRX', amount: fromBaseUnits(sun, 6) })
 
     // USDT aus den TRC-20-Beständen herausfiltern (Beträge als String in 1e6)

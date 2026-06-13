@@ -17,6 +17,10 @@ interface CoinAmount {
   amount: string
 }
 
+interface UnbondingDelegation {
+  entries: Array<{ balance: string }>
+}
+
 async function lcdGet<T>(path: string): Promise<T> {
   const res = await fetch(`${LCD_URL}${path}`)
   if (res.status === 429) {
@@ -43,7 +47,9 @@ export const cosmosProvider: WalletProvider = {
   async fetchBalances(address: string): Promise<RawBalance[]> {
     const encoded = encodeURIComponent(address)
 
-    const bank = await lcdGet<{ balances: CoinAmount[] }>(`/cosmos/bank/v1beta1/balances/${encoded}`)
+    const bank = await lcdGet<{ balances: CoinAmount[] }>(
+      `/cosmos/bank/v1beta1/balances/${encoded}`,
+    )
     let uatom = 0n
     for (const coin of bank.balances) {
       if (coin.denom === 'uatom') uatom += BigInt(coin.amount)
@@ -57,6 +63,15 @@ export const cosmosProvider: WalletProvider = {
       if (delegation.balance.denom === 'uatom') uatom += BigInt(delegation.balance.amount)
     }
 
+    // ATOM in der Unbonding-Periode gehören weiterhin zum Bestand
+    const unbonding = await lcdGet<{ unbonding_responses: UnbondingDelegation[] }>(
+      `/cosmos/staking/v1beta1/delegators/${encoded}/unbonding_delegations`,
+    )
+    for (const delegation of unbonding.unbonding_responses) {
+      for (const entry of delegation.entries) {
+        uatom += BigInt(entry.balance)
+      }
+    }
     if (uatom === 0n) return []
     return [{ symbol: 'ATOM', amount: fromBaseUnits(uatom, 6) }]
   },

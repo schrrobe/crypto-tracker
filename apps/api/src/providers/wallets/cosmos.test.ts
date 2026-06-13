@@ -10,7 +10,10 @@ const ADDRESS = 'cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh'
 const BANK_FIXTURE = {
   balances: [
     { denom: 'uatom', amount: '2500000' }, // 2.5 ATOM liquide
-    { denom: 'ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2', amount: '777' }, // IBC-Token → ignorieren
+    {
+      denom: 'ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2',
+      amount: '777',
+    }, // IBC-Token → ignorieren
   ],
   pagination: { next_key: null, total: '2' },
 }
@@ -37,6 +40,12 @@ const DELEGATIONS_FIXTURE = {
   pagination: { next_key: null, total: '2' },
 }
 
+const UNBONDING_FIXTURE = {
+  unbonding_responses: [{ entries: [{ balance: '750000' }, { balance: '250000' }] }],
+}
+
+const EMPTY_UNBONDING = { unbonding_responses: [] }
+
 // Mock je nach LCD-Pfad (Bank- und Staking-Endpunkt werden nacheinander abgefragt)
 function mockLcd(handlers: Record<string, { status: number; body?: unknown }>) {
   vi.stubGlobal(
@@ -58,20 +67,25 @@ afterEach(() => vi.unstubAllGlobals())
 describe('cosmosProvider', () => {
   it('akzeptiert Cosmos-Hub-Adressen (cosmos1 + 38 Zeichen)', () => {
     expect(cosmosProvider.validateAddress(ADDRESS)).toBe(true)
-    expect(cosmosProvider.validateAddress('cosmosvaloper1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u2lcnj0')).toBe(false) // Validator
-    expect(cosmosProvider.validateAddress('osmo1fl48vsnmsdzcv85q5d2q4z5ajdha8yu3rqxy9n')).toBe(false) // andere Chain
+    expect(
+      cosmosProvider.validateAddress('cosmosvaloper1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u2lcnj0'),
+    ).toBe(false) // Validator
+    expect(cosmosProvider.validateAddress('osmo1fl48vsnmsdzcv85q5d2q4z5ajdha8yu3rqxy9n')).toBe(
+      false,
+    ) // andere Chain
     expect(cosmosProvider.validateAddress('cosmos1zukurz')).toBe(false)
     expect(cosmosProvider.validateAddress('nicht-gueltig')).toBe(false)
   })
 
-  it('summiert liquide und gestakte ATOM (Konsistenz mit Solana-Provider)', async () => {
+  it('summiert liquide, gestakte und unbondende ATOM', async () => {
     mockLcd({
       '/cosmos/bank/v1beta1/balances/': { status: 200, body: BANK_FIXTURE },
       '/cosmos/staking/v1beta1/delegations/': { status: 200, body: DELEGATIONS_FIXTURE },
+      '/unbonding_delegations': { status: 200, body: UNBONDING_FIXTURE },
     })
     const balances = await cosmosProvider.fetchBalances(ADDRESS)
-    // 2.5 + 1 + 0.5 = 4 ATOM; IBC-Token wird ignoriert
-    expect(balances).toEqual([{ symbol: 'ATOM', amount: '4' }])
+    // 2.5 + 1 + 0.5 + 0.75 + 0.25 = 5 ATOM; IBC-Token wird ignoriert
+    expect(balances).toEqual([{ symbol: 'ATOM', amount: '5' }])
   })
 
   it('liefert nur die Bank-Balance, wenn nichts gestakt ist', async () => {
@@ -81,6 +95,7 @@ describe('cosmosProvider', () => {
         status: 200,
         body: { delegation_responses: [], pagination: { next_key: null, total: '0' } },
       },
+      '/unbonding_delegations': { status: 200, body: EMPTY_UNBONDING },
     })
     expect(await cosmosProvider.fetchBalances(ADDRESS)).toEqual([{ symbol: 'ATOM', amount: '2.5' }])
   })
@@ -95,6 +110,7 @@ describe('cosmosProvider', () => {
         status: 200,
         body: { delegation_responses: [], pagination: { next_key: null, total: '0' } },
       },
+      '/unbonding_delegations': { status: 200, body: EMPTY_UNBONDING },
     })
     expect(await cosmosProvider.fetchBalances(ADDRESS)).toEqual([])
   })
@@ -118,12 +134,21 @@ describe('cosmosProvider', () => {
     })
   })
 
-  it('wirft PROVIDER_ERROR bei Serverfehlern (auch beim Staking-Endpunkt)', async () => {
+  it('wirft PROVIDER_ERROR bei Serverfehlern der Staking-Endpunkte', async () => {
     mockLcd({ '/cosmos/bank/v1beta1/balances/': { status: 503 } })
     await expect(cosmosProvider.fetchBalances(ADDRESS)).rejects.toBeInstanceOf(ProviderError)
     mockLcd({
       '/cosmos/bank/v1beta1/balances/': { status: 200, body: BANK_FIXTURE },
       '/cosmos/staking/v1beta1/delegations/': { status: 503 },
+    })
+    await expect(cosmosProvider.fetchBalances(ADDRESS)).rejects.toMatchObject({
+      code: 'PROVIDER_ERROR',
+    })
+
+    mockLcd({
+      '/cosmos/bank/v1beta1/balances/': { status: 200, body: BANK_FIXTURE },
+      '/cosmos/staking/v1beta1/delegations/': { status: 200, body: DELEGATIONS_FIXTURE },
+      '/unbonding_delegations': { status: 503 },
     })
     await expect(cosmosProvider.fetchBalances(ADDRESS)).rejects.toMatchObject({
       code: 'PROVIDER_ERROR',

@@ -4,7 +4,9 @@
       <ion-toolbar>
         <ion-title>{{ $t('sources.connectSource') }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button data-testid="source-modal-cancel" @click="$emit('close')">{{ $t('common.cancel') }}</ion-button>
+          <ion-button data-testid="source-modal-cancel" @click="$emit('close')">{{
+            $t('common.cancel')
+          }}</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -301,7 +303,7 @@ function buildInput(): CreateSourceInput {
       label: label.value.trim(),
       apiKey: apiKey.value.trim(),
       apiSecret: apiSecret.value.trim() || undefined,
-      passphrase: passphrase.value.trim() || undefined,
+      passphrase: needsPassphrase.value ? passphrase.value.trim() : undefined,
     }
   }
   if (type.value === 'WALLET') {

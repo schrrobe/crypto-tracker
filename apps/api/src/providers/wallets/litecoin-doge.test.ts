@@ -30,7 +30,18 @@ function mockFetch(status: number, body?: unknown) {
     vi.fn(async () => ({
       ok: status >= 200 && status < 300,
       status,
-      json: async () => body,
+      text: async () => JSON.stringify(body),
+    })),
+  )
+}
+
+function mockRawFetch(status: number, body: string) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({
+      ok: status >= 200 && status < 300,
+      status,
+      text: async () => body,
     })),
   )
 }
@@ -45,9 +56,13 @@ describe('litecoinProvider', () => {
   it('akzeptiert gängige LTC-Adressformate', () => {
     expect(litecoinProvider.validateAddress(LTC_ADDRESS)).toBe(true) // P2SH (M…)
     expect(litecoinProvider.validateAddress('LaMT348PWRnrqeeWArpwQPbuanpXDZGEUz')).toBe(true) // Legacy (L…)
-    expect(litecoinProvider.validateAddress('ltc1qhza9w2k0nuzwseqaq4y26r3z7d2tugz26nqnpx')).toBe(true) // Bech32
+    expect(litecoinProvider.validateAddress('ltc1qhza9w2k0nuzwseqaq4y26r3z7d2tugz26nqnpx')).toBe(
+      true,
+    ) // Bech32
     expect(litecoinProvider.validateAddress(DOGE_ADDRESS)).toBe(false) // Dogecoin
-    expect(litecoinProvider.validateAddress('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq')).toBe(false) // Bitcoin
+    expect(litecoinProvider.validateAddress('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq')).toBe(
+      false,
+    ) // Bitcoin
     expect(litecoinProvider.validateAddress('nicht-gueltig')).toBe(false)
   })
 
@@ -106,9 +121,22 @@ describe('dogecoinProvider', () => {
     expect(balances).toEqual([{ symbol: 'DOGE', amount: '4213.37' }])
   })
 
+  it('bewahrt die Präzision großer DOGE-Bestände', async () => {
+    const units = '9007199254740993'
+    mockRawFetch(
+      200,
+      `{"data":{"${DOGE_ADDRESS}":{"address":{"balance":${units}}}},"context":{"code":200}}`,
+    )
+    expect(await dogecoinProvider.fetchBalances(DOGE_ADDRESS)).toEqual([
+      { symbol: 'DOGE', amount: '90071992.54740993' },
+    ])
+  })
+
   it('fragt die Dogecoin-Chain ab', async () => {
     mockFetch(200, dashboardFixture(DOGE_ADDRESS, 100_000_000))
     await dogecoinProvider.fetchBalances(DOGE_ADDRESS)
-    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('/dogecoin/dashboards/address/'))
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/dogecoin/dashboards/address/'),
+    )
   })
 })

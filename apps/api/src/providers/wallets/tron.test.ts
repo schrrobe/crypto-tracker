@@ -58,6 +58,22 @@ describe('tronProvider', () => {
     ])
   })
 
+  it('addiert Stake-2.0-Bestände aus frozenV2 zur TRX-Balance', async () => {
+    mockFetch(200, {
+      data: [
+        {
+          balance: 500_000,
+          frozenV2: [
+            { type: 'ENERGY', amount: 2_000_000 },
+            { type: 'BANDWIDTH', amount: 1_500_000 },
+          ],
+        },
+      ],
+      success: true,
+    })
+    expect(await tronProvider.fetchBalances(ADDRESS)).toEqual([{ symbol: 'TRX', amount: '4' }])
+  })
+
   it('behandelt leeres data als nicht aktiviertes Konto (kein Fehler)', async () => {
     mockFetch(200, { data: [], success: true, meta: {} })
     expect(await tronProvider.fetchBalances(ADDRESS)).toEqual([])
@@ -70,8 +86,14 @@ describe('tronProvider', () => {
   })
 
   it('wirft INVALID_ADDRESS bei HTTP 400 (auch falsche Checksumme)', async () => {
-    mockFetch(400, { success: false, error: 'A valid account address is required.', statusCode: 400 })
-    await expect(tronProvider.fetchBalances('T1111111111111111111111111111111111')).rejects.toMatchObject({
+    mockFetch(400, {
+      success: false,
+      error: 'A valid account address is required.',
+      statusCode: 400,
+    })
+    await expect(
+      tronProvider.fetchBalances('T1111111111111111111111111111111111'),
+    ).rejects.toMatchObject({
       code: 'INVALID_ADDRESS',
     })
   })
