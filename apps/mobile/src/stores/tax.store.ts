@@ -2,13 +2,13 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { TaxCountry, TaxReportDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
+import { getStored, setStored } from '../services/storage'
 import { usePortfoliosStore } from './portfolios.store'
 
 const COUNTRY_KEY = 'taxCountry'
 
 function storedCountry(): TaxCountry {
-  const value = localStorage.getItem(COUNTRY_KEY)
-  return value === 'AT' ? 'AT' : 'DE'
+  return getStored(COUNTRY_KEY) === 'AT' ? 'AT' : 'DE'
 }
 
 export const useTaxStore = defineStore('tax', () => {
@@ -26,7 +26,7 @@ export const useTaxStore = defineStore('tax', () => {
 
   function setCountry(value: TaxCountry): void {
     country.value = value
-    localStorage.setItem(COUNTRY_KEY, value)
+    setStored(COUNTRY_KEY, value)
   }
 
   function reset(): void {

@@ -1,5 +1,7 @@
-// CSV-Erzeugung + Browser-Download. Semikolon-getrennt mit UTF-8-BOM,
-// damit deutsches/österreichisches Excel Umlaute und Spalten korrekt erkennt.
+// CSV-Erzeugung + Export. Semikolon-getrennt mit UTF-8-BOM, damit
+// deutsches/österreichisches Excel Umlaute und Spalten korrekt erkennt.
+
+import { saveOrShareFile } from './file-export'
 
 const UTF8_BOM = '\ufeff'
 
@@ -12,12 +14,11 @@ export function buildCsv(header: string[], rows: Array<Array<string | number>>):
   return [header, ...rows].map((row) => row.map(escapeCell).join(';')).join('\r\n')
 }
 
-export function downloadCsv(filename: string, header: string[], rows: Array<Array<string | number>>): void {
+export async function downloadCsv(
+  filename: string,
+  header: string[],
+  rows: Array<Array<string | number>>,
+): Promise<void> {
   const blob = new Blob([UTF8_BOM + buildCsv(header, rows)], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
+  await saveOrShareFile(filename, blob)
 }

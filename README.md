@@ -9,7 +9,7 @@ Aktueller Implementierungs-Stand: `docs/IMPLEMENTATION-STATE.md`
 
 ## Stack
 
-- **apps/mobile** — Ionic Vue + TypeScript + Pinia (Capacitor ab Meilenstein 9)
+- **apps/mobile** — Ionic Vue + TypeScript + Pinia + Capacitor (native iOS/Android)
 - **apps/api** — Express + TypeScript + Prisma + Zod
 - **packages/shared** — gemeinsame Zod-Schemas, DTO-Typen, Enums
 - PostgreSQL lokal über Docker Compose (Host-Port **5434**, da 5432/5433 hier belegt sind)
@@ -101,8 +101,34 @@ pnpm --filter @crypto-tracker/mobile build   # Vite-Build → apps/mobile/dist/
 
 ### Bekannte Lücken vor prod
 
-- Refresh-Token liegt im `localStorage` (Web) — muss auf `httpOnly`-Cookie umgestellt werden
+- Refresh-Token im Web weiterhin im `localStorage`-Fallback (nativ verschlüsselt im
+  Keychain/Keystore) — für Web-Deployment auf `httpOnly`-Cookie umstellen
 - Kein CI/CD aufgesetzt (Lint/Tests/E2E)
 - Hosting-Entscheidung offen (VPS, Fly.io, GCP, …)
 
-Meilenstein 9 (Capacitor/Native iOS+Android): noch offen.
+## Native App (Capacitor)
+
+Die App läuft als native iOS/Android-App über Capacitor. Refresh-Token liegt nativ
+verschlüsselt (Keychain/Keystore), Datei-Exporte (CSV/PDF) gehen über das System-
+Share-Sheet, externe Links über den In-App-Browser.
+
+```bash
+# Web-Bundle bauen und in die nativen Projekte synchronisieren
+pnpm --filter @crypto-tracker/mobile cap:sync
+
+# Android: Build + Run (Emulator/Gerät) — braucht JDK 17+ und Android SDK
+pnpm --filter @crypto-tracker/mobile cap:android
+
+# App-Icons/Splash aus apps/mobile/assets/{icon,splash}.png generieren
+pnpm --filter @crypto-tracker/mobile cap:assets
+```
+
+**On-Device-Test gegen lokale API:** Das Gerät erreicht `localhost:3010` nicht — in
+`apps/mobile/.env` `VITE_API_URL` auf die LAN-IP der Dev-Maschine setzen
+(`http://192.168.x.y:3010/api/v1`) und diese Origin in `CORS_ORIGINS` der API ergänzen.
+Für Cleartext-HTTP im Dev-Build die Android-Network-Security-Config anpassen
+(nicht für prod).
+
+**iOS:** Das Projektgerüst wird auf einem Mac erzeugt (`npx cap add ios`); Build/Test
+erfordern macOS + Xcode. Das Android-Gerüst (`apps/mobile/android/`) ist eingecheckt;
+der Gradle-Build selbst braucht eine lokale Android-Toolchain (JDK + SDK).

@@ -1,17 +1,19 @@
-// Dark/Light-Mode: Default folgt dem System, manueller Override wird persistiert.
-// In Meilenstein 9 (Capacitor) wird localStorage durch @capacitor/preferences ersetzt.
+// Dark/Light-Mode: Default folgt dem System, manueller Override wird persistiert
+// (über die Storage-Abstraktion: Web = localStorage, nativ = Preferences).
+
+import { getStored, setStored } from './storage'
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 
 const STORAGE_KEY = 'theme-preference'
 
 export function getThemePreference(): ThemePreference {
-  const stored = localStorage.getItem(STORAGE_KEY)
+  const stored = getStored(STORAGE_KEY)
   return stored === 'light' || stored === 'dark' ? stored : 'system'
 }
 
 export function setThemePreference(pref: ThemePreference): void {
-  localStorage.setItem(STORAGE_KEY, pref)
+  setStored(STORAGE_KEY, pref)
   applyTheme(pref)
 }
 

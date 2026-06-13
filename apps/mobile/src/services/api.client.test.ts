@@ -99,8 +99,8 @@ describe('api.client', () => {
   })
 
   it('Auth-Routen lösen keinen Refresh-Loop aus', async () => {
-    const { api } = await loadClient()
-    localStorage.setItem('refresh-token', 'vorhanden')
+    const { api, setTokens } = await loadClient()
+    setTokens({ accessToken: 'alt', refreshToken: 'vorhanden' })
     const fn = mockFetch(() => ({ status: 401, body: { error: { code: 'UNAUTHORIZED' } } }))
 
     await expect(api.post('/auth/login', { email: 'a@b.c', password: 'x' })).rejects.toMatchObject({

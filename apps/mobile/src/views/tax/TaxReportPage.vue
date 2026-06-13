@@ -242,10 +242,10 @@ async function onCountryChange(country: TaxCountry) {
   await loadData()
 }
 
-function exportCsv() {
+async function exportCsv() {
   if (!report.value) return
   const r = report.value
-  downloadCsv(
+  await downloadCsv(
     `steuerreport-${r.country}-${r.year}.csv`,
     [
       'Asset',
@@ -274,8 +274,8 @@ function exportCsv() {
   )
 }
 
-function exportPdf() {
-  if (report.value) downloadTaxReportPdf(report.value)
+async function exportPdf() {
+  if (report.value) await downloadTaxReportPdf(report.value)
 }
 
 onIonViewWillEnter(() => {

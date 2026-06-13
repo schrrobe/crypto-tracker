@@ -4,6 +4,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { TaxReportDto } from '@crypto-tracker/shared'
+import { saveOrShareFile } from './file-export'
 
 const REGIME_LABELS: Record<string, string> = {
   DE_PRIVATE_SALE: '§23 EStG',
@@ -129,6 +130,7 @@ export function buildTaxReportPdf(report: TaxReportDto): jsPDF {
   return doc
 }
 
-export function downloadTaxReportPdf(report: TaxReportDto): void {
-  buildTaxReportPdf(report).save(`steuerreport-${report.country}-${report.year}.pdf`)
+export async function downloadTaxReportPdf(report: TaxReportDto): Promise<void> {
+  const blob = buildTaxReportPdf(report).output('blob')
+  await saveOrShareFile(`steuerreport-${report.country}-${report.year}.pdf`, blob)
 }

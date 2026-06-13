@@ -12,8 +12,8 @@ bewertet in EUR/USD über CoinGecko.
 |---|---|
 | V1 „Muss" (Meilensteine 0–7) | ✅ komplett |
 | V1 „Sollte" (Meilenstein 8) | ✅ komplett |
-| Meilenstein 9 (Capacitor/Native) | ⬜ offen |
-| Tests | 293 grün (API: Unit + Integration), 14 Frontend-Unit, ~30 E2E (Playwright) |
+| Meilenstein 9 (Capacitor/Native) | 🟦 Android-Gerüst + native Integration fertig; Gradle-Build/iOS extern |
+| Tests | 295 grün (API: Unit + Integration), 18 Frontend-Unit, 36 E2E (Playwright) |
 | Deployment | nur local lauffähig; dev/prod per Env-Konzept vorbereitet, nicht deployed |
 
 ## Umgesetzte Meilensteine
@@ -37,6 +37,7 @@ bewertet in EUR/USD über CoinGecko.
 | — | Background-Sync: optionaler Queue-Modus (BullMQ/Redis via `REDIS_URL`, Worker-Prozess, Preis-Refresh-Cron alle 15 min); ohne Redis weiterhin inline. Kleinkram: Quellen-Umbenennen-UI, Solana-Dust-Filter (`includeUnknownTokens`, Default aus), CSV-Presets Kraken/Bitpanda, Transaktionsliste pro CSV-Quelle | `3768a03` |
 | — | On-Chain-Staking-Rewards: Wallet-Syncs erzeugen STAKING_REWARD-Transaktionen (idempotent via `Transaction.externalRef`). Solana: `getInflationReward` je Epoche/Stake-Account (inkrementell, Erst-Import 30 Epochen, nativ gestakte SOL im Bestand). Neuer **Ethereum-Wallet-Provider** (eth_getBalance + 10 kuratierte ERC-20 inkl. stETH/wstETH/rETH); Validator-Rewards via beaconcha.in-Withdrawals (braucht `BEACONCHAIN_API_KEY`, Principal-Filter ≥ 8 ETH). Report-Hinweis `WALLET_REWARDS_ONLY` | `7443a98` |
 | — | **Multi-Portfolio**: strikt getrennte Steuersubjekte unter einem Account (Portfolio-Modell, jede Quelle gehört zu genau einem; optionale `portfolioId` auf allen Lese-/Anlage-Endpunkten, Default-Fallback; eine MANUAL-Quelle pro Portfolio, Transfer-Links nur innerhalb; CRUD mit Löschregeln). UI: Switcher in allen Tab-Headern, Verwaltung in den Einstellungen. **Markt-Tab**: Top 100/Gewinner/Verlierer über CoinGecko `/coins/markets` (Proxy, 60-s-Cache) | `0aece14` |
+| — | **Meilenstein 9 — Capacitor**: Capacitor 8 integriert (Android-Projektgerüst eingecheckt, iOS folgt auf Mac). Persistenz über Storage-Abstraktion (`storage.ts`): Refresh-Token verschlüsselt im Keychain/Keystore (`@aparajita/capacitor-secure-storage`), übrige Keys in `@capacitor/preferences`; synchroner In-Memory-Cache mit `preloadStorage()` im Bootstrap, damit Web-Verhalten/E2E unberührt bleiben. Native Datei-Exporte (CSV/PDF) über Filesystem + Share-Sheet, externe Links über In-App-Browser, StatusBar/Keyboard/SplashScreen/Android-Back-Button. Platzhalter-Icon in `apps/mobile/assets/`. **Offen extern:** Gradle-APK-Build (JDK/SDK) und iOS-Build (macOS/Xcode) | `HEAD` |
 | — | **Passwort-Reset**: `POST /auth/forgot-password` (immer 204, keine User-Enumeration) erzeugt Einmal-Token (gehasht, 30 min TTL), Zustellung per SMTP (nodemailer) oder Konsolen-Fallback ohne SMTP-Config; `POST /auth/reset-password` setzt Passwort, verbraucht Token, beendet alle Sessions. Frontend: „Passwort vergessen?"-Link, Anforderungs- und Reset-Seite (Token aus `?token=`), 6 Sprachen | `HEAD` |
 | — | **Provider-Ausbau**: 7 neue Exchanges (Binance inkl. LD-Earn-Normalisierung, OKX, Bybit, KuCoin, Bitstamp, Gate.io, Crypto.com — nur Spot, OKX/KuCoin mit Pflicht-Passphrase) + 10 neue Chains (Polygon/Arbitrum/Base/BSC über generische EVM-Factory mit kuratierten Token-Listen; Litecoin/Dogecoin via Blockchair; Cardano via Koios; XRP via JSON-RPC; Tron via TronGrid inkl. USDT-TRC20; Cosmos via LCD inkl. Staking). Verkabelungs-Smoke-Test über alle Provider, API-Key-Anleitungen je Exchange in 6 Sprachen | `HEAD` |
 
@@ -55,7 +56,7 @@ bewertet in EUR/USD über CoinGecko.
 - **Transaktions-Importe**: gespeichert + Netto-Bestände (BUY/DEPOSIT − SELL/WITHDRAWAL); Kostenbasis/Gewinne rechnet der Steuerreport (`/tax/report`), laufende PnL-Anzeige im Portfolio fehlt weiterhin
 - **Steuerreport**: nur Quellen mit Transaktionshistorie (CSV-Transaktionen + manuelle Transaktionen); Quellen mit reinen Bestands-Snapshots werden als „nicht enthalten" ausgewiesen. DE rechnet wallet-bezogenes FIFO (BMF 10.05.2022): verknüpfte Transfers übertragen die Kostenbasis, unverknüpfte Auszahlungen verlieren sie (Warnung). AT nutzt weiterhin globale Pools (dokumentierte Vereinfachung), verknüpfte Transfers sind dort neutral. Annahmen: Altvermögen zuerst (AT), Netzwerkgebühr-Basis verfällt still; Crypto-zu-Crypto-Swaps und FX-Umrechnung nicht abgebildet. CoinGecko-Backfill historischer Kurse nur ~365 Tage zurück (Free Tier), Cap pro Lauf (40, mit Demo-Key 150) mit Hinweis-Warnung. PDF-Export bewusst immer Deutsch (Empfänger Finanzamt/Steuerberater)
 - **Asset-Mapping ist global** (Assets nutzerübergreifend); deshalb nur für unmapped Assets erlaubt
-- **Refresh-Token im localStorage (Web)** — für local ok; vor prod-Deployment auf httpOnly-Cookies (Web) bzw. Capacitor Secure Storage (nativ) umstellen
+- **Refresh-Token**: nativ verschlüsselt im Keychain/Keystore (erledigt); im Web weiterhin localStorage-Fallback — vor Web-prod-Deployment auf httpOnly-Cookies umstellen
 - **Quellen-Umbenennen**: Backend (`PATCH /sources/:id`) existiert, UI fehlt
 - **Solana-Spam**: hunderte Müll-Tokens werden sauber als unmapped importiert und sind in der UI eingeklappt; ein echter Dust-/Spam-Filter fehlt
 - Server-Fehlertexte sind Deutsch; das Frontend lokalisiert über die stabilen `error.code`s (die wichtigsten Codes in allen 6 Sprachen)
@@ -64,10 +65,11 @@ bewertet in EUR/USD über CoinGecko.
 
 ## Nächste Features (priorisiert)
 
-**1. Meilenstein 9 — Native Apps (letzter Plan-Meilenstein)**
-Capacitor-Konfiguration, iOS-/Android-Builds, Token-Speicherung via Secure Storage statt
-localStorage, Safe-Areas/Statusbar, Geräte-Test. Voraussetzung für den eigentlichen
-Produktanspruch „native App".
+**1. Meilenstein 9 abschließen — nativer Build/Geräte-Test** *(externe Toolchain)*
+Code-seitig fertig (Capacitor, Secure Storage, native Datei/Link/Share, UX). Offen:
+Gradle-APK-Build auf einer Maschine mit JDK 17+ und Android-SDK, iOS-Gerüst + Build auf
+einem Mac (Xcode), Geräte-Test (Session-Persistenz, Share-Sheet, Safe-Areas), echte
+App-Icons statt Platzhalter (`apps/mobile/assets/` + `pnpm --filter … cap:assets`).
 
 **2. Praxistest mit echten Keys** *(kein Code, ~30 min)*
 Read-only Keys bei Kraken/Bitvavo anlegen und verbinden — der einzige ungetestete

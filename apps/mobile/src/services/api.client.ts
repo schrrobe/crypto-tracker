@@ -1,6 +1,8 @@
 // Fetch-Wrapper mit Bearer-Token und automatischem 401→Refresh→Retry.
-// Access-Token lebt nur im Speicher; Refresh-Token in localStorage
-// (wird in Meilenstein 9 durch @capacitor/preferences ersetzt).
+// Access-Token lebt nur im Speicher; Refresh-Token im verschlüsselten Secure
+// Storage (nativ: Keychain/Keystore, Web: localStorage-Fallback) via storage.ts.
+
+import { getStored, removeStored, setStored } from './storage'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3010/api/v1'
 const REFRESH_KEY = 'refresh-token'
@@ -9,12 +11,12 @@ let accessToken: string | null = null
 
 export function setTokens(tokens: { accessToken: string; refreshToken: string } | null): void {
   accessToken = tokens?.accessToken ?? null
-  if (tokens) localStorage.setItem(REFRESH_KEY, tokens.refreshToken)
-  else localStorage.removeItem(REFRESH_KEY)
+  if (tokens) setStored(REFRESH_KEY, tokens.refreshToken)
+  else removeStored(REFRESH_KEY)
 }
 
 export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_KEY)
+  return getStored(REFRESH_KEY)
 }
 
 export class ApiError extends Error {

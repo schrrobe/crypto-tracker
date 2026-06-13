@@ -3,6 +3,10 @@ dist/
 build/
 coverage/
 
+# Playwright-Artefakte
+e2e/test-results/
+e2e/playwright-report/
+
 # Env-Dateien — nur *.example wird committed
 .env
 .env.local
@@ -17,6 +21,7 @@ apps/api/src/generated/
 .vscode/
 .DS_Store
 
-# Capacitor (später)
+# Capacitor: Android-Projektgerüst wird committet (Build-Artefakte ignoriert das
+# generierte apps/mobile/android/.gitignore — Gradle-Build, kopierte Web-Assets,
+# local.properties). iOS-Gerüst folgt auf einem Mac.
 apps/mobile/ios/
-apps/mobile/android/

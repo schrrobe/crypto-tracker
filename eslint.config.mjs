@@ -4,7 +4,17 @@ import vue from 'eslint-plugin-vue'
 import globals from 'globals'
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/*.d.ts', '**/coverage/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/*.d.ts',
+      '**/coverage/**',
+      // Generierte native Plattform-Projekte (Capacitor)
+      'apps/mobile/android/**',
+      'apps/mobile/ios/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...vue.configs['flat/essential'],

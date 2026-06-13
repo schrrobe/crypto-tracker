@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { setStored } from './storage'
 
-// Sprache vor dem i18n-Import festnageln (Modul liest localStorage beim Laden)
+// Sprache vor dem i18n-Import festnageln (i18n liest den Storage-Cache beim Laden)
 beforeAll(() => {
-  localStorage.setItem('language', 'de')
+  setStored('language', 'de')
 })
 
 // Intl nutzt geschützte Leerzeichen — für Assertions normalisieren

@@ -47,7 +47,11 @@
             </ion-item>
             <div slot="content" class="guide" data-testid="key-guide">
               <p class="guide-steps">{{ $t(`sources.keyGuide${exchangeProvider}`) }}</p>
-              <a :href="GUIDE_URLS[exchangeProvider]" target="_blank" rel="noopener noreferrer">
+              <a
+                href="#"
+                data-testid="key-guide-link"
+                @click.prevent="openExternal(GUIDE_URLS[exchangeProvider])"
+              >
                 {{ $t('sources.keyGuideLink', { provider: PROVIDER_LABELS[exchangeProvider] }) }}
               </a>
             </div>
@@ -193,6 +197,7 @@ import {
   type CreateSourceInput,
 } from '@crypto-tracker/shared'
 import { apiErrorMessage } from '../../services/errors'
+import { openExternal } from '../../services/external-link'
 import { t } from '../../i18n'
 import { useSourcesStore } from '../../stores/sources.store'
 

@@ -22,7 +22,10 @@ test('Multi-Portfolio: anlegen, wechseln, strikte Trennung der Bestände', async
 
   // Switcher erscheint (vorher unsichtbar) → zu Eltern wechseln
   await page.locator('[data-testid="portfolio-switcher"]:visible').click()
-  await page.getByRole('button', { name: 'Eltern' }).click()
+  // Der Switcher sitzt in jedem Tab-Header → mehrere Action-Sheet-Instanzen.
+  // Das zuletzt präsentierte Overlay hängt Ionic ans Body-Ende → .last() ist
+  // das interaktive; der Button löst dieselbe Store-Aktion aus.
+  await page.locator('ion-action-sheet').getByRole('button', { name: 'Eltern' }).last().click()
 
   // Eltern-Portfolio ist leer
   await page.getByRole('tab', { name: 'Bestände' }).click()
@@ -32,7 +35,11 @@ test('Multi-Portfolio: anlegen, wechseln, strikte Trennung der Bestände', async
 
   // zurück zum Default → BTC wieder da
   await page.locator('[data-testid="portfolio-switcher"]:visible').click()
-  await page.getByRole('button', { name: /Mein Portfolio/ }).click()
+  await page
+    .locator('ion-action-sheet')
+    .getByRole('button', { name: /Mein Portfolio/ })
+    .last()
+    .click()
   await page.getByRole('tab', { name: 'Bestände' }).click()
   await expect(page.getByTestId('holding-BTC')).toBeVisible()
 })

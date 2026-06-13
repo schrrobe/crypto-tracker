@@ -9,6 +9,7 @@ import { IonApp, IonRouterOutlet } from '@ionic/vue'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { applyStoredTheme } from './services/theme.service'
+import { initNative } from './services/native'
 import { useAuthStore } from './stores/auth.store'
 
 const router = useRouter()
@@ -16,6 +17,7 @@ const auth = useAuthStore()
 
 onMounted(() => {
   applyStoredTheme()
+  void initNative(router)
   // api.client meldet abgelaufene Sessions (Refresh fehlgeschlagen)
   window.addEventListener('auth:expired', () => {
     auth.sessionExpired()

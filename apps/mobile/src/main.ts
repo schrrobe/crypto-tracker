@@ -4,7 +4,8 @@ import { IonicVue } from '@ionic/vue'
 
 import App from './App.vue'
 import { router } from './router'
-import { i18n } from './i18n'
+import { applyDetectedLocale, i18n } from './i18n'
+import { preloadStorage } from './services/storage'
 
 /* Ionic Core-Styles */
 import '@ionic/vue/css/core.css'
@@ -23,8 +24,15 @@ import '@ionic/vue/css/palettes/dark.class.css'
 
 import './theme/variables.css'
 
-const app = createApp(App).use(IonicVue).use(createPinia()).use(router).use(i18n)
+async function bootstrap(): Promise<void> {
+  // Persistente Werte (Token, Sprache, Theme, aktives Portfolio) aus Capacitor
+  // Storage in den synchronen Cache laden, bevor die App gemountet wird.
+  await preloadStorage()
+  applyDetectedLocale()
 
-router.isReady().then(() => {
+  const app = createApp(App).use(IonicVue).use(createPinia()).use(router).use(i18n)
+  await router.isReady()
   app.mount('#app')
-})
+}
+
+void bootstrap()

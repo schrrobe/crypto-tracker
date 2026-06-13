@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { PortfolioDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
+import { getStored, removeStored, setStored } from '../services/storage'
 
 const STORAGE_KEY = 'active-portfolio-id'
 
@@ -9,7 +10,7 @@ const STORAGE_KEY = 'active-portfolio-id'
 // Transaktionen, Steuerreport, Importe). null = Default-Portfolio des Backends.
 export const usePortfoliosStore = defineStore('portfolios', () => {
   const portfolios = ref<PortfolioDto[]>([])
-  const activePortfolioId = ref<string | null>(localStorage.getItem(STORAGE_KEY))
+  const activePortfolioId = ref<string | null>(getStored(STORAGE_KEY))
   const loaded = ref(false)
 
   const active = computed(
@@ -36,8 +37,8 @@ export const usePortfoliosStore = defineStore('portfolios', () => {
 
   function setActive(id: string | null): void {
     activePortfolioId.value = id
-    if (id) localStorage.setItem(STORAGE_KEY, id)
-    else localStorage.removeItem(STORAGE_KEY)
+    if (id) setStored(STORAGE_KEY, id)
+    else removeStored(STORAGE_KEY)
   }
 
   // Query-Anhang für gescopte GET-Aufrufe ('' wenn Default aktiv)
