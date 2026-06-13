@@ -61,6 +61,17 @@
         <p v-if="uploadResult?.preset" class="hint preset" data-testid="csv-preset">
           {{ $t('csv.presetDetected', { provider: presetName(uploadResult.preset) }) }}
         </p>
+        <ion-text v-if="uploadResult?.duplicateExchangeSource" color="danger">
+          <p class="hint" data-testid="csv-duplicate-warning">
+            ⚠
+            {{
+              $t('csv.duplicateExchange', {
+                provider: presetName(uploadResult.preset),
+                source: uploadResult.duplicateExchangeSource,
+              })
+            }}
+          </p>
+        </ion-text>
         <ion-list inset>
           <ion-item>
             <ion-select
@@ -251,8 +262,8 @@ function onFileSelected(event: Event) {
   file.value = (event.target as HTMLInputElement).files?.[0] ?? null
 }
 
-function presetName(preset: 'KRAKEN' | 'BITPANDA'): string {
-  return preset === 'KRAKEN' ? 'Kraken' : 'Bitpanda'
+function presetName(preset: 'KRAKEN' | 'BITPANDA' | null): string {
+  return preset === 'KRAKEN' ? 'Kraken' : preset === 'BITPANDA' ? 'Bitpanda' : ''
 }
 
 async function doUpload() {

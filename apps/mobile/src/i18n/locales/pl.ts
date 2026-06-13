@@ -184,6 +184,8 @@ const pl: MessageSchema = {
     uploadFailed: 'Wgrywanie nie powiodło się',
     rowsDetected: 'Wykryto {n} wierszy — przypisz kolumny:',
     presetDetected: 'Wykryto eksport {provider} — kolumny zostały wstępnie przypisane.',
+    duplicateExchange:
+      'Uwaga: „{source}" jest już połączone z {provider} przez API. Ten import policzyłby aktywa podwójnie — anuluj lub usuń potem jedno z dwóch źródeł.',
     symbolColumn: 'Kolumna symbolu',
     quantityColumn: 'Kolumna ilości',
     run: 'Importuj',

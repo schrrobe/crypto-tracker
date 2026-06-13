@@ -184,6 +184,8 @@ const en: MessageSchema = {
     uploadFailed: 'Upload failed',
     rowsDetected: '{n} rows detected — map the columns:',
     presetDetected: '{provider} export detected — columns are pre-filled.',
+    duplicateExchange:
+      'Warning: "{source}" is already connected to {provider} via API. This import would count balances twice — cancel, or delete one of the two sources afterward.',
     symbolColumn: 'Symbol column',
     quantityColumn: 'Quantity column',
     run: 'Import',

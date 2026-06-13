@@ -179,6 +179,10 @@ export interface CsvUploadResponse {
   suggestedMapping: MappingSuggestionDto
   // erkanntes Export-Format (Spalten dann vollständig vorbelegt)
   preset: 'KRAKEN' | 'BITPANDA' | null
+  // aktive Doppel-Erkennung: Label einer bereits per API verbundenen Quelle
+  // derselben Börse (anhand Preset) im selben Portfolio — sonst null. Warnt vor
+  // Doppelzählung (API-Bestand + CSV-Bestand).
+  duplicateExchangeSource: string | null
 }
 
 export type HistoryRange = '24h' | '7d' | '30d'

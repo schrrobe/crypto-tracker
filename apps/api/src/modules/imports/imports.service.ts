@@ -68,12 +68,26 @@ export async function uploadCsv(
   })
 
   const { mapping, preset } = suggestMappingWithPreset(headers, kind)
+
+  // Aktive Doppel-Erkennung: erkennt das Preset die Börse (KRAKEN/BITPANDA =
+  // ProviderId), und existiert im selben Portfolio bereits eine API-Quelle
+  // dieser Börse, würde der Import dieselben Bestände ein zweites Mal zählen.
+  let duplicateExchangeSource: string | null = null
+  if (preset) {
+    const existing = await prisma.portfolioSource.findFirst({
+      where: { userId, portfolioId: pid, type: 'EXCHANGE', provider: preset },
+      select: { label: true },
+    })
+    duplicateExchangeSource = existing?.label ?? null
+  }
+
   return {
     import: toImportDto(record),
     headers,
     preview: rows.slice(0, PREVIEW_ROWS),
     suggestedMapping: mapping,
     preset,
+    duplicateExchangeSource,
   }
 }
 

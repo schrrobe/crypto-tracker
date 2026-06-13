@@ -1,7 +1,21 @@
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 import { prisma } from '../lib/prisma'
-import { API, app, bearer, registerUser, uploadCsv } from './helpers'
+import { API, app, bearer, createExchangeSource, registerUser, uploadCsv } from './helpers'
+
+// Kraken-Ledger-Header → Preset KRAKEN wird erkannt
+const KRAKEN_CSV =
+  'txid,refid,time,type,asset,amount,fee,balance\n' +
+  'L1,R1,2024-01-01T00:00:00Z,deposit,XXBT,0.5,0,0.5\n'
+
+async function uploadRaw(user: { token: string }, csv: string) {
+  const res = await request(app)
+    .post(`${API}/imports`)
+    .set('Authorization', `Bearer ${user.token}`)
+    .field('kind', 'TRANSACTIONS')
+    .attach('file', Buffer.from(csv, 'utf8'), 'kraken.csv')
+  return res.body as { preset: string | null; duplicateExchangeSource: string | null }
+}
 
 let symbolCounter = 0
 function uniqueSymbol(): string {
@@ -118,5 +132,21 @@ describe('CSV-Import (Integration)', () => {
     expect(await prisma.holding.count({ where: { sourceId: upload.import.sourceId } })).toBe(0)
     const sources = await request(app).get(`${API}/sources`).set(...bearer(user))
     expect(sources.body.sources).toHaveLength(0)
+  })
+
+  it('Doppel-Erkennung: warnt, wenn dieselbe Börse bereits per API verbunden ist', async () => {
+    const user = await registerUser('dup-detect')
+    await createExchangeSource(user, 'Kraken Haupt') // provider KRAKEN
+
+    const res = await uploadRaw(user, KRAKEN_CSV)
+    expect(res.preset).toBe('KRAKEN')
+    expect(res.duplicateExchangeSource).toBe('Kraken Haupt')
+  })
+
+  it('Doppel-Erkennung: keine Warnung ohne passende API-Quelle', async () => {
+    const user = await registerUser('dup-none')
+    const res = await uploadRaw(user, KRAKEN_CSV)
+    expect(res.preset).toBe('KRAKEN')
+    expect(res.duplicateExchangeSource).toBeNull()
   })
 })

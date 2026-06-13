@@ -184,6 +184,8 @@ const fr: MessageSchema = {
     uploadFailed: 'Échec du téléversement',
     rowsDetected: '{n} lignes détectées — associez les colonnes :',
     presetDetected: 'Export {provider} détecté — les colonnes sont préremplies.',
+    duplicateExchange:
+      "Attention : « {source} » est déjà connecté à {provider} via API. Cet import compterait les avoirs deux fois — annulez, ou supprimez ensuite l'une des deux sources.",
     symbolColumn: 'Colonne symbole',
     quantityColumn: 'Colonne quantité',
     run: 'Importer',

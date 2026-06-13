@@ -184,6 +184,8 @@ const cs: MessageSchema = {
     uploadFailed: 'Nahrání se nezdařilo',
     rowsDetected: 'Rozpoznáno {n} řádků — přiřaďte sloupce:',
     presetDetected: 'Rozpoznán export {provider} — sloupce jsou předvyplněny.',
+    duplicateExchange:
+      'Pozor: „{source}" je už připojeno k {provider} přes API. Tento import by započítal zůstatky dvakrát — zruš, nebo poté smaž jeden ze dvou zdrojů.',
     symbolColumn: 'Sloupec symbolu',
     quantityColumn: 'Sloupec množství',
     run: 'Importovat',

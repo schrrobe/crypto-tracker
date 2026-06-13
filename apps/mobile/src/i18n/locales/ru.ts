@@ -184,6 +184,8 @@ const ru: MessageSchema = {
     uploadFailed: 'Не удалось загрузить',
     rowsDetected: 'Обнаружено строк: {n} — сопоставьте столбцы:',
     presetDetected: 'Обнаружен экспорт {provider} — столбцы предзаполнены.',
+    duplicateExchange:
+      'Внимание: «{source}» уже подключён к {provider} через API. Этот импорт учтёт активы дважды — отмените или затем удалите один из двух источников.',
     symbolColumn: 'Столбец символа',
     quantityColumn: 'Столбец количества',
     run: 'Импортировать',
