@@ -23,10 +23,14 @@ korrekter Reihenfolge, transaktional) + „Konto löschen" mit Bestätigung in d
 danach Redirect zur Anmeldung. **Offen für Google:** zusätzlich eine öffentlich erreichbare
 Web-URL zur Konto-Löschung (Play-Anforderung) bereitstellen.
 
-## Zahlungen (falls Pro-Abo)
+## Zahlungen (Pro-Abo)  ⚠ **Web via Stripe vorhanden, native IAP offen**
 
+Web nutzt **Stripe** (Checkout + Webhook, siehe `modules/billing`). Für die nativen Builds gilt:
 - **Apple:** digitale Abos müssen über **In-App-Purchase / StoreKit** laufen (15–30 %).
 - **Google:** **Play Billing** für digitale Abos.
+- **To-do vor Native-Release:** IAP-Integration (z.B. RevenueCat oder native Plugins), die nach
+  erfolgreichem Kauf den Plan setzt (analog zum Stripe-Webhook → `User.plan = PRO`). Stripe-Checkout
+  im WebView ist für digitale Inhalte in den Stores **nicht** zulässig.
 - Stripe o. Ä. nur für echte Web-App, nicht in den nativen Builds für digitale Inhalte.
 
 ## Datenschutz & Transparenz

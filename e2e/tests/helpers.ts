@@ -22,3 +22,11 @@ export async function register(page: Page, email: string): Promise<void> {
   await page.getByTestId('register-submit').click()
   await page.waitForURL('**/tabs/dashboard')
 }
+
+// Plan über den Dev-Schalter (nur im Vite-Dev-Build sichtbar) auf Pro setzen,
+// um Pro-Funktionen (z.B. Steuerreport) im E2E zu testen.
+export async function makePro(page: Page): Promise<void> {
+  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await page.locator('[data-testid="dev-plan-toggle"] ion-segment-button', { hasText: 'Pro' }).click()
+  await page.locator('[data-testid="settings-plan"]:has-text("Pro")').waitFor()
+}

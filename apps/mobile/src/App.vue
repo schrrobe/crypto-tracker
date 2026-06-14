@@ -1,6 +1,7 @@
 <template>
   <ion-app>
     <ion-router-outlet />
+    <PaywallModal />
   </ion-app>
 </template>
 
@@ -10,6 +11,8 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { applyStoredTheme } from './services/theme.service'
 import { initNative } from './services/native'
+import { openPaywall } from './services/paywall'
+import PaywallModal from './components/PaywallModal.vue'
 import { useAuthStore } from './stores/auth.store'
 
 const router = useRouter()
@@ -23,5 +26,7 @@ onMounted(() => {
     auth.sessionExpired()
     router.replace('/login')
   })
+  // api.client meldet getroffene Pro-Gates (402) → Paywall öffnen
+  window.addEventListener('plan:upgrade', () => openPaywall())
 })
 </script>

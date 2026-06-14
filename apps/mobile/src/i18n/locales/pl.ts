@@ -78,7 +78,24 @@ const pl: MessageSchema = {
     range24h: '24h',
     range7d: '7d',
     range30d: '30d',
+    range1y: '1R',
     historyExcluded: 'Aktywa bez historii (brak przypisania): {n}',
+  },
+  paywall: {
+    title: 'Crypto Tracker Pro',
+    intro: 'Odblokuj funkcje Pro:',
+    upgrade: 'Odblokuj Pro',
+    manage: 'Zarządzaj subskrypcją',
+    planLabel: 'Plan',
+    webHint: 'Płatność odbywa się w przeglądarce przez Stripe.',
+    upgradeFailed: 'Nie udało się rozpocząć ulepszenia',
+    feature: {
+      tax: 'Raport podatkowy dla Niemiec i Austrii (z PDF)',
+      autoSync: 'Automatyczna synchronizacja w tle',
+      history1y: 'Przebieg wartości za 1 rok',
+      unlimitedPortfolios: 'Nieograniczona liczba portfoliów',
+      unlimitedSources: 'Nieograniczona liczba źródeł',
+    },
   },
   holdings: {
     empty: 'Nie dodano jeszcze żadnych aktywów.',
@@ -348,6 +365,7 @@ const pl: MessageSchema = {
     PORTFOLIO_NOT_EMPTY: 'Portfolio zawiera jeszcze źródła — najpierw usuń źródła',
     PORTFOLIO_LAST: 'Ostatniego portfolio nie można usunąć',
     INVALID_RESET_TOKEN: 'Link jest nieprawidłowy lub wygasł — poproś o nowy',
+    PLAN_UPGRADE_REQUIRED: 'Ta funkcja wymaga Crypto Tracker Pro',
   },
   relative: {
     never: 'nigdy',

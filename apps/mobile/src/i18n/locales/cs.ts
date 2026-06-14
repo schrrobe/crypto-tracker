@@ -78,7 +78,24 @@ const cs: MessageSchema = {
     range24h: '24h',
     range7d: '7d',
     range30d: '30d',
+    range1y: '1R',
     historyExcluded: 'Aktiva bez historie (bez přiřazení): {n}',
+  },
+  paywall: {
+    title: 'Crypto Tracker Pro',
+    intro: 'Odemkněte funkce Pro:',
+    upgrade: 'Odemknout Pro',
+    manage: 'Spravovat předplatné',
+    planLabel: 'Tarif',
+    webHint: 'Platba probíhá v prohlížeči přes Stripe.',
+    upgradeFailed: 'Upgrade se nepodařilo spustit',
+    feature: {
+      tax: 'Daňový report pro Německo a Rakousko (včetně PDF)',
+      autoSync: 'Automatická synchronizace na pozadí',
+      history1y: 'Vývoj hodnoty za 1 rok',
+      unlimitedPortfolios: 'Neomezený počet portfolií',
+      unlimitedSources: 'Neomezený počet zdrojů',
+    },
   },
   holdings: {
     empty: 'Zatím nebyla zaznamenána žádná aktiva.',
@@ -348,6 +365,7 @@ const cs: MessageSchema = {
     PORTFOLIO_NOT_EMPTY: 'Portfolio stále obsahuje zdroje — nejprve prosím smažte zdroje',
     PORTFOLIO_LAST: 'Poslední portfolio nelze smazat',
     INVALID_RESET_TOKEN: 'Odkaz je neplatný nebo vypršel — vyžádejte si nový',
+    PLAN_UPGRADE_REQUIRED: 'Tato funkce vyžaduje Crypto Tracker Pro',
   },
   relative: {
     never: 'nikdy',

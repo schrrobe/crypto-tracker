@@ -34,6 +34,9 @@
         <ion-segment-button value="30d" data-testid="chart-range-30d">
           <ion-label>{{ $t('dashboard.range30d') }}</ion-label>
         </ion-segment-button>
+        <ion-segment-button value="1y" data-testid="chart-range-1y">
+          <ion-label>{{ $t('dashboard.range1y') }}{{ auth.isPro ? '' : ' 🔒' }}</ion-label>
+        </ion-segment-button>
       </ion-segment>
 
       <p v-if="excludedAssets > 0" class="muted">
@@ -58,8 +61,12 @@ import { computed, ref, watch } from 'vue'
 import type { HistoryRange, PortfolioHistoryDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
 import { usePortfoliosStore } from '../stores/portfolios.store'
+import { useAuthStore } from '../stores/auth.store'
+import { openPaywall } from '../services/paywall'
 import { formatCurrency } from '../services/format'
 import { intlLocale } from '../i18n'
+
+const auth = useAuthStore()
 
 const props = defineProps<{ currency: 'EUR' | 'USD'; hasHoldings: boolean }>()
 
@@ -86,6 +93,11 @@ async function load() {
 }
 
 function onRangeChange(value: HistoryRange) {
+  // 1-Jahres-Verlauf ist Pro — Free-Nutzer bekommen die Paywall statt der Range
+  if (value === '1y' && !auth.isPro) {
+    openPaywall()
+    return
+  }
   range.value = value
   load()
 }

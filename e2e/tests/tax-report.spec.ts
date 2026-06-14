@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { input, register, uniqueEmail } from './helpers'
+import { input, makePro, register, uniqueEmail } from './helpers'
 
 // FAKE_PRICES=true: Backfill-Tagespreise sind deterministisch (80–100 % des Fake-Preises)
 
@@ -22,6 +22,7 @@ async function addTransaction(
 
 test('manuelle Transaktionen: erfassen, Bestand abgeleitet, Steuerreport mit CSV-Export', async ({ page }) => {
   await register(page, uniqueEmail('tax'))
+  await makePro(page)
 
   // Transaktionsseite über Quellen erreichen
   await page.getByRole('tab', { name: 'Quellen' }).click()
@@ -88,6 +89,7 @@ test('manuelle Transaktionen: erfassen, Bestand abgeleitet, Steuerreport mit CSV
 
 test('Transfer verknüpfen: Kostenbasis bleibt im DE-Report erhalten', async ({ page }) => {
   await register(page, uniqueEmail('tax-transfer'))
+  await makePro(page)
 
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('open-transactions').click()
@@ -144,6 +146,7 @@ test('Transfer verknüpfen: Kostenbasis bleibt im DE-Report erhalten', async ({ 
 
 test('Transaktion ohne Kurs: Backfill-Hinweis im Report, Bearbeiten/Löschen', async ({ page }) => {
   await register(page, uniqueEmail('tax-edit'))
+  await makePro(page)
 
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('open-transactions').click()

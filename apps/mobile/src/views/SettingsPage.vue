@@ -50,8 +50,50 @@
       </ion-list>
 
       <ion-list inset>
-        <ion-item button data-testid="open-tax-report" @click="router.push('/tabs/settings/tax-report')">
+        <ion-item button data-testid="open-tax-report" @click="openTaxReport">
           <ion-label>{{ $t('tax.settingsEntry') }}</ion-label>
+          <ion-icon v-if="!auth.isPro" :icon="lockClosedOutline" slot="end" color="medium" />
+          <ion-badge v-else slot="end" color="success">Pro</ion-badge>
+        </ion-item>
+      </ion-list>
+
+      <!-- Abo / Plan -->
+      <ion-list inset>
+        <ion-item>
+          <ion-label>
+            <p>{{ $t('paywall.planLabel') }}</p>
+            <h3 data-testid="settings-plan">{{ auth.isPro ? 'Pro' : 'Free' }}</h3>
+          </ion-label>
+          <ion-button
+            v-if="!auth.isPro"
+            slot="end"
+            data-testid="settings-upgrade"
+            @click="openPaywall"
+          >
+            {{ $t('paywall.upgrade') }}
+          </ion-button>
+          <ion-button
+            v-else
+            slot="end"
+            fill="outline"
+            data-testid="settings-manage-plan"
+            @click="managePlan"
+          >
+            {{ $t('paywall.manage') }}
+          </ion-button>
+        </ion-item>
+        <!-- Dev-Schalter (nur lokal) zum Testen des Gatings ohne Stripe -->
+        <ion-item v-if="isDev">
+          <ion-label color="medium">Dev: Plan</ion-label>
+          <ion-segment
+            slot="end"
+            :value="auth.isPro ? 'PRO' : 'FREE'"
+            data-testid="dev-plan-toggle"
+            @ionChange="onDevPlan($event.detail.value as 'FREE' | 'PRO')"
+          >
+            <ion-segment-button value="FREE"><ion-label>Free</ion-label></ion-segment-button>
+            <ion-segment-button value="PRO"><ion-label>Pro</ion-label></ion-segment-button>
+          </ion-segment>
         </ion-item>
       </ion-list>
 
@@ -121,6 +163,8 @@ import {
   IonList,
   IonListHeader,
   IonPage,
+  IonSegment,
+  IonSegmentButton,
   IonSelect,
   IonSelectOption,
   IonText,
@@ -130,7 +174,7 @@ import {
 import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { createOutline, trashOutline } from 'ionicons/icons'
+import { createOutline, lockClosedOutline, trashOutline } from 'ionicons/icons'
 import type { PortfolioDto } from '@crypto-tracker/shared'
 import {
   getThemePreference,
@@ -138,16 +182,33 @@ import {
   type ThemePreference,
 } from '../services/theme.service'
 import { apiErrorMessage } from '../services/errors'
+import { openPaywall } from '../services/paywall'
 import { usePortfoliosStore } from '../stores/portfolios.store'
+import { useBillingStore } from '../stores/billing.store'
 import { getLocale, setLocale, SUPPORTED_LOCALES, t, type LocaleCode } from '../i18n'
 import { useAuthStore } from '../stores/auth.store'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { useSourcesStore } from '../stores/sources.store'
 
 const auth = useAuthStore()
+const billing = useBillingStore()
 const portfolios = usePortfoliosStore()
 const portfolioError = ref('')
 const portfolio = usePortfolioStore()
+const isDev = import.meta.env.DEV
+
+function openTaxReport() {
+  if (auth.isPro) router.push('/tabs/settings/tax-report')
+  else openPaywall()
+}
+
+async function managePlan() {
+  await billing.openPortal().catch((e) => (portfolioError.value = apiErrorMessage(e, 'common.loadFailed')))
+}
+
+async function onDevPlan(plan: 'FREE' | 'PRO') {
+  await auth.setDevPlan(plan).catch(() => {})
+}
 const sources = useSourcesStore()
 const router = useRouter()
 const theme = ref<ThemePreference>(getThemePreference())

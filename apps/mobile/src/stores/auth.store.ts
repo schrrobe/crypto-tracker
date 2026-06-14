@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { UserDto } from '@crypto-tracker/shared'
 import { api, getRefreshToken, isNativePlatform, setTokens } from '../services/api.client'
 
@@ -12,6 +12,7 @@ interface AuthResponse {
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserDto | null>(null)
   const initialized = ref(false)
+  const isPro = computed(() => user.value?.plan === 'PRO')
   let initPromise: Promise<void> | null = null
 
   // Beim App-Start: vorhandenen Refresh-Token gegen neue Session tauschen
@@ -71,6 +72,18 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
   }
 
+  // Plan neu laden (z.B. nach Rückkehr vom Stripe-Checkout)
+  async function refreshUser(): Promise<void> {
+    const { user: u } = await api.get<{ user: UserDto }>('/auth/me')
+    user.value = u
+  }
+
+  // Dev-Schalter (nur local wirksam) zum Testen des Gatings ohne Stripe
+  async function setDevPlan(plan: 'FREE' | 'PRO'): Promise<void> {
+    const { user: u } = await api.patch<{ user: UserDto }>('/auth/me', { plan })
+    user.value = u
+  }
+
   async function forgotPassword(email: string): Promise<void> {
     await api.post('/auth/forgot-password', { email })
   }
@@ -87,6 +100,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     initialized,
+    isPro,
     init,
     register,
     login,
@@ -95,6 +109,8 @@ export const useAuthStore = defineStore('auth', () => {
     forgotPassword,
     resetPassword,
     deleteAccount,
+    refreshUser,
+    setDevPlan,
     sessionExpired,
   }
 })

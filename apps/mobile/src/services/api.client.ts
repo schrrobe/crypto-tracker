@@ -100,8 +100,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => null)
+    const code = body?.error?.code ?? 'UNKNOWN'
+    // Pro-Gate getroffen → global die Paywall öffnen (App.vue lauscht darauf)
+    if (res.status === 402 || code === 'PLAN_UPGRADE_REQUIRED') {
+      window.dispatchEvent(new CustomEvent('plan:upgrade'))
+    }
     throw new ApiError(
-      body?.error?.code ?? 'UNKNOWN',
+      code,
       res.status,
       body?.error?.message ?? `Request fehlgeschlagen (${res.status})`,
       body?.error?.details,

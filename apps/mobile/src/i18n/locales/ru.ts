@@ -78,7 +78,24 @@ const ru: MessageSchema = {
     range24h: '24ч',
     range7d: '7д',
     range30d: '30д',
+    range1y: '1г',
     historyExcluded: 'Активы без истории (нет сопоставления): {n}',
+  },
+  paywall: {
+    title: 'Crypto Tracker Pro',
+    intro: 'Откройте функции Pro:',
+    upgrade: 'Открыть Pro',
+    manage: 'Управление подпиской',
+    planLabel: 'Тариф',
+    webHint: 'Оплата выполняется в браузере через Stripe.',
+    upgradeFailed: 'Не удалось начать обновление',
+    feature: {
+      tax: 'Налоговый отчёт для Германии и Австрии (включая PDF)',
+      autoSync: 'Автоматическая фоновая синхронизация',
+      history1y: 'Динамика стоимости за 1 год',
+      unlimitedPortfolios: 'Неограниченное число портфелей',
+      unlimitedSources: 'Неограниченное число источников',
+    },
   },
   holdings: {
     empty: 'Активы ещё не добавлены.',
@@ -348,6 +365,7 @@ const ru: MessageSchema = {
     PORTFOLIO_NOT_EMPTY: 'Портфель ещё содержит источники — сначала удалите источники',
     PORTFOLIO_LAST: 'Последний портфель нельзя удалить',
     INVALID_RESET_TOKEN: 'Ссылка недействительна или истекла — запросите новую',
+    PLAN_UPGRADE_REQUIRED: 'Эта функция требует Crypto Tracker Pro',
   },
   relative: {
     never: 'никогда',

@@ -77,7 +77,24 @@ const de = {
     range24h: '24h',
     range7d: '7T',
     range30d: '30T',
+    range1y: '1J',
     historyExcluded: '{n} Asset(s) ohne Verlauf (kein Mapping)',
+  },
+  paywall: {
+    title: 'Crypto Tracker Pro',
+    intro: 'Schalte die Pro-Funktionen frei:',
+    upgrade: 'Pro freischalten',
+    manage: 'Abo verwalten',
+    planLabel: 'Tarif',
+    webHint: 'Die Bezahlung läuft im Browser über Stripe.',
+    upgradeFailed: 'Upgrade konnte nicht gestartet werden',
+    feature: {
+      tax: 'Steuerreport für Deutschland & Österreich (inkl. PDF)',
+      autoSync: 'Automatischer Hintergrund-Sync',
+      history1y: '1-Jahres-Wertverlauf',
+      unlimitedPortfolios: 'Unbegrenzte Portfolios',
+      unlimitedSources: 'Unbegrenzte Quellen',
+    },
   },
   holdings: {
     empty: 'Noch keine Bestände erfasst.',
@@ -347,6 +364,7 @@ const de = {
     PORTFOLIO_NOT_EMPTY: 'Das Portfolio enthält noch Quellen — bitte zuerst die Quellen löschen',
     PORTFOLIO_LAST: 'Das letzte Portfolio kann nicht gelöscht werden',
     INVALID_RESET_TOKEN: 'Der Link ist ungültig oder abgelaufen — fordere einen neuen an',
+    PLAN_UPGRADE_REQUIRED: 'Diese Funktion erfordert Crypto Tracker Pro',
   },
   relative: {
     never: 'noch nie',
