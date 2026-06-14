@@ -190,6 +190,27 @@ export interface CsvUploadResponse {
 
 export type HistoryRange = '24h' | '7d' | '30d' | '1y'
 
+// Unrealisierter Gewinn/Verlust (Pro) — Kostenbasis aus FIFO der Tax-Engine, EUR.
+export interface PnlPositionDto {
+  sourceId: string
+  sourceLabel: string
+  assetSymbol: string
+  assetName: string
+  quantity: string
+  costBasisEur: string
+  valueEur: string
+  pnlEur: string
+  pnlPct: number
+}
+
+export interface PortfolioPnlDto {
+  totalCostBasisEur: string
+  totalValueEur: string
+  totalPnlEur: string
+  totalPnlPct: number
+  positions: PnlPositionDto[]
+}
+
 export interface PortfolioHistoryPoint {
   t: string // ISO-Zeitstempel
   value: string

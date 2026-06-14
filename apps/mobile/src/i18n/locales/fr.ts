@@ -81,6 +81,12 @@ const fr: MessageSchema = {
     range1y: '1A',
     historyExcluded: '{n} actif(s) sans historique (pas de correspondance)',
   },
+  pnl: {
+    title: 'Gain/Perte',
+    locked: 'Avec Pro, vous voyez votre gain/perte en cours.',
+    empty: 'Aucune transaction enregistrée pour établir un coût de revient.',
+    basisNote: 'Sur la base des transactions enregistrées, en EUR.',
+  },
   paywall: {
     title: 'Crypto Tracker Pro',
     intro: 'Débloquez les fonctions Pro :',
@@ -91,6 +97,7 @@ const fr: MessageSchema = {
     upgradeFailed: "La mise à niveau n'a pas pu être lancée",
     feature: {
       tax: "Rapport fiscal pour l'Allemagne et l'Autriche (PDF inclus)",
+      pnl: 'Gain/perte en cours (non réalisé)',
       autoSync: 'Synchronisation automatique en arrière-plan',
       history1y: "Évolution de la valeur sur 1 an",
       unlimitedPortfolios: 'Portfolios illimités',

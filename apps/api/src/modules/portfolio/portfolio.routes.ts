@@ -2,11 +2,12 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { portfolioScopeQuerySchema } from '@crypto-tracker/shared'
 import { requireAuth } from '../../middleware/auth.middleware'
-import { getPlan } from '../../middleware/plan.middleware'
+import { getPlan, requirePro } from '../../middleware/plan.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
 import { AppError } from '../../lib/errors'
 import * as portfolioService from './portfolio.service'
+import * as pnlService from './pnl.service'
 import * as holdingsService from '../holdings/holdings.service'
 
 export const portfolioRoutes = Router()
@@ -18,6 +19,17 @@ portfolioRoutes.get(
   asyncHandler(async (req, res) => {
     const { portfolioId } = req.query as { portfolioId?: string }
     res.json(await portfolioService.getSummary(req.userId, portfolioId))
+  }),
+)
+
+// Unrealisierter Gewinn/Verlust — Pro-Funktion
+portfolioRoutes.get(
+  '/pnl',
+  requirePro,
+  validate(portfolioScopeQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const { portfolioId } = req.query as { portfolioId?: string }
+    res.json(await pnlService.getPnl(req.userId, portfolioId))
   }),
 )
 

@@ -52,6 +52,43 @@
 
       <AllocationDonut :positions="portfolio.summary?.byAsset ?? []" />
 
+      <!-- Gewinn/Verlust (Pro) — Free: Schloss → Paywall -->
+      <ion-card
+        v-if="topAssets.length > 0"
+        data-testid="pnl-card"
+        :button="!auth.isPro"
+        @click="!auth.isPro && openPaywall()"
+      >
+        <ion-card-header>
+          <ion-card-subtitle>
+            {{ $t('pnl.title') }}
+            <ion-icon v-if="!auth.isPro" :icon="lockClosedOutline" />
+          </ion-card-subtitle>
+          <ion-card-title
+            v-if="auth.isPro && portfolio.pnl"
+            class="amount"
+            :style="{ color: pnlColor(portfolio.pnl.totalPnlEur) }"
+            data-testid="pnl-total"
+          >
+            {{ formatCurrencyRaw(portfolio.pnl.totalPnlEur, 'EUR') }}
+            ({{ portfolio.pnl.totalPnlPct > 0 ? '+' : '' }}{{ portfolio.pnl.totalPnlPct }} %)
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p v-if="!auth.isPro" class="muted">{{ $t('pnl.locked') }}</p>
+          <template v-else-if="portfolio.pnl && portfolio.pnl.positions.length > 0">
+            <div v-for="p in portfolio.pnl.positions" :key="p.sourceId + p.assetSymbol" class="pnl-row">
+              <span>{{ p.assetSymbol }}</span>
+              <span class="amount" :style="{ color: pnlColor(p.pnlEur) }">
+                {{ formatCurrencyRaw(p.pnlEur, 'EUR') }}
+              </span>
+            </div>
+          </template>
+          <p v-else class="muted">{{ $t('pnl.empty') }}</p>
+          <p class="muted">{{ $t('pnl.basisNote') }}</p>
+        </ion-card-content>
+      </ion-card>
+
       <ion-list v-if="topAssets.length > 0" inset>
         <ion-list-header>
           <ion-label>{{ $t('dashboard.topPositions') }}</ion-label>
@@ -119,7 +156,7 @@ import {
   onIonViewWillEnter,
   type RefresherCustomEvent,
 } from '@ionic/vue'
-import { eyeOffOutline, eyeOutline, refreshOutline } from 'ionicons/icons'
+import { eyeOffOutline, eyeOutline, lockClosedOutline, refreshOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import AllocationDonut from '../components/AllocationDonut.vue'
 import PortfolioChart from '../components/PortfolioChart.vue'
@@ -128,11 +165,16 @@ import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { useAuthStore } from '../stores/auth.store'
-import { formatCurrency, formatQuantity, formatRelativeTime } from '../services/format'
+import { formatCurrency, formatCurrencyRaw, formatQuantity, formatRelativeTime } from '../services/format'
 import { balancesHidden, toggleBalances } from '../services/privacy'
+import { openPaywall } from '../services/paywall'
 
 const portfolio = usePortfolioStore()
 const auth = useAuthStore()
+
+function pnlColor(value: string): string {
+  return Number(value) < 0 ? 'var(--app-color-loss)' : 'var(--app-color-gain)'
+}
 
 const currency = ref<'EUR' | 'USD'>((auth.user?.baseCurrency as 'EUR' | 'USD') ?? 'EUR')
 const pageLoading = ref(false)
@@ -143,6 +185,8 @@ async function loadData() {
   pageError.value = false
   try {
     await portfolio.loadSummary()
+    // PnL nur für Pro laden (Free sieht die Paywall am Schloss)
+    if (auth.isPro) await portfolio.loadPnl().catch(() => {})
   } catch {
     pageError.value = true
   } finally {
@@ -181,6 +225,11 @@ onIonViewWillEnter(() => {
 <style scoped>
 .total {
   font-size: 2.2rem;
+}
+.pnl-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
 }
 .muted {
   color: var(--ion-color-medium);

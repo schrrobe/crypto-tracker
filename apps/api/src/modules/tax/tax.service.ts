@@ -125,6 +125,22 @@ function toDisposalDto(d: EngineDisposal, sourceLabels: Map<string, string>): Ta
   }
 }
 
+// Transaktionen eines Portfolios laden + mit EUR-(Backfill-)Kursen anreichern.
+// Geteilt mit der PnL-Berechnung (computeHoldingsCostBasis).
+export async function loadEnrichedTransactions(
+  userId: string,
+  portfolioId?: string,
+): Promise<EngineTx[]> {
+  const pid = await resolvePortfolioId(userId, portfolioId)
+  const txs = await prisma.transaction.findMany({
+    where: { source: { userId, portfolioId: pid } },
+    include: TAX_TX_INCLUDE,
+    orderBy: { timestamp: 'asc' },
+  })
+  const { engineTxs } = await enrichTransactions(txs)
+  return engineTxs
+}
+
 export async function getReport(
   userId: string,
   year: number,

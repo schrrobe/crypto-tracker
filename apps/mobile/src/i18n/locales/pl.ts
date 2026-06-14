@@ -81,6 +81,12 @@ const pl: MessageSchema = {
     range1y: '1R',
     historyExcluded: 'Aktywa bez historii (brak przypisania): {n}',
   },
+  pnl: {
+    title: 'Zysk/strata',
+    locked: 'Z Pro zobaczysz swój bieżący zysk/stratę.',
+    empty: 'Nie zarejestrowano jeszcze transakcji do ustalenia kosztu nabycia.',
+    basisNote: 'Na podstawie zarejestrowanych transakcji, w EUR.',
+  },
   paywall: {
     title: 'Crypto Tracker Pro',
     intro: 'Odblokuj funkcje Pro:',
@@ -91,6 +97,7 @@ const pl: MessageSchema = {
     upgradeFailed: 'Nie udało się rozpocząć ulepszenia',
     feature: {
       tax: 'Raport podatkowy dla Niemiec i Austrii (z PDF)',
+      pnl: 'Bieżący zysk/strata (niezrealizowany)',
       autoSync: 'Automatyczna synchronizacja w tle',
       history1y: 'Przebieg wartości za 1 rok',
       unlimitedPortfolios: 'Nieograniczona liczba portfoliów',

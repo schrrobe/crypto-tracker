@@ -81,6 +81,12 @@ const cs: MessageSchema = {
     range1y: '1R',
     historyExcluded: 'Aktiva bez historie (bez přiřazení): {n}',
   },
+  pnl: {
+    title: 'Zisk/ztráta',
+    locked: 'S Pro uvidíte svůj průběžný zisk/ztrátu.',
+    empty: 'Zatím nebyly zaznamenány žádné transakce pro pořizovací náklady.',
+    basisNote: 'Na základě zaznamenaných transakcí, v EUR.',
+  },
   paywall: {
     title: 'Crypto Tracker Pro',
     intro: 'Odemkněte funkce Pro:',
@@ -91,6 +97,7 @@ const cs: MessageSchema = {
     upgradeFailed: 'Upgrade se nepodařilo spustit',
     feature: {
       tax: 'Daňový report pro Německo a Rakousko (včetně PDF)',
+      pnl: 'Průběžný zisk/ztráta (nerealizovaný)',
       autoSync: 'Automatická synchronizace na pozadí',
       history1y: 'Vývoj hodnoty za 1 rok',
       unlimitedPortfolios: 'Neomezený počet portfolií',

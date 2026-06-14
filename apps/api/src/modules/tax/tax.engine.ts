@@ -503,3 +503,66 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
     warnings: warnings.list(),
   }
 }
+
+export interface HoldingCostBasis {
+  quantity: Decimal
+  costBasisEur: Decimal
+}
+
+// Kostenbasis der AKTUELL gehaltenen Menge je (Quelle, Asset) — für die
+// unrealisierte PnL-Anzeige. Replay aller Transaktionen mit wallet-bezogenem FIFO
+// (wie computeReportDE, ohne Jahr-/Gewinn-/Freigrenzen-Logik); am Ende die offenen
+// Lots aggregieren. Key: `${sourceId}|${assetId}`.
+export function computeHoldingsCostBasis(txs: EngineTx[]): Map<string, HoldingCostBasis> {
+  const warnings = new WarningCollector() // verworfen — reine Kostenbasis
+  const lotsByWallet = new Map<string, Lot[]>()
+  const pendingTransfers = new Map<string, ConsumedSlice[]>()
+
+  for (const tx of chronologicalWithTransferOrder(txs)) {
+    const walletKey = `${tx.sourceId}|${tx.assetId}`
+    const lots = lotsByWallet.get(walletKey) ?? []
+    lotsByWallet.set(walletKey, lots)
+
+    switch (tx.type) {
+      case 'BUY':
+      case 'DEPOSIT':
+      case 'STAKING_REWARD': {
+        if (tx.type === 'DEPOSIT' && tx.transferGroupId !== null) {
+          const moved = pendingTransfers.get(tx.transferGroupId)
+          if (moved) {
+            pendingTransfers.delete(tx.transferGroupId)
+            receiveTransferSlices(lots, moved, tx.quantity)
+            break
+          }
+        }
+        const cost = acquisitionCost(tx, warnings)
+        lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
+        break
+      }
+      case 'SELL': {
+        consumeFifo(lots, tx.quantity)
+        break
+      }
+      case 'WITHDRAWAL': {
+        const slices = consumeFifo(lots, tx.quantity)
+        if (tx.transferGroupId !== null) pendingTransfers.set(tx.transferGroupId, slices)
+        break
+      }
+      case 'TRANSFER':
+      case 'OTHER':
+        break
+    }
+  }
+
+  const result = new Map<string, HoldingCostBasis>()
+  for (const [key, lots] of lotsByWallet) {
+    let quantity = ZERO
+    let costBasisEur = ZERO
+    for (const lot of lots) {
+      quantity = quantity.add(lot.remaining)
+      costBasisEur = costBasisEur.add(lot.remaining.mul(lot.costPerUnit))
+    }
+    if (quantity.gt(0)) result.set(key, { quantity, costBasisEur })
+  }
+  return result
+}

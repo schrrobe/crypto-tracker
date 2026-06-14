@@ -81,6 +81,7 @@
 
 - Automatischer Sync je Nutzer ist umgesetzt (Pro, Worker-Cron) — braucht in prod **Redis + Worker**
   (Teil des Deployments); ohne läuft nur manueller Sync.
-- Laufende PnL/Kostenbasis-Anzeige im Portfolio fehlt (nur im Steuerreport).
+- Laufende PnL-Anzeige (unrealisiert, Pro) ist umgesetzt (Dashboard-Card, EUR, FIFO-Kostenbasis) —
+  nur für Bestände mit Transaktionshistorie; Snapshot-Quellen ohne Tx zeigen kein PnL.
 - AT-Steuerreport nutzt globale Pools (dokumentierte Vereinfachung); Crypto-zu-Crypto-Swaps/FX nicht abgebildet.
 - Exchange-Provider decken nur Spot/Hauptkonto ab (kein Earn/Margin/Futures, außer Kraken-Staking/Binance-Flexible).

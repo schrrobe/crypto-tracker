@@ -14,7 +14,7 @@ export const FREE_HISTORY_RANGES: HistoryRange[] = ['24h', '7d', '30d']
 export const PRO_HISTORY_RANGES: HistoryRange[] = ['24h', '7d', '30d', '1y']
 
 // Reine Pro-Funktionen (Anzeige in der Paywall / Gating-Schlüssel).
-export const PRO_FEATURES = ['tax', 'autoSync', 'history1y', 'unlimitedPortfolios', 'unlimitedSources'] as const
+export const PRO_FEATURES = ['tax', 'pnl', 'autoSync', 'history1y', 'unlimitedPortfolios', 'unlimitedSources'] as const
 export type ProFeature = (typeof PRO_FEATURES)[number]
 
 export function isPro(plan: Plan): boolean {

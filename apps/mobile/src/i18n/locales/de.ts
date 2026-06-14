@@ -80,6 +80,12 @@ const de = {
     range1y: '1J',
     historyExcluded: '{n} Asset(s) ohne Verlauf (kein Mapping)',
   },
+  pnl: {
+    title: 'Gewinn/Verlust',
+    locked: 'Mit Pro siehst du deinen laufenden Gewinn/Verlust.',
+    empty: 'Noch keine Transaktionen für eine Kostenbasis erfasst.',
+    basisNote: 'Auf Basis erfasster Transaktionen, in EUR.',
+  },
   paywall: {
     title: 'Crypto Tracker Pro',
     intro: 'Schalte die Pro-Funktionen frei:',
@@ -90,6 +96,7 @@ const de = {
     upgradeFailed: 'Upgrade konnte nicht gestartet werden',
     feature: {
       tax: 'Steuerreport für Deutschland & Österreich (inkl. PDF)',
+      pnl: 'Laufender Gewinn/Verlust (unrealisiert)',
       autoSync: 'Automatischer Hintergrund-Sync',
       history1y: '1-Jahres-Wertverlauf',
       unlimitedPortfolios: 'Unbegrenzte Portfolios',

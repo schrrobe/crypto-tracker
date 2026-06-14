@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { Prisma } from '@prisma/client'
 import type { TxType } from '@prisma/client'
-import { computeReportAT, computeReportDE, type EngineTx } from './tax.engine'
+import {
+  computeHoldingsCostBasis,
+  computeReportAT,
+  computeReportDE,
+  type EngineTx,
+} from './tax.engine'
 
 const dec = (v: string | number) => new Prisma.Decimal(v)
 
@@ -644,5 +649,43 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
     expect(report.disposals[0]?.priceQuality).toBe('MISSING')
     expect(report.totals.totalGainEur.toString()).toBe('0')
     expect(warningCodes(report)).toContain('MISSING_DISPOSAL_PRICE')
+  })
+})
+
+describe('Tax Engine — Kostenbasis aktueller Bestände (PnL)', () => {
+  it('FIFO-Restbestand: BUY 2@100 + SELL 1 → Menge 1, Kostenbasis 100', () => {
+    const m = computeHoldingsCostBasis([
+      tx({ type: 'BUY', qty: 2, price: 100, ts: '2024-01-01' }),
+      tx({ type: 'SELL', qty: 1, price: 150, ts: '2024-02-01' }),
+    ])
+    const pos = m.get('src-1|BTC')
+    expect(pos?.quantity.toString()).toBe('1')
+    expect(pos?.costBasisEur.toString()).toBe('100')
+  })
+
+  it('Staking-Reward erhöht Menge + Kostenbasis (Zuflusswert)', () => {
+    const m = computeHoldingsCostBasis([
+      tx({ type: 'BUY', qty: 1, price: 100, ts: '2024-01-01' }),
+      tx({ type: 'STAKING_REWARD', qty: 0.5, price: 200, ts: '2024-03-01' }),
+    ])
+    const pos = m.get('src-1|BTC')
+    expect(pos?.quantity.toString()).toBe('1.5')
+    expect(pos?.costBasisEur.toString()).toBe('200')
+  })
+
+  it('verknüpfter Transfer zieht die Kostenbasis in die Zielquelle um', () => {
+    const m = computeHoldingsCostBasis([
+      tx({ type: 'BUY', qty: 1, price: 100, ts: '2024-01-01', source: 'src-A' }),
+      tx({ type: 'WITHDRAWAL', qty: 1, ts: '2024-02-01', source: 'src-A', transferGroup: 'g1' }),
+      tx({ type: 'DEPOSIT', qty: 1, ts: '2024-02-01', source: 'src-B', transferGroup: 'g1' }),
+    ])
+    expect(m.get('src-A|BTC')).toBeUndefined()
+    const b = m.get('src-B|BTC')
+    expect(b?.quantity.toString()).toBe('1')
+    expect(b?.costBasisEur.toString()).toBe('100')
+  })
+
+  it('ohne Transaktionen → leere Map', () => {
+    expect(computeHoldingsCostBasis([]).size).toBe(0)
   })
 })

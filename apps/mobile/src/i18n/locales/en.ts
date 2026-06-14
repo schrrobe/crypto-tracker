@@ -81,6 +81,12 @@ const en: MessageSchema = {
     range1y: '1Y',
     historyExcluded: '{n} asset(s) without history (no mapping)',
   },
+  pnl: {
+    title: 'Profit/Loss',
+    locked: 'With Pro you can see your running profit/loss.',
+    empty: 'No transactions recorded yet for a cost basis.',
+    basisNote: 'Based on recorded transactions, in EUR.',
+  },
   paywall: {
     title: 'Crypto Tracker Pro',
     intro: 'Unlock the Pro features:',
@@ -91,6 +97,7 @@ const en: MessageSchema = {
     upgradeFailed: 'The upgrade could not be started',
     feature: {
       tax: 'Tax report for Germany & Austria (incl. PDF)',
+      pnl: 'Running profit/loss (unrealized)',
       autoSync: 'Automatic background sync',
       history1y: '1-year value history',
       unlimitedPortfolios: 'Unlimited portfolios',
