@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { UserDto } from '@crypto-tracker/shared'
-import { api, getRefreshToken, setTokens } from '../services/api.client'
+import { api, getRefreshToken, isNativePlatform, setTokens } from '../services/api.client'
 
 interface AuthResponse {
   user: UserDto
@@ -18,14 +18,21 @@ export const useAuthStore = defineStore('auth', () => {
   function init(): Promise<void> {
     initPromise ??= (async () => {
       const refreshToken = getRefreshToken()
-      if (refreshToken) {
-        try {
-          const res = await api.post<AuthResponse>('/auth/refresh', { refreshToken })
-          setTokens(res)
-          user.value = res.user
-        } catch {
-          setTokens(null)
-        }
+      // Nativ ohne gespeicherten Token → keine Session. Web versucht immer den
+      // Refresh (das httpOnly-Cookie trägt die Session, falls vorhanden).
+      if (isNativePlatform && !refreshToken) {
+        initialized.value = true
+        return
+      }
+      try {
+        const res = await api.post<AuthResponse>(
+          '/auth/refresh',
+          refreshToken ? { refreshToken } : undefined,
+        )
+        setTokens(res)
+        user.value = res.user
+      } catch {
+        setTokens(null)
       }
       initialized.value = true
     })()
@@ -46,10 +53,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout(): Promise<void> {
+    // Nativ: Token im Body; Web: Cookie (kein Body) — Server löscht es.
     const refreshToken = getRefreshToken()
-    if (refreshToken) {
-      await api.post('/auth/logout', { refreshToken }).catch(() => {})
-    }
+    await api.post('/auth/logout', refreshToken ? { refreshToken } : undefined).catch(() => {})
     setTokens(null)
     user.value = null
   }

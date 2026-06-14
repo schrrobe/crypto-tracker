@@ -1,6 +1,7 @@
 import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
 import { env } from './config/env'
 import { errorMiddleware } from './middleware/error.middleware'
 import { authRoutes } from './modules/auth/auth.routes'
@@ -17,7 +18,10 @@ export function createApp() {
   const app = express()
 
   app.use(helmet())
-  app.use(cors({ origin: env.CORS_ORIGINS }))
+  // credentials: true → Browser darf das httpOnly-Refresh-Cookie senden/empfangen
+  // (nur mit exakten Origins aus CORS_ORIGINS, kein Wildcard)
+  app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }))
+  app.use(cookieParser())
   app.use(express.json({ limit: '1mb' }))
 
   const api = express.Router()

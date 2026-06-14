@@ -1,22 +1,29 @@
 // Fetch-Wrapper mit Bearer-Token und automatischem 401→Refresh→Retry.
-// Access-Token lebt nur im Speicher; Refresh-Token im verschlüsselten Secure
-// Storage (nativ: Keychain/Keystore, Web: localStorage-Fallback) via storage.ts.
+// Access-Token lebt nur im Speicher. Refresh-Token-Transport je Plattform:
+//   nativ  → verschlüsseltes Secure Storage (Keychain/Keystore), im Body gesendet
+//   web    → httpOnly-Cookie (für JS unlesbar), automatisch vom Browser gesendet
+// Native Clients signalisieren das per Header X-Client: native.
 
+import { Capacitor } from '@capacitor/core'
 import { getStored, removeStored, setStored } from './storage'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3010/api/v1'
 const REFRESH_KEY = 'refresh-token'
 
+export const isNativePlatform = Capacitor.isNativePlatform()
+
 let accessToken: string | null = null
 
-export function setTokens(tokens: { accessToken: string; refreshToken: string } | null): void {
+export function setTokens(tokens: { accessToken: string; refreshToken?: string } | null): void {
   accessToken = tokens?.accessToken ?? null
-  if (tokens) setStored(REFRESH_KEY, tokens.refreshToken)
+  // Web: Refresh-Token liegt im httpOnly-Cookie → nichts in JS speichern.
+  if (!isNativePlatform) return
+  if (tokens?.refreshToken) setStored(REFRESH_KEY, tokens.refreshToken)
   else removeStored(REFRESH_KEY)
 }
 
 export function getRefreshToken(): string | null {
-  return getStored(REFRESH_KEY)
+  return isNativePlatform ? getStored(REFRESH_KEY) : null
 }
 
 export class ApiError extends Error {
@@ -35,9 +42,11 @@ async function rawRequest(path: string, init?: RequestInit): Promise<Response> {
   const isFormData = init?.body instanceof FormData
   return fetch(`${BASE_URL}${path}`, {
     ...init,
+    credentials: 'include', // httpOnly-Refresh-Cookie mitsenden (Web)
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(isNativePlatform ? { 'X-Client': 'native' } : {}),
       ...init?.headers,
     },
   })
@@ -48,12 +57,21 @@ let refreshPromise: Promise<boolean> | null = null
 
 async function tryRefresh(): Promise<boolean> {
   refreshPromise ??= (async () => {
-    const refreshToken = getRefreshToken()
-    if (!refreshToken) return false
+    // Nativ braucht den gespeicherten Token (Body); Web nutzt das Cookie (kein Body).
+    let body: string | undefined
+    if (isNativePlatform) {
+      const refreshToken = getRefreshToken()
+      if (!refreshToken) return false
+      body = JSON.stringify({ refreshToken })
+    }
     const res = await fetch(`${BASE_URL}/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(isNativePlatform ? { 'X-Client': 'native' } : {}),
+      },
+      body,
     })
     if (!res.ok) {
       setTokens(null)

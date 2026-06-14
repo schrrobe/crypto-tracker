@@ -21,8 +21,11 @@ export interface TestUser {
 export const PASSWORD = 'superSicheresPasswort1'
 
 export async function registerUser(prefix = 'user'): Promise<TestUser> {
+  // X-Client: native → Refresh-Token kommt im Body (statt httpOnly-Cookie),
+  // damit die Integrationstests ihn direkt verwenden können
   const res = await request(app)
     .post(`${API}/auth/register`)
+    .set('X-Client', 'native')
     .send({ email: uniqueEmail(prefix), password: PASSWORD })
   if (res.status !== 201) throw new Error(`register fehlgeschlagen: ${JSON.stringify(res.body)}`)
   return {

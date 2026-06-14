@@ -20,7 +20,7 @@ export interface UserDto {
   createdAt: string
 }
 
-interface AuthResult {
+export interface AuthResult {
   user: UserDto
   accessToken: string
   refreshToken: string

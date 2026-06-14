@@ -1,9 +1,8 @@
-import { Router } from 'express'
+import { Router, type Request, type Response } from 'express'
 import rateLimit from 'express-rate-limit'
 import {
   forgotPasswordSchema,
   loginSchema,
-  refreshSchema,
   registerSchema,
   resetPasswordSchema,
 } from '@crypto-tracker/shared'
@@ -11,10 +10,30 @@ import { z } from 'zod'
 import { validate } from '../../middleware/validate.middleware'
 import { requireAuth } from '../../middleware/auth.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
+import { AppError } from '../../lib/errors'
 import { env } from '../../config/env'
 import * as authService from './auth.service'
+import {
+  clearRefreshCookie,
+  isNativeClient,
+  readRefreshToken,
+  setRefreshCookie,
+} from './refresh-cookie'
 
 export const authRoutes = Router()
+
+// Antwort je Client: nativ bekommt den Refresh-Token im Body (Secure Storage),
+// Web bekommt ein httpOnly-Cookie und den Token NICHT im Body (für JS unlesbar).
+function sendAuth(req: Request, res: Response, result: authService.AuthResult, status = 200): void {
+  if (isNativeClient(req)) {
+    res.status(status).json(result)
+    return
+  }
+  setRefreshCookie(res, result.refreshToken)
+  const { refreshToken: _omit, ...body } = result
+  void _omit
+  res.status(status).json(body)
+}
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -30,7 +49,7 @@ authRoutes.post(
   validate(registerSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body
-    res.status(201).json(await authService.register(email, password))
+    sendAuth(req, res, await authService.register(email, password), 201)
   }),
 )
 
@@ -39,23 +58,25 @@ authRoutes.post(
   validate(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body
-    res.json(await authService.login(email, password))
+    sendAuth(req, res, await authService.login(email, password))
   }),
 )
 
 authRoutes.post(
   '/refresh',
-  validate(refreshSchema),
   asyncHandler(async (req, res) => {
-    res.json(await authService.refresh(req.body.refreshToken))
+    const token = readRefreshToken(req)
+    if (!token) throw AppError.unauthorized('Sitzung abgelaufen, bitte neu anmelden')
+    sendAuth(req, res, await authService.refresh(token))
   }),
 )
 
 authRoutes.post(
   '/logout',
-  validate(refreshSchema),
   asyncHandler(async (req, res) => {
-    await authService.logout(req.body.refreshToken)
+    const token = readRefreshToken(req)
+    if (token) await authService.logout(token)
+    if (!isNativeClient(req)) clearRefreshCookie(res)
     res.status(204).end()
   }),
 )

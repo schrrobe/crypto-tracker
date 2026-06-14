@@ -53,8 +53,10 @@ describe('Passwort-Reset (Integration)', () => {
       .expect(204)
 
     // alter Refresh-Token aus der Registrierung ist nach Reset tot
+    // (X-Client: native → Token aus dem Body, nicht aus dem Cookie)
     const refresh = await request(app)
       .post(`${API}/auth/refresh`)
+      .set('X-Client', 'native')
       .send({ refreshToken: user.refreshToken })
     expect(refresh.status).toBe(401)
   })

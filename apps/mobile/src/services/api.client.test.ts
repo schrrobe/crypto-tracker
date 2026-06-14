@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// Diese Tests prüfen den nativen Pfad (Refresh-Token im Body + Secure Storage).
+// Der Web-Cookie-Pfad ist im Backend-Integrationstest abgedeckt.
+vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => true } }))
+
 // api.client hält Modul-State (accessToken, geteiltes Refresh-Promise) —
 // jeder Test bekommt eine frische Modul-Instanz.
 async function loadClient() {
