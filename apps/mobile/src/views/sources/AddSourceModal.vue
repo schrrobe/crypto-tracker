@@ -263,9 +263,9 @@ const STAKING_NOTE_KEY: Record<string, string> = {
   BITPANDA: 'sources.stakingNoteBitpanda',
   KRAKEN: 'sources.stakingNoteKraken',
   BINANCE: 'sources.stakingNoteBinance',
-  OKX: 'sources.stakingNoteSpotOnly',
-  BYBIT: 'sources.stakingNoteSpotOnly',
-  KUCOIN: 'sources.stakingNoteSpotOnly',
+  OKX: 'sources.stakingNoteMultiAccount',
+  BYBIT: 'sources.stakingNoteMultiAccount',
+  KUCOIN: 'sources.stakingNoteMultiAccount',
   GATEIO: 'sources.stakingNoteSpotOnly',
   CRYPTOCOM: 'sources.stakingNoteSpotOnly',
 }

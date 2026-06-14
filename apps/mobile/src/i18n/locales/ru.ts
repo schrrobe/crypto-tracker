@@ -177,13 +177,17 @@ const ru: MessageSchema = {
     keyGuideTitle: 'Где найти мой API-ключ?',
     keyGuideLink: 'Открыть настройки API у {provider}',
     coverageHint:
-      'Учитывает только спотовый/основной счёт. Не подключайте для одной биржи одновременно API и CSV-импорт — иначе активы будут учтены дважды.',
+      'Не подключайте для одной биржи одновременно API и CSV-импорт — иначе активы будут учтены дважды.',
     stakingNoteBitpanda:
       'API Bitpanda не возвращает активы в стейкинге. Добавьте их позже как ручной актив.',
     stakingNoteSpotOnly:
       'Баланс Earn/стейкинга находится на отдельном счёте и не учитывается — при необходимости добавьте вручную.',
-    stakingNoteKraken: 'Балансы стейкинга (напр. ETH.S) учитываются автоматически.',
-    stakingNoteBinance: 'Flexible Earn (балансы LD) учитывается, Locked Staking — нет.',
+    stakingNoteMultiAccount:
+      'Учитываются позиции Spot, Earn, Margin и открытые позиции по фьючерсам. Маржинальные обязательства могут быть отрицательными.',
+    stakingNoteKraken:
+      'Стейкинг (напр. ETH.S) и маржа учитываются автоматически; Kraken Futures (отдельный счёт) — нет.',
+    stakingNoteBinance:
+      'Flexible Earn (балансы LD), кросс-маржа и позиции по фьючерсам USDⓈ-M учитываются; Locked Staking — нет.',
     keyGuideKRAKEN:
       '1. Войдите в Kraken → Настройки → API.\n2. Выберите «Create API Key».\n3. Включите только разрешение «Query Funds» (запрос балансов) — без торговли и без выводов.\n4. Создайте ключ: «API Key» введите здесь как API-ключ, «Private Key» — как API-секрет. Приватный ключ показывается только один раз.',
     keyGuideBITVAVO:

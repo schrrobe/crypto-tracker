@@ -176,13 +176,17 @@ const de = {
     keyGuideTitle: 'Wo finde ich meinen API-Key?',
     keyGuideLink: 'API-Einstellungen bei {provider} öffnen',
     coverageHint:
-      'Erfasst nur das Spot-/Hauptkonto. Verbinde für dieselbe Börse nicht gleichzeitig API und CSV-Import — sonst werden Bestände doppelt gezählt.',
+      'Verbinde für dieselbe Börse nicht gleichzeitig API und CSV-Import — sonst werden Bestände doppelt gezählt.',
     stakingNoteBitpanda:
       'Gestakte Bestände liefert die Bitpanda-API nicht. Trage sie als manuellen Bestand nach.',
     stakingNoteSpotOnly:
       'Earn-/Staking-Guthaben liegt auf einem separaten Konto und wird nicht erfasst — bei Bedarf manuell ergänzen.',
-    stakingNoteKraken: 'Staking-Guthaben (z.B. ETH.S) wird automatisch mit erfasst.',
-    stakingNoteBinance: 'Flexible Earn (LD-Guthaben) wird erfasst, Locked Staking nicht.',
+    stakingNoteMultiAccount:
+      'Spot, Earn, Margin und offene Futures-Positionen werden erfasst. Margin-Verbindlichkeiten können negativ sein.',
+    stakingNoteKraken:
+      'Staking (z.B. ETH.S) und Margin werden automatisch erfasst; Kraken-Futures (eigenes Konto) nicht.',
+    stakingNoteBinance:
+      'Flexible Earn (LD-Guthaben), Cross-Margin und USDⓈ-M-Futures-Positionen werden erfasst; Locked Staking nicht.',
     keyGuideKRAKEN:
       '1. Bei Kraken anmelden → Einstellungen → API.\n2. „Create API Key" wählen.\n3. Nur die Berechtigung „Query Funds" (Guthaben abfragen) aktivieren — kein Trading, keine Auszahlungen.\n4. Key erstellen: „API Key" hier als API-Key, „Private Key" als API-Secret eintragen. Der Private Key wird nur einmal angezeigt.',
     keyGuideBITVAVO:

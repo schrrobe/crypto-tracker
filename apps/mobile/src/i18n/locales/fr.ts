@@ -177,13 +177,17 @@ const fr: MessageSchema = {
     keyGuideTitle: 'Où trouver ma clé API ?',
     keyGuideLink: 'Ouvrir les paramètres API chez {provider}',
     coverageHint:
-      "Ne capture que le compte spot/principal. Ne connectez pas à la fois l'API et l'import CSV pour la même plateforme — sinon les avoirs sont comptés deux fois.",
+      "Ne connectez pas à la fois l'API et l'import CSV pour la même plateforme — sinon les avoirs sont comptés deux fois.",
     stakingNoteBitpanda:
       "L'API Bitpanda ne renvoie pas les avoirs en staking. Ajoutez-les ensuite comme avoir manuel.",
     stakingNoteSpotOnly:
       "Les soldes Earn/staking se trouvent sur un compte séparé et ne sont pas capturés — ajoutez-les manuellement si nécessaire.",
-    stakingNoteKraken: 'Les avoirs en staking (p. ex. ETH.S) sont capturés automatiquement.',
-    stakingNoteBinance: 'Flexible Earn (soldes LD) est capturé, le Locked Staking ne l\'est pas.',
+    stakingNoteMultiAccount:
+      'Les positions Spot, Earn, Margin et les positions Futures ouvertes sont prises en compte. Les dettes de marge peuvent être négatives.',
+    stakingNoteKraken:
+      'Le staking (p. ex. ETH.S) et la marge sont pris en compte automatiquement ; les Kraken Futures (compte séparé) ne le sont pas.',
+    stakingNoteBinance:
+      'Flexible Earn (soldes LD), la marge croisée et les positions Futures USDⓈ-M sont prises en compte ; le Locked Staking ne l\'est pas.',
     keyGuideKRAKEN:
       "1. Connectez-vous à Kraken → Paramètres → API.\n2. Choisissez « Create API Key ».\n3. Activez uniquement la permission « Query Funds » (consultation des soldes) — pas de trading, pas de retraits.\n4. Créez la clé : saisissez ici « API Key » comme clé API, « Private Key » comme secret API. La clé privée n'est affichée qu'une seule fois.",
     keyGuideBITVAVO:
