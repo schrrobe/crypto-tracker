@@ -78,8 +78,9 @@ async function fetchOkxBalances(creds: ExchangeCredentials): Promise<RawBalance[
   const balances: RawBalance[] = []
   for (const account of json.data ?? []) {
     for (const detail of account.details ?? []) {
-      // cashBal = Gesamtbestand (verfügbar + eingefroren) der Währung
-      if (Number(detail.cashBal) > 0) {
+      // cashBal = Gesamtbestand (verfügbar + eingefroren) der Währung; negativ =
+      // Cross-/Unified-Margin-Verbindlichkeit (wie Binance netAsset behalten, nur exakt 0 verwerfen)
+      if (Number(detail.cashBal) !== 0) {
         balances.push({ symbol: detail.ccy.toUpperCase(), amount: detail.cashBal })
       }
     }
@@ -147,7 +148,8 @@ export function parseOkxPositions(data: OkxPosition[]): RawPosition[] {
       rawSymbol: p.instId,
       baseSymbol: (base ?? p.instId).toUpperCase(),
       side,
-      size: Math.abs(pos).toString(),
+      // Vorzeichen über Number, Größe als String (keine float-Präzisionsverluste)
+      size: p.pos.replace(/^-/, ''),
       entryPrice: p.avgPx,
       markPrice: p.markPx,
       leverage: p.lever ? Number(p.lever) : undefined,

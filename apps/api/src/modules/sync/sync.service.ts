@@ -191,7 +191,9 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
         })),
       }),
       prisma.futuresPosition.deleteMany({ where: { sourceId } }),
-      prisma.futuresPosition.createMany({ data: positionRows }),
+      // skipDuplicates: ein doppeltes (rawSymbol, side) darf nicht die ganze
+      // Sync-Transaktion (Holdings + Positionen + lastSyncAt) per P2002 zurückrollen
+      prisma.futuresPosition.createMany({ data: positionRows, skipDuplicates: true }),
       prisma.portfolioSource.update({ where: { id: sourceId }, data: { lastSyncAt: new Date() } }),
     ])
 

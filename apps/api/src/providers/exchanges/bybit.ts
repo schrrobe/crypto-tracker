@@ -73,8 +73,9 @@ async function fetchBybitBalances(creds: ExchangeCredentials): Promise<RawBalanc
   const balances: RawBalance[] = []
   for (const account of json.result?.list ?? []) {
     for (const entry of account.coin ?? []) {
-      // walletBalance = Gesamtbestand des Coins im Unified-Konto
-      if (Number(entry.walletBalance) > 0) {
+      // walletBalance = Gesamtbestand des Coins im Unified-Konto; negativ =
+      // Margin-Verbindlichkeit (behalten wie Binance/OKX, nur exakt 0 verwerfen)
+      if (Number(entry.walletBalance) !== 0) {
         balances.push({ symbol: entry.coin.toUpperCase(), amount: entry.walletBalance })
       }
     }
@@ -120,16 +121,19 @@ export function parseBybitPositions(list: BybitPosition[]): RawPosition[] {
   return positions
 }
 
-const POSITION_QUERY = 'category=linear&settleCoin=USDT'
+// Linear-Positionen sind nach Settle-Coin getrennt abzufragen — sonst fehlen
+// USDC-besicherte Perpetuals komplett (parseBybitPositions kennt beide Quotes).
+const SETTLE_COINS = ['USDT', 'USDC'] as const
 
-export async function fetchBybitPositions(creds: ExchangeCredentials): Promise<RawPosition[]> {
+async function fetchBybitPositionsFor(creds: ExchangeCredentials, settleCoin: string): Promise<RawPosition[]> {
   const timestamp = Date.now().toString()
-  const res = await fetch(`${BASE_URL}/v5/position/list?${POSITION_QUERY}`, {
+  const query = `category=linear&settleCoin=${settleCoin}`
+  const res = await fetch(`${BASE_URL}/v5/position/list?${query}`, {
     headers: {
       'X-BAPI-API-KEY': creds.apiKey,
       'X-BAPI-TIMESTAMP': timestamp,
       'X-BAPI-RECV-WINDOW': RECV_WINDOW,
-      'X-BAPI-SIGN': bybitSignature(timestamp, creds.apiKey, RECV_WINDOW, POSITION_QUERY, creds.apiSecret as string),
+      'X-BAPI-SIGN': bybitSignature(timestamp, creds.apiKey, RECV_WINDOW, query, creds.apiSecret as string),
     },
   })
   if (res.status === 429) throw new ProviderError('RATE_LIMITED', 'Bybit Rate-Limit erreicht')
@@ -140,6 +144,11 @@ export async function fetchBybitPositions(creds: ExchangeCredentials): Promise<R
     throw new ProviderError('PROVIDER_ERROR', `Bybit: ${json?.retMsg ?? `HTTP ${res.status}`}`)
   }
   return parseBybitPositions(json.result?.list ?? [])
+}
+
+export async function fetchBybitPositions(creds: ExchangeCredentials): Promise<RawPosition[]> {
+  const perSettle = await Promise.all(SETTLE_COINS.map((coin) => fetchBybitPositionsFor(creds, coin)))
+  return perSettle.flat()
 }
 
 export const bybitProvider: ExchangeProvider = {

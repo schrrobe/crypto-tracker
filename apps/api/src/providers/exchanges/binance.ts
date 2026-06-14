@@ -163,13 +163,15 @@ export async function fetchBinanceFutures(
       rawSymbol: p.symbol,
       baseSymbol: base,
       side: amt > 0 ? 'LONG' : 'SHORT',
-      size: Math.abs(amt).toString(),
+      // Vorzeichen über Number, Größe aber als String (keine float-Präzisionsverluste)
+      size: p.positionAmt.replace(/^-/, ''),
       entryPrice: p.entryPrice,
       markPrice: p.markPrice,
       leverage: Number(p.leverage) || undefined,
       unrealizedPnl: p.unRealizedProfit,
       quoteCurrency: quote,
-      liquidationPrice: p.liquidationPrice,
+      // Binance liefert "0" für Positionen ohne Liquidationspreis → nicht als 0 anzeigen
+      liquidationPrice: Number(p.liquidationPrice) > 0 ? p.liquidationPrice : undefined,
     })
   }
   return { balances, positions }

@@ -28,11 +28,39 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
   })
   const prices = await getLatestPrices(holdings.map((h) => h.assetId))
 
+  // Bestände über Konto-Typen (SPOT/EARN/MARGIN/FUTURES) je (Quelle, Asset)
+  // zusammenfassen: die FIFO-Kostenbasis ist konto-typ-unabhängig (Transaktionen
+  // kennen keinen Konto-Typ). Ohne das Summieren würde ein über mehrere Konto-Typen
+  // verteiltes Asset die Basis mehrfach zählen bzw. an der Deckungsprüfung scheitern.
+  interface AggHolding {
+    sourceId: string
+    assetId: string
+    sourceLabel: string
+    assetSymbol: string
+    assetName: string
+    quantity: Prisma.Decimal
+  }
+  const bySourceAsset = new Map<string, AggHolding>()
+  for (const h of holdings) {
+    const key = `${h.sourceId}|${h.assetId}`
+    const prev = bySourceAsset.get(key)
+    if (prev) prev.quantity = prev.quantity.add(h.quantity)
+    else
+      bySourceAsset.set(key, {
+        sourceId: h.sourceId,
+        assetId: h.assetId,
+        sourceLabel: h.source.label,
+        assetSymbol: h.asset.symbol,
+        assetName: h.asset.name,
+        quantity: h.quantity,
+      })
+  }
+
   let totalCostBasis = ZERO
   let totalValue = ZERO
   const positions: PnlPositionDto[] = []
 
-  for (const h of holdings) {
+  for (const h of bySourceAsset.values()) {
     const basis = costBasis.get(`${h.sourceId}|${h.assetId}`)
     const price = prices.get(h.assetId)
     if (!basis || !price) continue // keine Kostenbasis (Snapshot) oder kein Preis → kein PnL
@@ -53,9 +81,9 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
 
     positions.push({
       sourceId: h.sourceId,
-      sourceLabel: h.source.label,
-      assetSymbol: h.asset.symbol,
-      assetName: h.asset.name,
+      sourceLabel: h.sourceLabel,
+      assetSymbol: h.assetSymbol,
+      assetName: h.assetName,
       quantity: h.quantity.toString(),
       costBasisEur: basis.costBasisEur.toFixed(2),
       valueEur: valueEur.toFixed(2),
