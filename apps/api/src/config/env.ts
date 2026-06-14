@@ -42,6 +42,8 @@ const envSchema = z.object({
   STRIPE_PRICE_ID: z.string().optional(),
   STRIPE_SUCCESS_URL: z.string().url().optional(),
   STRIPE_CANCEL_URL: z.string().url().optional(),
+  // Intervall des automatischen Sync (Pro) im Worker; ≥ 60 schont Provider-Limits
+  AUTO_SYNC_EVERY_MINUTES: z.coerce.number().int().positive().default(60),
   // Nur für Tests/lokale Entwicklung: deterministische Preise und Provider statt echter APIs
   FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   FAKE_PROVIDERS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),

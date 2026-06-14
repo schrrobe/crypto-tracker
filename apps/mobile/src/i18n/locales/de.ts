@@ -326,6 +326,7 @@ const de = {
     baseCurrency: 'Basiswährung',
     signedInAs: 'Angemeldet als',
     logout: 'Abmelden',
+    autoSync: 'Automatischer Sync',
     deleteAccount: 'Konto löschen',
     deleteAccountTitle: 'Konto endgültig löschen?',
     deleteAccountMessage:

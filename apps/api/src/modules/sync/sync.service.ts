@@ -234,6 +234,29 @@ export async function syncAllSources(
   return { results, queued: isQueueEnabled() }
 }
 
+// Automatischer Sync (Pro): alle syncbaren Quellen von Pro-Nutzern mit
+// aktiviertem Auto-Sync anstoßen. Im Worker (Repeatable Job) aufgerufen.
+// Mit Redis werden Runs enqueued, ohne Redis (Tests) inline ausgeführt.
+export async function enqueueAutoSync(): Promise<{ sources: number; queued: boolean }> {
+  const sources = await prisma.portfolioSource.findMany({
+    where: {
+      type: { in: ['EXCHANGE', 'WALLET'] },
+      user: { plan: 'PRO', autoSyncEnabled: true },
+    },
+    orderBy: { createdAt: 'asc' },
+  })
+  let count = 0
+  for (const source of sources) {
+    try {
+      await requestSync(source.userId, source.id)
+      count += 1
+    } catch {
+      // z.B. SYNC_ALREADY_RUNNING — überspringen, nicht abbrechen
+    }
+  }
+  return { sources: count, queued: isQueueEnabled() }
+}
+
 export async function listSyncRuns(userId: string, sourceId: string, limit = 20): Promise<SyncRunDto[]> {
   await getOwnedSource(userId, sourceId)
   const runs = await prisma.syncRun.findMany({

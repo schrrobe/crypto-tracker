@@ -327,6 +327,7 @@ const ru: MessageSchema = {
     baseCurrency: 'Базовая валюта',
     signedInAs: 'Вы вошли как',
     logout: 'Выйти',
+    autoSync: 'Автоматическая синхронизация',
     deleteAccount: 'Удалить аккаунт',
     deleteAccountTitle: 'Удалить аккаунт навсегда?',
     deleteAccountMessage:

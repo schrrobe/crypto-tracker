@@ -82,6 +82,25 @@
             {{ $t('paywall.manage') }}
           </ion-button>
         </ion-item>
+        <!-- Automatischer Sync (Pro) -->
+        <ion-item>
+          <ion-toggle
+            :checked="auth.user?.autoSyncEnabled ?? false"
+            :disabled="!auth.isPro"
+            data-testid="auto-sync-toggle"
+            @ionChange="onAutoSync($event.detail.checked)"
+          >
+            {{ $t('settings.autoSync') }}
+          </ion-toggle>
+          <ion-icon
+            v-if="!auth.isPro"
+            :icon="lockClosedOutline"
+            slot="end"
+            color="medium"
+            data-testid="auto-sync-lock"
+            @click="openPaywall"
+          />
+        </ion-item>
         <!-- Dev-Schalter (nur lokal) zum Testen des Gatings ohne Stripe -->
         <ion-item v-if="isDev">
           <ion-label color="medium">Dev: Plan</ion-label>
@@ -169,6 +188,7 @@ import {
   IonSelectOption,
   IonText,
   IonTitle,
+  IonToggle,
   IonToolbar,
 } from '@ionic/vue'
 import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
@@ -208,6 +228,11 @@ async function managePlan() {
 
 async function onDevPlan(plan: 'FREE' | 'PRO') {
   await auth.setDevPlan(plan).catch(() => {})
+}
+
+async function onAutoSync(enabled: boolean) {
+  if (!auth.isPro) return
+  await auth.setAutoSync(enabled).catch(() => {})
 }
 const sources = useSourcesStore()
 const router = useRouter()

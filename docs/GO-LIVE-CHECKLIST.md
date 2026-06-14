@@ -79,8 +79,8 @@
 
 ## 9. Bekannte funktionale Lücken (kein Blocker, bewusst offen)
 
-- Automatischer Background-Sync je Nutzer existiert noch nicht (nur manueller Sync + Preis-Cron) —
-  ist als Pro-Feature beworben, müsste vor Bewerbung gebaut/erzwungen werden.
+- Automatischer Sync je Nutzer ist umgesetzt (Pro, Worker-Cron) — braucht in prod **Redis + Worker**
+  (Teil des Deployments); ohne läuft nur manueller Sync.
 - Laufende PnL/Kostenbasis-Anzeige im Portfolio fehlt (nur im Steuerreport).
 - AT-Steuerreport nutzt globale Pools (dokumentierte Vereinfachung); Crypto-zu-Crypto-Swaps/FX nicht abgebildet.
 - Exchange-Provider decken nur Spot/Hauptkonto ab (kein Earn/Margin/Futures, außer Kraken-Staking/Binance-Flexible).

@@ -327,6 +327,7 @@ const pl: MessageSchema = {
     baseCurrency: 'Waluta bazowa',
     signedInAs: 'Zalogowano jako',
     logout: 'Wyloguj się',
+    autoSync: 'Automatyczna synchronizacja',
     deleteAccount: 'Usuń konto',
     deleteAccountTitle: 'Trwale usunąć konto?',
     deleteAccountMessage:

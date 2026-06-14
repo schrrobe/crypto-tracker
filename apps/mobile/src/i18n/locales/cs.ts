@@ -327,6 +327,7 @@ const cs: MessageSchema = {
     baseCurrency: 'Základní měna',
     signedInAs: 'Přihlášen jako',
     logout: 'Odhlásit se',
+    autoSync: 'Automatická synchronizace',
     deleteAccount: 'Smazat účet',
     deleteAccountTitle: 'Trvale smazat účet?',
     deleteAccountMessage:

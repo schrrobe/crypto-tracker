@@ -1,7 +1,7 @@
 import { Queue, Worker } from 'bullmq'
 import { env } from './config/env'
 import { redisConnection, SYNC_QUEUE_NAME } from './modules/sync/sync.queue'
-import { executeSyncRun } from './modules/sync/sync.service'
+import { enqueueAutoSync, executeSyncRun } from './modules/sync/sync.service'
 import { refreshAllHeldPrices } from './coingecko/price.service'
 
 // Queue-Worker für Background-Sync + Preis-Refresh-Cron.
@@ -13,6 +13,7 @@ if (!env.REDIS_URL) {
 }
 
 const PRICE_REFRESH_EVERY_MS = 15 * 60 * 1000
+const AUTO_SYNC_EVERY_MS = env.AUTO_SYNC_EVERY_MINUTES * 60 * 1000
 
 const worker = new Worker(
   SYNC_QUEUE_NAME,
@@ -25,6 +26,11 @@ const worker = new Worker(
     if (job.name === 'price-refresh') {
       const result = await refreshAllHeldPrices()
       console.log(`[worker] price-refresh: ${result.assets} Assets, ok=${result.ok}${result.error ? ` (${result.error})` : ''}`)
+      return
+    }
+    if (job.name === 'auto-sync') {
+      const result = await enqueueAutoSync()
+      console.log(`[worker] auto-sync: ${result.sources} Quellen angestoßen (queued=${result.queued})`)
     }
   },
   // Concurrency 1: schont Provider-Rate-Limits (gleiches Kalkül wie syncAllSources)
@@ -42,8 +48,17 @@ await queue.upsertJobScheduler(
   { every: PRICE_REFRESH_EVERY_MS },
   { name: 'price-refresh' },
 )
+// Auto-Sync (Pro) als Repeatable Job
+await queue.upsertJobScheduler(
+  'auto-sync-schedule',
+  { every: AUTO_SYNC_EVERY_MS },
+  { name: 'auto-sync' },
+)
 
-console.log(`Sync-Worker läuft (Queue "${SYNC_QUEUE_NAME}", Preis-Refresh alle ${PRICE_REFRESH_EVERY_MS / 60000} min)`)
+console.log(
+  `Sync-Worker läuft (Queue "${SYNC_QUEUE_NAME}", Preis-Refresh alle ${PRICE_REFRESH_EVERY_MS / 60000} min, ` +
+    `Auto-Sync alle ${AUTO_SYNC_EVERY_MS / 60000} min)`,
+)
 
 async function shutdown() {
   await worker.close()

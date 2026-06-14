@@ -83,6 +83,7 @@ model User {
   passwordHash  String
   baseCurrency  String            @default("EUR")
   plan          Plan              @default(FREE)
+  autoSyncEnabled Boolean         @default(true)
   stripeCustomerId     String?    @unique
   stripeSubscriptionId String?
   planUntil            DateTime?

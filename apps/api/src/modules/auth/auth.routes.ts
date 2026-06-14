@@ -110,6 +110,7 @@ authRoutes.get(
 
 const updateMeSchema = z.object({
   baseCurrency: z.enum(['EUR', 'USD']).optional(),
+  autoSyncEnabled: z.boolean().optional(),
   // nur im local-Modus wirksam (Dev-Schalter) — Service ignoriert es sonst
   plan: z.enum(['FREE', 'PRO']).optional(),
 })

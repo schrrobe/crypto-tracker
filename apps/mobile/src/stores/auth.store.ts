@@ -72,6 +72,11 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
   }
 
+  async function setAutoSync(enabled: boolean): Promise<void> {
+    const res = await api.patch<{ user: UserDto }>('/auth/me', { autoSyncEnabled: enabled })
+    user.value = res.user
+  }
+
   // Plan neu laden (z.B. nach Rückkehr vom Stripe-Checkout)
   async function refreshUser(): Promise<void> {
     const { user: u } = await api.get<{ user: UserDto }>('/auth/me')
@@ -111,6 +116,7 @@ export const useAuthStore = defineStore('auth', () => {
     deleteAccount,
     refreshUser,
     setDevPlan,
+    setAutoSync,
     sessionExpired,
   }
 })

@@ -18,6 +18,7 @@ export interface UserDto {
   email: string
   baseCurrency: string
   plan: 'FREE' | 'PRO'
+  autoSyncEnabled: boolean
   createdAt: string
 }
 
@@ -32,6 +33,7 @@ function toUserDto(user: {
   email: string
   baseCurrency: string
   plan: 'FREE' | 'PRO'
+  autoSyncEnabled: boolean
   createdAt: Date
 }): UserDto {
   return {
@@ -39,6 +41,7 @@ function toUserDto(user: {
     email: user.email,
     baseCurrency: user.baseCurrency,
     plan: user.plan,
+    autoSyncEnabled: user.autoSyncEnabled,
     createdAt: user.createdAt.toISOString(),
   }
 }
@@ -160,7 +163,7 @@ export async function getMe(userId: string): Promise<UserDto> {
 
 export async function updateMe(
   userId: string,
-  data: { baseCurrency?: string; plan?: 'FREE' | 'PRO' },
+  data: { baseCurrency?: string; plan?: 'FREE' | 'PRO'; autoSyncEnabled?: boolean },
 ): Promise<UserDto> {
   // plan nur im local-Modus änderbar (Dev-Schalter zum Testen des Gatings ohne
   // Stripe); in dev/prod wird der Plan ausschließlich per Stripe-Webhook gesetzt.
@@ -169,6 +172,7 @@ export async function updateMe(
     where: { id: userId },
     data: {
       baseCurrency: data.baseCurrency,
+      ...(data.autoSyncEnabled !== undefined ? { autoSyncEnabled: data.autoSyncEnabled } : {}),
       ...(allowPlan && data.plan ? { plan: data.plan } : {}),
     },
   })
