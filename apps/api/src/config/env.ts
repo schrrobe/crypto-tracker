@@ -36,6 +36,12 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+  // Stripe (Web-Abo). Alle optional → ohne STRIPE_SECRET_KEY ist Billing inaktiv.
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_ID: z.string().optional(),
+  STRIPE_SUCCESS_URL: z.string().url().optional(),
+  STRIPE_CANCEL_URL: z.string().url().optional(),
   // Nur für Tests/lokale Entwicklung: deterministische Preise und Provider statt echter APIs
   FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   FAKE_PROVIDERS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
