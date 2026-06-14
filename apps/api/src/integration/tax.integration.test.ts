@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import request from 'supertest'
 import { prisma } from '../lib/prisma'
-import { API, app, bearer, createExchangeSource, registerUser, type TestUser } from './helpers'
+import { API, app, bearer, createExchangeSource, registerUser, setPlan, type TestUser } from './helpers'
 
 async function findAssetId(user: TestUser, symbol: string): Promise<string> {
   const res = await request(app)
@@ -29,6 +29,7 @@ async function getReport(user: TestUser, year: number, country: string) {
 describe('Steuerreport (Integration)', () => {
   it('DE-Report: FIFO-Gewinn, Freigrenze, Summen', async () => {
     const user = await registerUser('tax-de')
+    await setPlan(user, 'PRO') // Steuerreport ist Pro-only
     const btcId = await findAssetId(user, 'BTC')
 
     await createTx(user, {
@@ -68,6 +69,7 @@ describe('Steuerreport (Integration)', () => {
 
   it('AT-Report: Neuvermögen-Topf separat ausgewiesen', async () => {
     const user = await registerUser('tax-at')
+    await setPlan(user, 'PRO')
     const ethId = await findAssetId(user, 'ETH')
 
     await createTx(user, {
@@ -97,6 +99,7 @@ describe('Steuerreport (Integration)', () => {
 
   it('Backfill: Transaktion ohne Kurs bekommt Fake-Tagespreis (BACKFILLED)', async () => {
     const user = await registerUser('tax-backfill')
+    await setPlan(user, 'PRO')
     const btcId = await findAssetId(user, 'BTC')
 
     await createTx(user, {

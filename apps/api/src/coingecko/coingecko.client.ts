@@ -78,7 +78,7 @@ const CHART_CACHE_TTL_MS = 30 * 60 * 1000
 export async function fetchMarketChart(
   coingeckoId: string,
   currency: 'eur' | 'usd',
-  days: 1 | 7 | 30,
+  days: 1 | 7 | 30 | 365,
 ): Promise<MarketChartPoint[]> {
   const cacheKey = `${coingeckoId}:${currency}:${days}`
   const cached = chartCache.get(cacheKey)

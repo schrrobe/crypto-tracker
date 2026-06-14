@@ -1,8 +1,9 @@
 import { Prisma, type PortfolioSource } from '@prisma/client'
-import type { CreateSourceInput, SourceDto } from '@crypto-tracker/shared'
+import { FREE_LIMITS, type CreateSourceInput, type SourceDto } from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import { encryptSecret, keyPreview } from '../../lib/crypto'
+import { getPlan } from '../../middleware/plan.middleware'
 import { getExchangeProvider, getWalletProvider } from '../../providers/provider.registry'
 import { ProviderError } from '../../providers/provider.types'
 import { toSyncRunDto } from '../sync/syncRun.mapper'
@@ -61,6 +62,13 @@ async function reloadDto(sourceId: string): Promise<SourceDto> {
 }
 
 export async function createSource(userId: string, input: CreateSourceInput): Promise<SourceDto> {
+  // Free-Limit: max. FREE_LIMITS.sources Quellen insgesamt
+  if ((await getPlan(userId)) !== 'PRO') {
+    const count = await prisma.portfolioSource.count({ where: { userId } })
+    if (count >= FREE_LIMITS.sources) {
+      throw AppError.upgradeRequired('Im Free-Tarif sind maximal 5 Quellen möglich')
+    }
+  }
   const portfolioId = await resolvePortfolioId(userId, input.portfolioId)
   if (input.type === 'MANUAL') {
     const source = await prisma.portfolioSource.create({

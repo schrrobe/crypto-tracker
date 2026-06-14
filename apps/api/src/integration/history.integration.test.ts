@@ -51,7 +51,7 @@ describe('Portfolio-Verlauf (Integration)', () => {
     expect(empty.body.points).toHaveLength(0)
 
     await request(app)
-      .get(`${API}/portfolio/history?range=1y`)
+      .get(`${API}/portfolio/history?range=foo`)
       .set(...bearer(user))
       .expect(400)
   })

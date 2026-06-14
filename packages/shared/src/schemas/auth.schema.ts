@@ -33,9 +33,12 @@ export interface AuthTokens {
   refreshToken: string
 }
 
+export type Plan = 'FREE' | 'PRO'
+
 export interface UserDto {
   id: string
   email: string
   baseCurrency: string
+  plan: Plan
   createdAt: string
 }

@@ -2,8 +2,10 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { portfolioScopeQuerySchema } from '@crypto-tracker/shared'
 import { requireAuth } from '../../middleware/auth.middleware'
+import { getPlan } from '../../middleware/plan.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
+import { AppError } from '../../lib/errors'
 import * as portfolioService from './portfolio.service'
 import * as holdingsService from '../holdings/holdings.service'
 
@@ -20,7 +22,7 @@ portfolioRoutes.get(
 )
 
 const historyQuerySchema = z.object({
-  range: z.enum(['24h', '7d', '30d']).default('24h'),
+  range: z.enum(['24h', '7d', '30d', '1y']).default('24h'),
   currency: z.enum(['EUR', 'USD']).default('EUR'),
   portfolioId: z.string().uuid().optional(),
 })
@@ -30,6 +32,10 @@ portfolioRoutes.get(
   validate(historyQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { range, currency, portfolioId } = req.query as unknown as z.infer<typeof historyQuerySchema>
+    // 1-Jahres-Verlauf ist Pro-exklusiv
+    if (range === '1y' && (await getPlan(req.userId)) !== 'PRO') {
+      throw AppError.upgradeRequired()
+    }
     res.json(await portfolioService.getHistory(req.userId, range, currency, portfolioId))
   }),
 )

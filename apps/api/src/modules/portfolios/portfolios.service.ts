@@ -1,7 +1,8 @@
 import type { Portfolio, Prisma } from '@prisma/client'
-import type { PortfolioDto } from '@crypto-tracker/shared'
+import { FREE_LIMITS, type PortfolioDto } from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
+import { getPlan } from '../../middleware/plan.middleware'
 
 const DEFAULT_LABEL = 'Mein Portfolio'
 
@@ -52,6 +53,13 @@ export async function listPortfolios(userId: string): Promise<PortfolioDto[]> {
 }
 
 export async function createPortfolio(userId: string, label: string): Promise<PortfolioDto> {
+  // Free-Limit: max. FREE_LIMITS.portfolios Portfolios
+  if ((await getPlan(userId)) !== 'PRO') {
+    const count = await prisma.portfolio.count({ where: { userId } })
+    if (count >= FREE_LIMITS.portfolios) {
+      throw AppError.upgradeRequired('Im Free-Tarif sind maximal 2 Portfolios möglich')
+    }
+  }
   const portfolio = await prisma.portfolio.create({
     data: { userId, label },
     include: { _count: { select: { sources: true } } },

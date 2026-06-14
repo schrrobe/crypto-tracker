@@ -17,6 +17,7 @@ export interface UserDto {
   id: string
   email: string
   baseCurrency: string
+  plan: 'FREE' | 'PRO'
   createdAt: string
 }
 
@@ -26,11 +27,18 @@ export interface AuthResult {
   refreshToken: string
 }
 
-function toUserDto(user: { id: string; email: string; baseCurrency: string; createdAt: Date }): UserDto {
+function toUserDto(user: {
+  id: string
+  email: string
+  baseCurrency: string
+  plan: 'FREE' | 'PRO'
+  createdAt: Date
+}): UserDto {
   return {
     id: user.id,
     email: user.email,
     baseCurrency: user.baseCurrency,
+    plan: user.plan,
     createdAt: user.createdAt.toISOString(),
   }
 }
@@ -150,8 +158,20 @@ export async function getMe(userId: string): Promise<UserDto> {
   return toUserDto(user)
 }
 
-export async function updateMe(userId: string, data: { baseCurrency?: string }): Promise<UserDto> {
-  const user = await prisma.user.update({ where: { id: userId }, data })
+export async function updateMe(
+  userId: string,
+  data: { baseCurrency?: string; plan?: 'FREE' | 'PRO' },
+): Promise<UserDto> {
+  // plan nur im local-Modus änderbar (Dev-Schalter zum Testen des Gatings ohne
+  // Stripe); in dev/prod wird der Plan ausschließlich per Stripe-Webhook gesetzt.
+  const allowPlan = env.APP_ENV === 'local'
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      baseCurrency: data.baseCurrency,
+      ...(allowPlan && data.plan ? { plan: data.plan } : {}),
+    },
+  })
   return toUserDto(user)
 }
 

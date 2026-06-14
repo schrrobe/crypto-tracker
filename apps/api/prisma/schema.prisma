@@ -72,11 +72,20 @@ enum TxType {
   OTHER
 }
 
+enum Plan {
+  FREE
+  PRO
+}
+
 model User {
   id            String            @id @default(uuid())
   email         String            @unique
   passwordHash  String
   baseCurrency  String            @default("EUR")
+  plan          Plan              @default(FREE)
+  stripeCustomerId     String?    @unique
+  stripeSubscriptionId String?
+  planUntil            DateTime?
   createdAt     DateTime          @default(now())
   sources       PortfolioSource[]
   portfolios    Portfolio[]

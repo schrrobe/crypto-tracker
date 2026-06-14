@@ -188,7 +188,7 @@ export interface CsvUploadResponse {
   duplicateExchangeProvider: (typeof EXCHANGE_PROVIDERS)[number] | null
 }
 
-export type HistoryRange = '24h' | '7d' | '30d'
+export type HistoryRange = '24h' | '7d' | '30d' | '1y'
 
 export interface PortfolioHistoryPoint {
   t: string // ISO-Zeitstempel

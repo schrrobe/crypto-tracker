@@ -79,10 +79,11 @@ export async function getSummary(userId: string, portfolioId?: string): Promise<
   }
 }
 
-const RANGE_CONFIG: Record<HistoryRange, { days: 1 | 7 | 30; buckets: number }> = {
+const RANGE_CONFIG: Record<HistoryRange, { days: 1 | 7 | 30 | 365; buckets: number }> = {
   '24h': { days: 1, buckets: 24 },
   '7d': { days: 7, buckets: 28 },
   '30d': { days: 30, buckets: 30 },
+  '1y': { days: 365, buckets: 52 },
 }
 
 // Begrenzte Asset-Anzahl pro Verlauf: 1 market_chart-Call pro Asset/Währung —
