@@ -21,8 +21,14 @@
       <LoadingSkeleton v-if="pageLoading && portfolio.holdings.length === 0" />
       <ErrorState v-else-if="pageError && portfolio.holdings.length === 0" @retry="loadData" />
       <template v-else-if="portfolio.holdings.length > 0">
-      <ion-list inset>
-        <ion-item v-for="holding in visibleHoldings" :key="holding.id" :data-testid="`holding-${holding.asset.symbol}`">
+      <ion-list v-for="group in groupedHoldings" :key="group.type" inset :data-testid="`holdings-group-${group.type}`">
+        <ion-list-header>
+          <ion-label>{{ $t(`holdings.accountType.${group.type}`) }}</ion-label>
+          <ion-badge :color="badgeColor(group.type)" :data-testid="`holding-badge-${group.type}`">
+            {{ $t(`holdings.accountType.${group.type}`) }}
+          </ion-badge>
+        </ion-list-header>
+        <ion-item v-for="holding in group.items" :key="holding.id" :data-testid="`holding-${holding.asset.symbol}`">
           <ion-label>
             <h3>{{ holding.asset.symbol }}</h3>
             <p>
@@ -30,7 +36,11 @@
               {{ holding.sourceLabel }}
             </p>
           </ion-label>
-          <ion-note slot="end" class="amount">{{ formatCurrency(holding.valueEur, 'EUR') }}</ion-note>
+          <ion-note
+            slot="end"
+            class="amount"
+            :class="{ negative: isNegative(holding.valueEur) }"
+          >{{ formatCurrency(holding.valueEur, 'EUR') }}</ion-note>
           <ion-buttons slot="end">
             <ion-button
               v-if="holding.valueEur === null && holding.asset.coingeckoId === null"
@@ -73,6 +83,8 @@
             : $t('holdings.showUnpriced', { n: unpricedHoldings.length })
         }}
       </ion-button>
+
+      <FuturesPositionsList v-if="portfolio.futuresPositions.length > 0" />
       </template>
 
       <div v-else class="empty" data-testid="holdings-empty">
@@ -103,6 +115,7 @@
 <script setup lang="ts">
 import {
   alertController,
+  IonBadge,
   IonButton,
   IonButtons,
   IonContent,
@@ -113,6 +126,7 @@ import {
   IonItem,
   IonLabel,
   IonList,
+  IonListHeader,
   IonNote,
   IonPage,
   IonTitle,
@@ -129,9 +143,10 @@ import {
 } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { HoldingDto } from '@crypto-tracker/shared'
+import type { HoldingAccountType, HoldingDto } from '@crypto-tracker/shared'
 import AddHoldingModal from '../components/AddHoldingModal.vue'
 import AssetMappingModal from '../components/AssetMappingModal.vue'
+import FuturesPositionsList from '../components/FuturesPositionsList.vue'
 import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
@@ -169,11 +184,28 @@ const visibleHoldings = computed(() =>
   showUnpriced.value ? [...pricedHoldings.value, ...unpricedHoldings.value] : pricedHoldings.value,
 )
 
+// Nach Kontotyp gruppieren (feste Reihenfolge, leere Gruppen ausblenden)
+const ACCOUNT_ORDER: HoldingAccountType[] = ['SPOT', 'EARN', 'MARGIN', 'FUTURES']
+const groupedHoldings = computed(() =>
+  ACCOUNT_ORDER.map((type) => ({
+    type,
+    items: visibleHoldings.value.filter((h) => h.accountType === type),
+  })).filter((g) => g.items.length > 0),
+)
+
+function badgeColor(type: HoldingAccountType): string {
+  return { SPOT: 'medium', EARN: 'success', MARGIN: 'warning', FUTURES: 'primary' }[type]
+}
+// negative Werte (Margin-Verbindlichkeit) rot — bei Privatsphäre-Maske unterdrückt
+function isNegative(value: string | null): boolean {
+  return !balancesHidden.value && value !== null && Number(value) < 0
+}
+
 async function loadData() {
   pageLoading.value = true
   pageError.value = false
   try {
-    await portfolio.loadHoldings()
+    await Promise.all([portfolio.loadHoldings(), portfolio.loadFuturesPositions()])
   } catch {
     pageError.value = true
   } finally {
@@ -224,5 +256,8 @@ onIonViewWillEnter(() => {
   text-align: center;
   margin-top: 48px;
   color: var(--ion-color-medium);
+}
+.amount.negative {
+  color: var(--app-color-loss, #dc2626);
 }
 </style>

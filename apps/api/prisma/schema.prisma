@@ -77,6 +77,20 @@ enum Plan {
   PRO
 }
 
+// Konto-Typ eines Bestands innerhalb einer Börse: Spot, Earn/Savings, Margin
+// (Bestand kann negativ sein = Verbindlichkeit) und Futures-Wallet (Collateral).
+enum HoldingAccountType {
+  SPOT
+  EARN
+  MARGIN
+  FUTURES
+}
+
+enum PositionSide {
+  LONG
+  SHORT
+}
+
 model User {
   id            String            @id @default(uuid())
   email         String            @unique
@@ -155,6 +169,7 @@ model PortfolioSource {
   syncRuns     SyncRun[]
   imports      CsvImport[]
   transactions Transaction[]
+  futuresPositions FuturesPosition[]
 
   @@index([userId])
   @@index([portfolioId])
@@ -194,20 +209,47 @@ model Asset {
   prices      AssetPrice[]
   transactions     Transaction[]
   historicalPrices HistoricalAssetPrice[]
+  futuresPositions FuturesPosition[]
 
   @@index([symbol])
 }
 
 model Holding {
-  id        String          @id @default(uuid())
-  sourceId  String
-  assetId   String
-  quantity  Decimal         @db.Decimal(38, 18)
-  updatedAt DateTime        @updatedAt
-  source    PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  asset     Asset           @relation(fields: [assetId], references: [id])
+  id          String             @id @default(uuid())
+  sourceId    String
+  assetId     String
+  // SPOT/EARN/MARGIN/FUTURES — ein Asset darf je Quelle unter mehreren Kontotypen liegen
+  accountType HoldingAccountType @default(SPOT)
+  // darf negativ sein: Margin-Verbindlichkeit (netAsset < 0)
+  quantity    Decimal            @db.Decimal(38, 18)
+  updatedAt   DateTime           @updatedAt
+  source      PortfolioSource    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  asset       Asset              @relation(fields: [assetId], references: [id])
 
-  @@unique([sourceId, assetId])
+  @@unique([sourceId, assetId, accountType])
+}
+
+// Offene Derivat-Position (Futures/Perpetual). size in Basis-Asset-Einheiten,
+// nicht Notional — Notional = size × markPrice. uPnL in quoteCurrency.
+model FuturesPosition {
+  id               String          @id @default(uuid())
+  sourceId         String
+  // gemapptes Basis-Asset, sonst null → rawSymbol als Fallback
+  assetId          String?
+  rawSymbol        String
+  side             PositionSide
+  size             Decimal         @db.Decimal(38, 18)
+  entryPrice       Decimal?        @db.Decimal(38, 8)
+  markPrice        Decimal?        @db.Decimal(38, 8)
+  leverage         Int?
+  unrealizedPnl    Decimal?        @db.Decimal(38, 8)
+  quoteCurrency    String?
+  liquidationPrice Decimal?        @db.Decimal(38, 8)
+  updatedAt        DateTime        @updatedAt
+  source           PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  asset            Asset?          @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceId, rawSymbol, side])
 }
 
 model Transaction {

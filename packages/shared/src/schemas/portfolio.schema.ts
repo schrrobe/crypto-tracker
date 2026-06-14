@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { ProviderId, SourceType } from '../enums'
+import type { HoldingAccountType, PositionSide, ProviderId, SourceType } from '../enums'
 
 // Mengen laufen als String durch die API — nie als float (Decimal-Präzision)
 export const quantityString = z
@@ -91,10 +91,33 @@ export interface HoldingDto {
   sourceId: string
   sourceLabel: string
   sourceType: SourceType
+  // SPOT/EARN/MARGIN/FUTURES — quantity/valueEur können bei MARGIN negativ sein
+  accountType: HoldingAccountType
   asset: AssetDto
   quantity: string
   valueEur: string | null
   valueUsd: string | null
+}
+
+export interface FuturesPositionDto {
+  id: string
+  sourceId: string
+  sourceLabel: string
+  assetSymbol: string
+  rawSymbol: string
+  side: PositionSide
+  size: string
+  entryPrice: string | null
+  markPrice: string | null
+  leverage: number | null
+  // uPnL in quoteCurrency, wie von der Börse gemeldet
+  unrealizedPnl: string | null
+  quoteCurrency: string | null
+  // uPnL in EUR (über Stablecoin-Kurs); null, wenn kein Kurs vorliegt
+  unrealizedPnlEur: string | null
+  // Notional = size × markPrice in EUR
+  valueEur: string | null
+  liquidationPrice: string | null
 }
 
 export interface SyncRunDto {
@@ -224,10 +247,21 @@ export interface PortfolioHistoryDto {
   excludedAssets: number
 }
 
+export interface AccountTypeBreakdown {
+  accountType: HoldingAccountType
+  valueEur: string
+  valueUsd: string
+}
+
 export interface PortfolioSummaryDto {
   totalEur: string
   totalUsd: string
   pricesFetchedAt: string | null
   byAsset: PortfolioAssetPosition[]
+  // signierte Werte je Kontotyp (MARGIN ggf. negativ)
+  byAccountType: AccountTypeBreakdown[]
+  // unrealisierter Futures-PnL, NICHT in totalEur enthalten
+  futuresUnrealizedPnlEur: string | null
+  futuresUnrealizedPnlUsd: string | null
   unmappedAssets: AssetDto[]
 }

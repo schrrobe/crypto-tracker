@@ -80,6 +80,18 @@ const fr: MessageSchema = {
     range30d: '30j',
     range1y: '1A',
     historyExcluded: '{n} actif(s) sans historique (pas de correspondance)',
+    accountBreakdown: 'Répartition par compte',
+    netLiabilityNote: 'Valeur totale négative : dette de marge ouverte.',
+  },
+  futures: {
+    title: 'Positions futures',
+    side: { LONG: 'Long', SHORT: 'Short' },
+    leverage: 'Levier {x}×',
+    size: 'Taille',
+    liq: 'Liquidation',
+    notional: 'Valeur notionnelle',
+    uPnl: 'Gain/perte non réalisé',
+    uPnlNote: 'Non inclus dans la valeur totale.',
   },
   pnl: {
     title: 'Gain/Perte',
@@ -106,6 +118,12 @@ const fr: MessageSchema = {
   },
   holdings: {
     empty: 'Aucun avoir enregistré.',
+    accountType: {
+      SPOT: 'Spot',
+      EARN: 'Earn',
+      MARGIN: 'Margin',
+      FUTURES: 'Futures',
+    },
     deleteTitle: 'Supprimer {symbol} ?',
     deleteMessage: "L'avoir sera retiré de sa source.",
     addTitle: 'Ajouter un avoir',
@@ -271,6 +289,7 @@ const fr: MessageSchema = {
     unlinkTitle: 'Supprimer la liaison de transfert ?',
     unlinkMessage: "Le coût d'acquisition ne sera alors plus transféré dans le rapport fiscal.",
     swapModalTitle: 'Lier comme échange',
+    noSwapCandidates: 'Aucune contrepartie correspondante trouvée (type opposé, actif différent, quantité/date doivent correspondre).',
     swapHint:
       "Liez cette vente à l'achat du coin reçu (échange crypto-crypto). Dans le rapport fiscal (AT), l'échange est alors fiscalement neutre — le coût d'acquisition est reporté sur le nouvel actif ; en DE, il reste une cession imposable.",
     swapBadge: 'Échange ↔ {asset}',

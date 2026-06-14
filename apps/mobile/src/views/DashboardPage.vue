@@ -32,11 +32,14 @@
       <ion-card button data-testid="total-value-card" @click="toggleCurrency">
         <ion-card-header>
           <ion-card-subtitle>{{ $t('dashboard.totalValue', { currency }) }}</ion-card-subtitle>
-          <ion-card-title class="amount total" data-testid="total-value">
+          <ion-card-title class="amount total" :class="{ negative: totalIsNegative }" data-testid="total-value">
             {{ totalFormatted }}
           </ion-card-title>
         </ion-card-header>
         <ion-card-content>
+          <p v-if="totalIsNegative" class="muted" data-testid="net-liability-note">
+            {{ $t('dashboard.netLiabilityNote') }}
+          </p>
           <p class="muted">
             {{
               $t('dashboard.pricesUpdated', {
@@ -65,7 +68,7 @@
             <ion-icon v-if="!auth.isPro" :icon="lockClosedOutline" />
           </ion-card-subtitle>
           <ion-card-title
-            v-if="auth.isPro && portfolio.pnl"
+            v-if="auth.isPro && portfolio.pnl && portfolio.pnl.positions.length > 0"
             class="amount"
             :style="{ color: pnlColor(portfolio.pnl.totalPnlEur) }"
             data-testid="pnl-total"
@@ -86,6 +89,33 @@
           </template>
           <p v-else class="muted">{{ $t('pnl.empty') }}</p>
           <p class="muted">{{ $t('pnl.basisNote') }}</p>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Konten-Aufteilung (Earn/Margin/Futures) — frei -->
+      <ion-card v-if="hasBreakdown" data-testid="account-breakdown-card">
+        <ion-card-header>
+          <ion-card-subtitle>{{ $t('dashboard.accountBreakdown') }}</ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+          <div
+            v-for="row in breakdownRows"
+            :key="row.accountType"
+            class="pnl-row"
+            :data-testid="`breakdown-${row.accountType}`"
+          >
+            <span>{{ $t(`holdings.accountType.${row.accountType}`) }}</span>
+            <span class="amount" :class="{ negative: rowIsNegative(row) }">
+              {{ formatCurrency(currency === 'EUR' ? row.valueEur : row.valueUsd, currency) }}
+            </span>
+          </div>
+          <div v-if="futuresUpnl !== null" class="pnl-row" data-testid="breakdown-futures-upnl">
+            <span>{{ $t('futures.uPnl') }}</span>
+            <span class="amount" :style="{ color: pnlColor(futuresUpnl) }">
+              {{ formatCurrencyRaw(futuresUpnl, 'EUR') }}
+            </span>
+          </div>
+          <p class="muted">{{ $t('futures.uPnlNote') }}</p>
         </ion-card-content>
       </ion-card>
 
@@ -202,6 +232,21 @@ const totalFormatted = computed(() => {
 
 const topAssets = computed(() => (portfolio.summary?.byAsset ?? []).slice(0, 5))
 
+// Konten-Aufteilung: SPOT ist bereits das Headline-Total → nur Nicht-SPOT zeigen
+const breakdownRows = computed(() =>
+  (portfolio.summary?.byAccountType ?? []).filter((r) => r.accountType !== 'SPOT'),
+)
+const futuresUpnl = computed(() => portfolio.summary?.futuresUnrealizedPnlEur ?? null)
+const hasBreakdown = computed(() => breakdownRows.value.length > 0 || futuresUpnl.value !== null)
+function rowIsNegative(row: { valueEur: string; valueUsd: string }): boolean {
+  return Number(currency.value === 'EUR' ? row.valueEur : row.valueUsd) < 0
+}
+const totalIsNegative = computed(() => {
+  const s = portfolio.summary
+  if (!s) return false
+  return Number(currency.value === 'EUR' ? s.totalEur : s.totalUsd) < 0
+})
+
 function toggleCurrency() {
   currency.value = currency.value === 'EUR' ? 'USD' : 'EUR'
 }
@@ -225,6 +270,9 @@ onIonViewWillEnter(() => {
 <style scoped>
 .total {
   font-size: 2.2rem;
+}
+.amount.negative {
+  color: var(--app-color-loss, #dc2626);
 }
 .pnl-row {
   display: flex;

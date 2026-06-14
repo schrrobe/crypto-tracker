@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { portfolioScopeQuerySchema } from '@crypto-tracker/shared'
+import { historyRangesFor, portfolioScopeQuerySchema } from '@crypto-tracker/shared'
 import { requireAuth } from '../../middleware/auth.middleware'
 import { getPlan, requirePro } from '../../middleware/plan.middleware'
 import { validate } from '../../middleware/validate.middleware'
@@ -33,6 +33,16 @@ portfolioRoutes.get(
   }),
 )
 
+// Offene Futures-/Perpetual-Positionen (frei, kein Pro-Gate)
+portfolioRoutes.get(
+  '/futures',
+  validate(portfolioScopeQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const { portfolioId } = req.query as { portfolioId?: string }
+    res.json({ positions: await holdingsService.listFuturesPositions(req.userId, portfolioId) })
+  }),
+)
+
 const historyQuerySchema = z.object({
   range: z.enum(['24h', '7d', '30d', '1y']).default('24h'),
   currency: z.enum(['EUR', 'USD']).default('EUR'),
@@ -44,8 +54,8 @@ portfolioRoutes.get(
   validate(historyQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { range, currency, portfolioId } = req.query as unknown as z.infer<typeof historyQuerySchema>
-    // 1-Jahres-Verlauf ist Pro-exklusiv
-    if (range === '1y' && (await getPlan(req.userId)) !== 'PRO') {
+    // erlaubte Zeiträume zentral aus den Entitlements (1y ist Pro-exklusiv)
+    if (!historyRangesFor(await getPlan(req.userId)).includes(range)) {
       throw AppError.upgradeRequired()
     }
     res.json(await portfolioService.getHistory(req.userId, range, currency, portfolioId))

@@ -22,7 +22,9 @@ describe('Auto-Sync (Integration)', () => {
 
     expect(await runCount(pro.userId)).toBeGreaterThan(0)
     expect(await runCount(free.userId)).toBe(0)
-  })
+    // enqueueAutoSync ist global: synct alle im Test-DB akkumulierten Pro-Quellen
+    // inline (jede jetzt mit Multi-Konto + Futures) → großzügiges Timeout
+  }, 30000)
 
   it('überspringt Pro-Nutzer mit autoSyncEnabled=false', async () => {
     const user = await registerUser('autosync-off') // PRO
@@ -32,5 +34,5 @@ describe('Auto-Sync (Integration)', () => {
     await enqueueAutoSync()
 
     expect(await runCount(user.userId)).toBe(0)
-  })
+  }, 30000)
 })

@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 
@@ -48,7 +49,16 @@ export async function linkSwap(userId: string, txId: string, counterpartId: stri
     }
   }
 
-  await prisma.swapLink.create({ data: { sellTxId: sell.id, buyTxId: buy.id } })
+  try {
+    await prisma.swapLink.create({ data: { sellTxId: sell.id, buyTxId: buy.id } })
+  } catch (error) {
+    // Race: zwei parallele Verknüpfungen derselben Transaktion laufen am obigen
+    // Check vorbei und kollidieren am Unique-Index → sauberer 409 statt 500.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw AppError.conflict('SWAP_LINK_ALREADY_LINKED', 'Eine der Transaktionen ist bereits verknüpft')
+    }
+    throw error
+  }
 }
 
 export async function unlinkSwap(userId: string, txId: string): Promise<void> {

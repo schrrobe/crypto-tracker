@@ -39,17 +39,18 @@ describe('krakenSignature', () => {
 })
 
 describe('normalizeKrakenAsset', () => {
-  it('übersetzt Kraken-Altcodes', () => {
-    expect(normalizeKrakenAsset('XXBT')).toBe('BTC')
-    expect(normalizeKrakenAsset('XETH')).toBe('ETH')
-    expect(normalizeKrakenAsset('XXDG')).toBe('DOGE')
-    expect(normalizeKrakenAsset('SOL')).toBe('SOL')
+  it('übersetzt Kraken-Altcodes (Spot)', () => {
+    expect(normalizeKrakenAsset('XXBT')).toEqual({ symbol: 'BTC', accountType: 'SPOT' })
+    expect(normalizeKrakenAsset('XETH')).toEqual({ symbol: 'ETH', accountType: 'SPOT' })
+    expect(normalizeKrakenAsset('XXDG')).toEqual({ symbol: 'DOGE', accountType: 'SPOT' })
+    expect(normalizeKrakenAsset('SOL')).toEqual({ symbol: 'SOL', accountType: 'SPOT' })
   })
 
-  it('löst Staking-Suffixe auf das Basis-Asset auf', () => {
-    expect(normalizeKrakenAsset('ETH2.S')).toBe('ETH')
-    expect(normalizeKrakenAsset('SOL.S')).toBe('SOL')
-    expect(normalizeKrakenAsset('XBT.M')).toBe('BTC')
+  it('leitet aus Suffixen den Kontotyp ab', () => {
+    expect(normalizeKrakenAsset('ETH2.S')).toEqual({ symbol: 'ETH', accountType: 'EARN' })
+    expect(normalizeKrakenAsset('SOL.S')).toEqual({ symbol: 'SOL', accountType: 'EARN' })
+    expect(normalizeKrakenAsset('XBT.M')).toEqual({ symbol: 'BTC', accountType: 'MARGIN' })
+    expect(normalizeKrakenAsset('ETH2')).toEqual({ symbol: 'ETH', accountType: 'EARN' })
   })
 
   it('überspringt Fiat und Fee-Credits', () => {
@@ -65,10 +66,11 @@ describe('krakenProvider.fetchBalances', () => {
     mockFetch(200, BALANCE_FIXTURE)
     const balances = await krakenProvider.fetchBalances(CREDS)
 
-    expect(balances).toContainEqual({ symbol: 'BTC', amount: '0.5000000000', meta: { krakenCode: 'XXBT' } })
-    expect(balances).toContainEqual({ symbol: 'SOL', amount: '10.00000000', meta: { krakenCode: 'SOL' } })
-    // ETH + gestaktes ETH2.S als getrennte Einträge — SyncService summiert
+    expect(balances).toContainEqual({ symbol: 'BTC', amount: '0.5000000000', accountType: 'SPOT', meta: { krakenCode: 'XXBT' } })
+    expect(balances).toContainEqual({ symbol: 'SOL', amount: '10.00000000', accountType: 'SPOT', meta: { krakenCode: 'SOL' } })
+    // ETH (Spot) + gestaktes ETH2.S (Earn) als getrennte, unterschiedlich getaggte Einträge
     expect(balances.filter((b) => b.symbol === 'ETH')).toHaveLength(2)
+    expect(balances).toContainEqual({ symbol: 'ETH', amount: '1.0000000000', accountType: 'EARN', meta: { krakenCode: 'ETH2.S' } })
     // Fiat, Fee-Credits und Nullbestände fehlen
     expect(balances.map((b) => b.symbol)).not.toContain('ADA')
     // XXBT + XETH + SOL + ETH2.S

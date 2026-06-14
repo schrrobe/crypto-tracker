@@ -12,6 +12,7 @@ import {
 } from '../../lib/jwt'
 import { sendMail } from '../../lib/mailer'
 import { env } from '../../config/env'
+import { cancelSubscription } from '../billing/billing.service'
 
 export interface UserDto {
   id: string
@@ -184,6 +185,24 @@ export async function updateMe(
 // per Cascade dran), dann Portfolios (sonst greift der Restrict-FK
 // PortfolioSource→Portfolio), dann der User selbst (Tokens kaskadieren).
 export async function deleteAccount(userId: string): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { stripeSubscriptionId: true },
+  })
+  // Stripe-Abo kündigen, BEVOR der User (und damit die Kundenzuordnung) gelöscht
+  // wird — sonst läuft die Abrechnung weiter und der Downgrade-Webhook findet den
+  // User nicht mehr. Ein Stripe-Fehler darf die Konto-Löschung (Store-Pflicht)
+  // nicht blockieren: nur protokollieren, damit das Abo manuell beendet werden kann.
+  if (user?.stripeSubscriptionId) {
+    try {
+      await cancelSubscription(user.stripeSubscriptionId)
+    } catch (error) {
+      console.error(
+        `Stripe-Abo ${user.stripeSubscriptionId} bei Konto-Löschung nicht gekündigt:`,
+        error instanceof Error ? error.message : error,
+      )
+    }
+  }
   await prisma.$transaction([
     prisma.portfolioSource.deleteMany({ where: { userId } }),
     prisma.portfolio.deleteMany({ where: { userId } }),

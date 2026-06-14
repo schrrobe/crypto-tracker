@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto'
+import type { HoldingAccountType } from '@prisma/client'
 import {
   ProviderError,
   type ExchangeCredentials,
@@ -46,8 +47,17 @@ interface KucoinResponse {
 // 400004 = Passphrase falsch, 400005 = Signatur falsch
 const AUTH_ERROR_CODES = new Set(['400003', '400004', '400005'])
 
-// Nur Spot-relevante Kontotypen — Margin/Futures sind out of scope (V1)
-const ACCOUNT_TYPES = new Set(['main', 'trade'])
+// Kontotyp-Abbildung. Spot-Futures liegen auf einem eigenen Host
+// (api-futures.kucoin.com) und bleiben in V1 außen vor.
+const ACCOUNT_TYPE_MAP: Record<string, HoldingAccountType> = {
+  main: 'SPOT',
+  trade: 'SPOT',
+  trade_hf: 'SPOT',
+  margin: 'MARGIN',
+  isolated: 'MARGIN',
+  margin_v2: 'MARGIN',
+  pool: 'EARN',
+}
 
 // Fiat wird in V1 nicht getrackt
 const SKIP = new Set(['EUR', 'USD', 'GBP', 'CHF'])
@@ -81,12 +91,13 @@ async function fetchKucoinBalances(creds: ExchangeCredentials): Promise<RawBalan
 
   const balances: RawBalance[] = []
   for (const account of json.data ?? []) {
-    if (!ACCOUNT_TYPES.has(account.type)) continue
+    const accountType = ACCOUNT_TYPE_MAP[account.type]
+    if (!accountType) continue
     const symbol = account.currency.toUpperCase()
     if (SKIP.has(symbol)) continue
-    // main- und trade-Konto als getrennte Einträge — der SyncService summiert
-    // gleiche Symbole per Decimal (kein float in der Provider-Schicht)
-    if (Number(account.balance) > 0) balances.push({ symbol, amount: account.balance })
+    // Konten als getrennte Einträge — der SyncService summiert gleiche Symbole je
+    // Kontotyp per Decimal (kein float in der Provider-Schicht)
+    if (Number(account.balance) > 0) balances.push({ symbol, amount: account.balance, accountType })
   }
   return balances
 }

@@ -79,6 +79,18 @@ const de = {
     range30d: '30T',
     range1y: '1J',
     historyExcluded: '{n} Asset(s) ohne Verlauf (kein Mapping)',
+    accountBreakdown: 'Konten-Aufteilung',
+    netLiabilityNote: 'Negativer Gesamtwert: offene Margin-Verbindlichkeit.',
+  },
+  futures: {
+    title: 'Futures-Positionen',
+    side: { LONG: 'Long', SHORT: 'Short' },
+    leverage: '{x}× Hebel',
+    size: 'Größe',
+    liq: 'Liquidation',
+    notional: 'Nominalwert',
+    uPnl: 'Unrealisierter Gewinn/Verlust',
+    uPnlNote: 'Nicht im Gesamtwert enthalten.',
   },
   pnl: {
     title: 'Gewinn/Verlust',
@@ -105,6 +117,12 @@ const de = {
   },
   holdings: {
     empty: 'Noch keine Bestände erfasst.',
+    accountType: {
+      SPOT: 'Spot',
+      EARN: 'Earn',
+      MARGIN: 'Margin',
+      FUTURES: 'Futures',
+    },
     deleteTitle: '{symbol} löschen?',
     deleteMessage: 'Der Bestand wird aus der Quelle entfernt.',
     addTitle: 'Bestand hinzufügen',
@@ -270,6 +288,7 @@ const de = {
     unlinkTitle: 'Transfer-Verknüpfung lösen?',
     unlinkMessage: 'Die Kostenbasis wird im Steuerreport dann nicht mehr übertragen.',
     swapModalTitle: 'Als Tausch verknüpfen',
+    noSwapCandidates: 'Kein passendes Gegenstück gefunden (Gegentyp, anderes Asset, Menge/Zeit müssen passen).',
     swapHint:
       'Verknüpfe diesen Verkauf mit dem Kauf des erhaltenen Coins (Krypto-zu-Krypto-Tausch). Im Steuerreport (AT) ist der Tausch dann steuerneutral — die Kostenbasis wandert auf das neue Asset; in DE bleibt es ein steuerpflichtiges Veräußerungsgeschäft.',
     swapBadge: 'Tausch ↔ {asset}',

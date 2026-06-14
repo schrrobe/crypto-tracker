@@ -86,4 +86,7 @@
 - AT-Steuerreport nutzt globale Pools (dokumentierte Vereinfachung). Als Tausch verknüpfte Krypto-zu-Krypto-Vorgänge
   (`SwapLink`) sind in AT steuerneutral (§27b, dokumentierte Auslegung — fachlich prüfen lassen), in DE eine Veräußerung;
   unverknüpfte Tauschvorgänge/FX bleiben unabgebildet.
-- Exchange-Provider decken nur Spot/Hauptkonto ab (kein Earn/Margin/Futures, außer Kraken-Staking/Binance-Flexible).
+- Earn/Margin/Futures sind erfasst (Binance/OKX/Bybit/KuCoin + Kraken-Suffixe). Die Sub-Endpoint-Parser sind mangels
+  echter read-only-Keys nur fixture-/unit-getestet — vor Livegang mit echten Keys gegen die realen Endpoints prüfen
+  (Feldnamen/Contract-Größen können je Börse abweichen). Margin-Verbindlichkeiten können den Gesamtwert negativ machen
+  (UI weist das als „Verbindlichkeit" aus). Kraken-/KuCoin-Futures (eigener API-Host) sind noch nicht abgedeckt.

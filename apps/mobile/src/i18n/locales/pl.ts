@@ -80,6 +80,18 @@ const pl: MessageSchema = {
     range30d: '30d',
     range1y: '1R',
     historyExcluded: 'Aktywa bez historii (brak przypisania): {n}',
+    accountBreakdown: 'Podział na konta',
+    netLiabilityNote: 'Ujemna wartość łączna: otwarte zobowiązanie margin.',
+  },
+  futures: {
+    title: 'Pozycje futures',
+    side: { LONG: 'Long', SHORT: 'Short' },
+    leverage: 'Dźwignia {x}×',
+    size: 'Wielkość',
+    liq: 'Likwidacja',
+    notional: 'Wartość nominalna',
+    uPnl: 'Niezrealizowany zysk/strata',
+    uPnlNote: 'Nie wliczone do wartości łącznej.',
   },
   pnl: {
     title: 'Zysk/strata',
@@ -106,6 +118,12 @@ const pl: MessageSchema = {
   },
   holdings: {
     empty: 'Nie dodano jeszcze żadnych aktywów.',
+    accountType: {
+      SPOT: 'Spot',
+      EARN: 'Earn',
+      MARGIN: 'Margin',
+      FUTURES: 'Futures',
+    },
     deleteTitle: 'Usunąć {symbol}?',
     deleteMessage: 'Aktywo zostanie usunięte ze źródła.',
     addTitle: 'Dodaj aktywo',
@@ -271,6 +289,7 @@ const pl: MessageSchema = {
     unlinkTitle: 'Rozłączyć powiązanie transferu?',
     unlinkMessage: 'Koszt nabycia nie będzie wtedy przenoszony w raporcie podatkowym.',
     swapModalTitle: 'Połącz jako wymianę',
+    noSwapCandidates: 'Nie znaleziono pasującego odpowiednika (przeciwny typ, inne aktywo, ilość/czas muszą się zgadzać).',
     swapHint:
       'Połącz tę sprzedaż z zakupem otrzymanej monety (wymiana krypto-krypto). W raporcie podatkowym (AT) wymiana jest wtedy neutralna podatkowo — koszt nabycia przechodzi na nowe aktywo; w DE pozostaje opodatkowanym zbyciem.',
     swapBadge: 'Wymiana ↔ {asset}',

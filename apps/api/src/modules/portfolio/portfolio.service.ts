@@ -1,6 +1,8 @@
 import { Prisma } from '@prisma/client'
 import type {
+  AccountTypeBreakdown,
   HistoryRange,
+  HoldingAccountType,
   PortfolioAssetPosition,
   PortfolioHistoryDto,
   PortfolioSummaryDto,
@@ -70,13 +72,55 @@ export async function getSummary(userId: string, portfolioId?: string): Promise<
   // Größte Position zuerst
   byAsset.sort((a, b) => Number(b.valueEur ?? 0) - Number(a.valueEur ?? 0))
 
+  // Signierte Aufschlüsselung je Kontotyp (MARGIN ggf. negativ)
+  const accTotals = new Map<HoldingAccountType, { eur: Prisma.Decimal; usd: Prisma.Decimal }>()
+  for (const h of holdings) {
+    const price = prices.get(h.assetId)
+    if (!price) continue
+    const prev = accTotals.get(h.accountType) ?? { eur: ZERO, usd: ZERO }
+    accTotals.set(h.accountType, {
+      eur: prev.eur.add(h.quantity.mul(price.priceEur)),
+      usd: prev.usd.add(h.quantity.mul(price.priceUsd)),
+    })
+  }
+  const byAccountType: AccountTypeBreakdown[] = [...accTotals.entries()].map(([accountType, v]) => ({
+    accountType,
+    valueEur: v.eur.toFixed(2),
+    valueUsd: v.usd.toFixed(2),
+  }))
+
+  // Futures-uPnL separat (NICHT in totalEur — Collateral steckt schon in den Holdings)
+  const { eur: futuresUnrealizedPnlEur, usd: futuresUnrealizedPnlUsd } = await futuresUpnl(userId, pid)
+
   return {
     totalEur: totalEur.toFixed(2),
     totalUsd: totalUsd.toFixed(2),
     pricesFetchedAt: pricesFetchedAt?.toISOString() ?? null,
     byAsset,
+    byAccountType,
+    futuresUnrealizedPnlEur,
+    futuresUnrealizedPnlUsd,
     unmappedAssets,
   }
+}
+
+// Summe der unrealisierten Futures-PnL (in quoteCurrency ≈ USD) → EUR/USD über
+// den Stablecoin-Kurs (tether). Null, wenn keine Positionen oder kein Kurs.
+async function futuresUpnl(
+  userId: string,
+  portfolioId: string,
+): Promise<{ eur: string | null; usd: string | null }> {
+  const positions = await prisma.futuresPosition.findMany({
+    where: { source: { userId, portfolioId }, unrealizedPnl: { not: null } },
+    select: { unrealizedPnl: true },
+  })
+  if (positions.length === 0) return { eur: null, usd: null }
+  const usdt = await prisma.asset.findUnique({ where: { coingeckoId: 'tether' } })
+  const price = usdt ? (await getLatestPrices([usdt.id])).get(usdt.id) : undefined
+  if (!price) return { eur: null, usd: null }
+  let sum = ZERO
+  for (const p of positions) sum = sum.add(p.unrealizedPnl ?? ZERO)
+  return { eur: sum.mul(price.priceEur).toFixed(2), usd: sum.mul(price.priceUsd).toFixed(2) }
 }
 
 const RANGE_CONFIG: Record<HistoryRange, { days: 1 | 7 | 30 | 365; buckets: number }> = {

@@ -1,5 +1,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { okxProvider, okxSignature } from './okx'
+import { okxProvider, okxSignature, parseOkxPositions } from './okx'
+
+describe('parseOkxPositions', () => {
+  it('normalisiert offene Positionen (Long/Short, Quote aus instId)', () => {
+    const positions = parseOkxPositions([
+      { instId: 'BTC-USDT-SWAP', posSide: 'long', pos: '0.5', avgPx: '48000', markPx: '50000', lever: '5', upl: '1000', liqPx: '40000' },
+      { instId: 'ETH-USDT-SWAP', posSide: 'short', pos: '2', avgPx: '3100', markPx: '3000', lever: '3', upl: '200', liqPx: '3600' },
+      { instId: 'SOL-USDT-SWAP', posSide: 'net', pos: '0', avgPx: '100' }, // geschlossen → ignoriert
+    ])
+    expect(positions).toHaveLength(2)
+    expect(positions[0]).toMatchObject({ baseSymbol: 'BTC', side: 'LONG', size: '0.5', quoteCurrency: 'USDT', leverage: 5 })
+    expect(positions[1]).toMatchObject({ baseSymbol: 'ETH', side: 'SHORT', size: '2', unrealizedPnl: '200' })
+  })
+
+  it('leitet die Seite im Netto-Modus aus dem Vorzeichen ab', () => {
+    const [p] = parseOkxPositions([{ instId: 'BTC-USDT-SWAP', posSide: 'net', pos: '-1' }])
+    expect(p).toMatchObject({ side: 'SHORT', size: '1' })
+  })
+})
 
 // Realistische OKX-Balance-Response (GET /api/v5/account/balance)
 const BALANCE_FIXTURE = {

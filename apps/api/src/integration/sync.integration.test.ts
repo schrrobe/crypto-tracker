@@ -2,7 +2,8 @@ import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 import { API, app, bearer, createExchangeSource, createManualSource, registerUser } from './helpers'
 
-// FAKE_PROVIDERS: Sync liefert 0.1 BTC + 2 ETH · apiKey "SYNCFAIL…" → fetchBalances wirft
+// FAKE_PROVIDERS (Kraken = Spot-only-Fake): Sync liefert 0.1 BTC + 2 ETH ·
+// apiKey "SYNCFAIL…" → fetchBalances wirft. (Multi-Konto: account-types.integration)
 
 describe('Sync-Flow (Integration)', () => {
   it('Sync ersetzt die Holdings der Quelle vollständig (kein Duplizieren bei Re-Sync)', async () => {

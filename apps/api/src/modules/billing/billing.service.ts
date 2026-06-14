@@ -57,6 +57,21 @@ export async function createPortalSession(userId: string): Promise<string> {
   return portal.url
 }
 
+// current_period_end ist in neueren Stripe-API-Versionen (basil) vom Subscription-
+// Objekt auf die einzelnen Items gewandert; beide Stellen prüfen (Fallback).
+function subscriptionPeriodEnd(sub: Stripe.Subscription): number | null {
+  const item = sub.items?.data?.[0] as { current_period_end?: number } | undefined
+  const top = (sub as unknown as { current_period_end?: number }).current_period_end
+  return item?.current_period_end ?? top ?? null
+}
+
+// Abo bei Stripe kündigen (z.B. bei Konto-Löschung). No-op ohne konfiguriertes Billing.
+export async function cancelSubscription(subscriptionId: string): Promise<void> {
+  if (!billingEnabled()) return
+  const s = requireStripe()
+  await s.subscriptions.cancel(subscriptionId)
+}
+
 async function applyPlanByCustomer(
   customerId: string,
   plan: Plan,
@@ -70,7 +85,10 @@ async function applyPlanByCustomer(
     data: {
       plan,
       stripeSubscriptionId: subscriptionId ?? undefined,
-      planUntil: periodEndSec ? new Date(periodEndSec * 1000) : null,
+      // planUntil nur setzen, wenn ein Periodenende vorliegt — NICHT auf null
+      // zurücksetzen: checkout.session.completed liefert keins, käme dieses Event
+      // nach einem subscription.updated, würde es sonst ein gültiges Ablaufdatum löschen.
+      ...(periodEndSec ? { planUntil: new Date(periodEndSec * 1000) } : {}),
     },
   })
 }
@@ -90,19 +108,19 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
-    if (session.customer) {
-      await applyPlanByCustomer(String(session.customer), 'PRO', (session.subscription as string) ?? null)
+    if (session.customer && session.subscription) {
+      // Subscription laden, damit planUntil sofort beim Upgrade gesetzt wird
+      // (die Session selbst trägt kein Periodenende).
+      const sub = await s.subscriptions.retrieve(String(session.subscription))
+      await applyPlanByCustomer(String(session.customer), 'PRO', sub.id, subscriptionPeriodEnd(sub))
+    } else if (session.customer) {
+      await applyPlanByCustomer(String(session.customer), 'PRO', null)
     }
     return
   }
   if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
     const sub = event.data.object as Stripe.Subscription
     const active = sub.status === 'active' || sub.status === 'trialing'
-    await applyPlanByCustomer(
-      String(sub.customer),
-      active ? 'PRO' : 'FREE',
-      sub.id,
-      (sub as unknown as { current_period_end?: number }).current_period_end,
-    )
+    await applyPlanByCustomer(String(sub.customer), active ? 'PRO' : 'FREE', sub.id, subscriptionPeriodEnd(sub))
   }
 }

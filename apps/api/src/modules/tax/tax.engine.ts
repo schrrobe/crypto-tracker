@@ -415,10 +415,13 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
         // Swap-BUY (Asset B): übernimmt die Kostenbasis des getauschten A (§27b),
         // landet als Neuvermögen — unabhängig vom Tauschzeitpunkt
         if (tx.type === 'BUY' && tx.swapGroupId !== null) {
-          const carried = pendingSwaps.get(tx.swapGroupId) ?? ZERO
+          const carried = pendingSwaps.get(tx.swapGroupId)
+          // Fehlt das SELL-Leg im Stream, ist die übernommene Basis unbekannt (0) —
+          // ohne Hinweis überzeichnet eine spätere Veräußerung von B den Gewinn.
+          if (carried === undefined) warnings.add(TaxWarningCode.UNKNOWN_ACQUISITION_BASIS, tx.assetSymbol)
           pendingSwaps.delete(tx.swapGroupId)
           neuPool.quantity = neuPool.quantity.add(tx.quantity)
-          neuPool.totalCost = neuPool.totalCost.add(carried)
+          neuPool.totalCost = neuPool.totalCost.add(carried ?? ZERO)
           break
         }
         const cost = acquisitionCost(tx, warnings)
@@ -483,6 +486,8 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
           const carried = [...altSlices, ...neuSlices].reduce((sum, s) => sum.add(s.costBasisEur), ZERO)
           pendingSwaps.set(tx.swapGroupId, carried)
           warnings.add(TaxWarningCode.SWAP_DEFERRED, tx.assetSymbol)
+          // mehr getauscht als angeschafft → weitergereichte Basis ist zu niedrig
+          if (oversold) warnings.add(TaxWarningCode.SOLD_MORE_THAN_ACQUIRED, tx.assetSymbol)
           break
         }
 

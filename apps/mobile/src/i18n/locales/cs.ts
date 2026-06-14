@@ -80,6 +80,18 @@ const cs: MessageSchema = {
     range30d: '30d',
     range1y: '1R',
     historyExcluded: 'Aktiva bez historie (bez přiřazení): {n}',
+    accountBreakdown: 'Rozdělení podle účtů',
+    netLiabilityNote: 'Záporná celková hodnota: otevřený maržový závazek.',
+  },
+  futures: {
+    title: 'Futures pozice',
+    side: { LONG: 'Long', SHORT: 'Short' },
+    leverage: 'Páka {x}×',
+    size: 'Velikost',
+    liq: 'Likvidace',
+    notional: 'Nominální hodnota',
+    uPnl: 'Nerealizovaný zisk/ztráta',
+    uPnlNote: 'Není zahrnuto v celkové hodnotě.',
   },
   pnl: {
     title: 'Zisk/ztráta',
@@ -106,6 +118,12 @@ const cs: MessageSchema = {
   },
   holdings: {
     empty: 'Zatím nebyla zaznamenána žádná aktiva.',
+    accountType: {
+      SPOT: 'Spot',
+      EARN: 'Earn',
+      MARGIN: 'Margin',
+      FUTURES: 'Futures',
+    },
     deleteTitle: 'Smazat {symbol}?',
     deleteMessage: 'Aktivum bude odebráno ze zdroje.',
     addTitle: 'Přidat aktivum',
@@ -271,6 +289,7 @@ const cs: MessageSchema = {
     unlinkTitle: 'Zrušit propojení převodu?',
     unlinkMessage: 'Pořizovací náklady se pak v daňovém reportu už nepřenesou.',
     swapModalTitle: 'Propojit jako směnu',
+    noSwapCandidates: 'Nebyl nalezen žádný odpovídající protějšek (opačný typ, jiné aktivum, množství/čas musí odpovídat).',
     swapHint:
       'Propojte tento prodej s nákupem přijaté mince (směna krypto-krypto). V daňovém reportu (AT) je pak směna daňově neutrální — pořizovací náklady přejdou na nové aktivum; v DE zůstává zdanitelným prodejem.',
     swapBadge: 'Směna ↔ {asset}',

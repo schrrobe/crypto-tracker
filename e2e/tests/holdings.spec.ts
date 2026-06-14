@@ -89,6 +89,46 @@ test('doppeltes Asset in derselben Quelle wird abgelehnt', async ({ page }) => {
   await page.getByTestId('holding-modal-cancel').click()
 })
 
+test('Konten-Aufteilung: Earn/Margin-Gruppen, negative Margin, Futures-Positionen', async ({ page }) => {
+  await register(page, uniqueEmail('breakdown'))
+
+  // Binance-Fake liefert Multi-Konto: SPOT BTC/ETH, EARN BTC, MARGIN -300 USDT + 2 Futures
+  await page.getByRole('tab', { name: 'Quellen' }).click()
+  await page.getByTestId('add-source').click()
+  await page.getByTestId('exchange-provider').click()
+  await page.getByRole('radio', { name: 'Binance' }).click()
+  await input(page, 'source-label').fill('Binance Test')
+  await input(page, 'source-api-key').fill('valid-key-1234')
+  await input(page, 'source-api-secret').fill('valid-secret')
+  await page.getByTestId('source-save').click()
+  await page.getByTestId('source-sync-Binance Test').click()
+  await expect(page.getByTestId('source-Binance Test')).toContainText('gerade eben')
+
+  // Bestände: Gruppen je Kontotyp + Badges
+  await page.getByRole('tab', { name: 'Bestände' }).click()
+  await expect(page.getByTestId('holdings-group-SPOT')).toBeVisible()
+  await expect(page.getByTestId('holdings-group-EARN')).toBeVisible()
+  await expect(page.getByTestId('holdings-group-MARGIN')).toBeVisible()
+  await expect(page.getByTestId('holding-badge-MARGIN')).toContainText('Margin')
+
+  // negative Margin (USDT -300 × 0,9 € = -270 €) rot
+  const marginGroup = page.getByTestId('holdings-group-MARGIN')
+  await expect(marginGroup).toContainText('-270,00')
+  await expect(marginGroup.locator('.amount.negative')).toBeVisible()
+
+  // Futures-Positionen: Side + uPnL
+  await expect(page.getByTestId('futures-list')).toBeVisible()
+  await expect(page.getByTestId('futures-side-BTC')).toContainText('Long')
+  await expect(page.getByTestId('futures-side-ETH')).toContainText('Short')
+  await expect(page.getByTestId('futures-pnl-BTC')).toBeVisible()
+
+  // Dashboard: Konten-Aufteilungs-Card + Futures-uPnL-Zeile
+  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await expect(page.getByTestId('account-breakdown-card')).toBeVisible()
+  await expect(page.getByTestId('breakdown-MARGIN')).toContainText('-270,00')
+  await expect(page.getByTestId('breakdown-futures-upnl')).toBeVisible()
+})
+
 test('Top-Positionen zeigen mehrere Assets nach Wert sortiert', async ({ page }) => {
   await register(page, uniqueEmail('topassets'))
   await page.getByRole('tab', { name: 'Bestände' }).click()

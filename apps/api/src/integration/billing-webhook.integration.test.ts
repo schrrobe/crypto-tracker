@@ -9,6 +9,8 @@ let fakeEvent: unknown
 vi.mock('stripe', () => ({
   default: class {
     webhooks = { constructEvent: () => fakeEvent }
+    // checkout.session.completed lädt die Subscription nach (planUntil)
+    subscriptions = { retrieve: async (id: string) => ({ id, status: 'active' }) }
   },
 }))
 

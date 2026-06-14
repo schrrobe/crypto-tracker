@@ -1,5 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bybitProvider, bybitSignature } from './bybit'
+import { bybitProvider, bybitSignature, parseBybitPositions } from './bybit'
+
+describe('parseBybitPositions', () => {
+  it('normalisiert Linear-Positionen (Buy→LONG, Sell→SHORT)', () => {
+    const positions = parseBybitPositions([
+      { symbol: 'BTCUSDT', side: 'Buy', size: '0.5', avgPrice: '48000', markPrice: '50000', leverage: '5', unrealisedPnl: '1000', liqPrice: '40000' },
+      { symbol: 'ETHUSDT', side: 'Sell', size: '2', avgPrice: '3100', markPrice: '3000', leverage: '3', unrealisedPnl: '200', liqPrice: '3600' },
+      { symbol: 'SOLUSDT', side: 'Buy', size: '0' }, // geschlossen → ignoriert
+    ])
+    expect(positions).toHaveLength(2)
+    expect(positions[0]).toMatchObject({ baseSymbol: 'BTC', side: 'LONG', size: '0.5', quoteCurrency: 'USDT', leverage: 5 })
+    expect(positions[1]).toMatchObject({ baseSymbol: 'ETH', side: 'SHORT', unrealizedPnl: '200' })
+  })
+})
 
 // Realistische Bybit-Wallet-Response (GET /v5/account/wallet-balance?accountType=UNIFIED)
 const WALLET_FIXTURE = {

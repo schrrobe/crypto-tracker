@@ -1,9 +1,11 @@
 import { createHmac } from 'node:crypto'
 import {
   ProviderError,
+  type ExchangeAccountSnapshot,
   type ExchangeCredentials,
   type ExchangeProvider,
   type RawBalance,
+  type RawPosition,
 } from '../provider.types'
 
 // Bybit REST API v5: GET /v5/account/wallet-balance (Unified Trading Account)
@@ -80,6 +82,66 @@ async function fetchBybitBalances(creds: ExchangeCredentials): Promise<RawBalanc
   return balances
 }
 
+interface BybitPosition {
+  symbol: string
+  side: string // "Buy" | "Sell"
+  size: string
+  avgPrice?: string
+  markPrice?: string
+  leverage?: string
+  unrealisedPnl?: string
+  liqPrice?: string
+}
+interface BybitPositionResponse {
+  retCode: number
+  retMsg?: string
+  result?: { list?: BybitPosition[] }
+}
+
+export function parseBybitPositions(list: BybitPosition[]): RawPosition[] {
+  const positions: RawPosition[] = []
+  for (const p of list) {
+    if (Number(p.size) === 0) continue
+    // Linear-Contracts sind USDT-/USDC-besichert (z.B. BTCUSDT)
+    const quote = p.symbol.endsWith('USDC') ? 'USDC' : 'USDT'
+    positions.push({
+      rawSymbol: p.symbol,
+      baseSymbol: p.symbol.slice(0, -quote.length),
+      side: p.side === 'Sell' ? 'SHORT' : 'LONG',
+      size: p.size,
+      entryPrice: p.avgPrice,
+      markPrice: p.markPrice,
+      leverage: p.leverage ? Number(p.leverage) : undefined,
+      unrealizedPnl: p.unrealisedPnl,
+      quoteCurrency: quote,
+      liquidationPrice: p.liqPrice,
+    })
+  }
+  return positions
+}
+
+const POSITION_QUERY = 'category=linear&settleCoin=USDT'
+
+export async function fetchBybitPositions(creds: ExchangeCredentials): Promise<RawPosition[]> {
+  const timestamp = Date.now().toString()
+  const res = await fetch(`${BASE_URL}/v5/position/list?${POSITION_QUERY}`, {
+    headers: {
+      'X-BAPI-API-KEY': creds.apiKey,
+      'X-BAPI-TIMESTAMP': timestamp,
+      'X-BAPI-RECV-WINDOW': RECV_WINDOW,
+      'X-BAPI-SIGN': bybitSignature(timestamp, creds.apiKey, RECV_WINDOW, POSITION_QUERY, creds.apiSecret as string),
+    },
+  })
+  if (res.status === 429) throw new ProviderError('RATE_LIMITED', 'Bybit Rate-Limit erreicht')
+  if (res.status === 401 || res.status === 403) throw new ProviderError('ENDPOINT_FORBIDDEN', `Bybit: HTTP ${res.status}`)
+  const json = (await res.json().catch(() => null)) as BybitPositionResponse | null
+  if (!json || json.retCode !== 0) {
+    if (json && AUTH_CODES.has(json.retCode)) throw new ProviderError('ENDPOINT_FORBIDDEN', `Bybit: ${json.retMsg}`)
+    throw new ProviderError('PROVIDER_ERROR', `Bybit: ${json?.retMsg ?? `HTTP ${res.status}`}`)
+  }
+  return parseBybitPositions(json.result?.list ?? [])
+}
+
 export const bybitProvider: ExchangeProvider = {
   kind: 'exchange',
   id: 'BYBIT',
@@ -90,4 +152,20 @@ export const bybitProvider: ExchangeProvider = {
   },
 
   fetchBalances: fetchBybitBalances,
+
+  // Unified-Account: Spot/Margin im walletBalance enthalten → zusätzlich nur
+  // offene Linear-Positionen. Fehlt das Recht ⇒ Warnung, Spot läuft weiter.
+  async fetchAccount(creds: ExchangeCredentials): Promise<ExchangeAccountSnapshot> {
+    const warnings: string[] = []
+    const balances = await fetchBybitBalances(creds)
+    let positions: RawPosition[] = []
+    try {
+      positions = await fetchBybitPositions(creds)
+    } catch (err) {
+      if (err instanceof ProviderError && err.code === 'ENDPOINT_FORBIDDEN') {
+        warnings.push(`Bybit Positionen: ${err.message}`)
+      } else throw err
+    }
+    return { balances, positions, warnings }
+  },
 }

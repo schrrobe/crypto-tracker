@@ -63,6 +63,9 @@ export async function resolveHistoricalPrices(
 
   let lookups = 0
   let limitReached = false
+  // CoinGecko-Calls bleiben seriell (Rate-Limit); die DB-Schreibvorgänge sammeln
+  // wir und schreiben sie am Ende in EINEM createMany statt N Einzel-Upserts.
+  const fetched: { assetId: string; date: Date; priceEur: Prisma.Decimal | null }[] = []
   for (const [key, req] of unique) {
     if (lookups >= LOOKUP_CAP_PER_RUN) {
       limitReached = true
@@ -71,13 +74,14 @@ export async function resolveHistoricalPrices(
     lookups += 1
     const price = await fetchHistoricalPrice(req.coingeckoId as string, req.date)
     const priceEur = price === null ? null : new Prisma.Decimal(price.toString())
-    // upsert statt create: paralleler Lauf könnte denselben Tag bereits geschrieben haben
-    await prisma.historicalAssetPrice.upsert({
-      where: { assetId_date: { assetId: req.assetId, date: req.date } },
-      create: { assetId: req.assetId, date: req.date, priceEur },
-      update: {},
-    })
+    fetched.push({ assetId: req.assetId, date: req.date, priceEur })
     prices.set(key, priceEur)
+  }
+
+  // skipDuplicates fängt den Fall ab, dass ein paralleler Lauf denselben
+  // (Asset, Tag) bereits geschrieben hat (zuvor: upsert mit leerem update).
+  if (fetched.length > 0) {
+    await prisma.historicalAssetPrice.createMany({ data: fetched, skipDuplicates: true })
   }
 
   return { prices, limitReached }

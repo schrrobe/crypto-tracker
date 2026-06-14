@@ -1,11 +1,11 @@
-import { Prisma, type PortfolioSource } from '@prisma/client'
+import { Prisma, type HoldingAccountType, type PortfolioSource } from '@prisma/client'
 import { toSyncRunDto } from './syncRun.mapper'
 import type { SyncRunDto } from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import { decryptSecret } from '../../lib/crypto'
 import { getExchangeProvider, getWalletProvider } from '../../providers/provider.registry'
-import { ProviderError, type RawBalance } from '../../providers/provider.types'
+import { ProviderError, type RawBalance, type RawPosition } from '../../providers/provider.types'
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { getOwnedSource } from '../sources/sources.service'
@@ -24,33 +24,40 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ])
 }
 
-async function fetchBalancesForSource(source: PortfolioSource): Promise<RawBalance[]> {
+interface SourceSnapshot {
+  balances: RawBalance[]
+  positions: RawPosition[]
+  warnings: string[]
+}
+
+async function fetchSnapshotForSource(source: PortfolioSource): Promise<SourceSnapshot> {
   if (source.type === 'EXCHANGE') {
     const credential = await prisma.exchangeCredential.findUnique({ where: { sourceId: source.id } })
     if (!credential) throw new ProviderError('INVALID_API_KEY', 'Keine Zugangsdaten hinterlegt')
     const provider = getExchangeProvider(source.provider)
     // Secrets nur hier, unmittelbar vor dem Call, entschlüsseln
-    return withTimeout(
-      provider.fetchBalances({
-        apiKey: decryptSecret(credential.encryptedApiKey),
-        apiSecret: credential.encryptedApiSecret
-          ? decryptSecret(credential.encryptedApiSecret)
-          : undefined,
-        passphrase: credential.encryptedPassphrase
-          ? decryptSecret(credential.encryptedPassphrase)
-          : undefined,
-      }),
-      FETCH_TIMEOUT_MS,
-    )
+    const creds = {
+      apiKey: decryptSecret(credential.encryptedApiKey),
+      apiSecret: credential.encryptedApiSecret ? decryptSecret(credential.encryptedApiSecret) : undefined,
+      passphrase: credential.encryptedPassphrase ? decryptSecret(credential.encryptedPassphrase) : undefined,
+    }
+    // Multi-Konto-Provider liefern Spot + Earn/Margin + Futures + Warnungen,
+    // sonst Spot-only (Bestände gelten dann als SPOT)
+    if (provider.fetchAccount) {
+      const snap = await withTimeout(provider.fetchAccount(creds), FETCH_TIMEOUT_MS)
+      return { balances: snap.balances, positions: snap.positions ?? [], warnings: snap.warnings ?? [] }
+    }
+    return { balances: await withTimeout(provider.fetchBalances(creds), FETCH_TIMEOUT_MS), positions: [], warnings: [] }
   }
   if (source.type === 'WALLET') {
     const wallet = await prisma.walletAddress.findUnique({ where: { sourceId: source.id } })
     if (!wallet) throw new ProviderError('INVALID_ADDRESS', 'Keine Wallet-Adresse hinterlegt')
     const provider = getWalletProvider(source.provider)
-    return withTimeout(
+    const balances = await withTimeout(
       provider.fetchBalances(wallet.address, { includeUnknownTokens: wallet.includeUnknownTokens }),
       FETCH_TIMEOUT_MS,
     )
+    return { balances, positions: [], warnings: [] }
   }
   throw AppError.badRequest('SOURCE_NOT_SYNCABLE', 'Diese Quelle hat keinen Sync')
 }
@@ -137,36 +144,73 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
   const sourceId = source.id
 
   try {
-    const balances = (await fetchBalancesForSource(source)).filter((b) => Number(b.amount) > 0)
-    const assetMap = await resolveAssetsBySymbol(balances.map((b) => b.symbol))
+    const snapshot = await fetchSnapshotForSource(source)
+    // exakte Null verwerfen, aber negative MARGIN-Bestände (Verbindlichkeit) behalten
+    const balances = snapshot.balances.filter((b) => Number(b.amount) !== 0)
+    // Bilanz- und Positions-Basis-Symbole gemeinsam auflösen
+    const assetMap = await resolveAssetsBySymbol([
+      ...balances.map((b) => b.symbol),
+      ...snapshot.positions.map((p) => p.baseSymbol),
+    ])
 
-    // Gleiche Symbole vom Provider zusammenfassen (unique sourceId+assetId)
-    const byAsset = new Map<string, Prisma.Decimal>()
+    // Gleiche Symbole je Kontotyp zusammenfassen (unique sourceId+assetId+accountType)
+    const byKey = new Map<string, { assetId: string; accountType: HoldingAccountType; quantity: Prisma.Decimal }>()
     for (const balance of balances) {
       const asset = assetMap.get(balance.symbol.toUpperCase())
       if (!asset) continue
-      const prev = byAsset.get(asset.id) ?? new Prisma.Decimal(0)
-      byAsset.set(asset.id, prev.add(new Prisma.Decimal(balance.amount)))
+      const accountType: HoldingAccountType = balance.accountType ?? 'SPOT'
+      const key = `${asset.id}|${accountType}`
+      const prev = byKey.get(key)
+      if (prev) prev.quantity = prev.quantity.add(new Prisma.Decimal(balance.amount))
+      else byKey.set(key, { assetId: asset.id, accountType, quantity: new Prisma.Decimal(balance.amount) })
     }
 
-    // Holdings der Quelle spiegeln exakt den Provider-Stand
+    const positionRows = snapshot.positions.map((p) => ({
+      sourceId,
+      assetId: assetMap.get(p.baseSymbol.toUpperCase())?.id ?? null,
+      rawSymbol: p.rawSymbol,
+      side: p.side,
+      size: new Prisma.Decimal(p.size),
+      entryPrice: p.entryPrice ? new Prisma.Decimal(p.entryPrice) : null,
+      markPrice: p.markPrice ? new Prisma.Decimal(p.markPrice) : null,
+      leverage: p.leverage ?? null,
+      unrealizedPnl: p.unrealizedPnl ? new Prisma.Decimal(p.unrealizedPnl) : null,
+      quoteCurrency: p.quoteCurrency ?? null,
+      liquidationPrice: p.liquidationPrice ? new Prisma.Decimal(p.liquidationPrice) : null,
+    }))
+
+    // Holdings + Futures-Positionen der Quelle spiegeln exakt den Provider-Stand
     await prisma.$transaction([
       prisma.holding.deleteMany({ where: { sourceId } }),
       prisma.holding.createMany({
-        data: [...byAsset.entries()].map(([assetId, quantity]) => ({ sourceId, assetId, quantity })),
+        data: [...byKey.values()].map((v) => ({
+          sourceId,
+          assetId: v.assetId,
+          accountType: v.accountType,
+          quantity: v.quantity,
+        })),
       }),
+      prisma.futuresPosition.deleteMany({ where: { sourceId } }),
+      prisma.futuresPosition.createMany({ data: positionRows }),
       prisma.portfolioSource.update({ where: { id: sourceId }, data: { lastSyncAt: new Date() } }),
     ])
 
     // Preis-Fehler sind kein Sync-Fehler (UI zeigt dann ältere Preise)
-    await refreshPrices([...byAsset.keys()])
+    await refreshPrices([...new Set([...byKey.values()].map((v) => v.assetId))])
 
     // On-Chain-Staking-Rewards als Transaktionen — Fehler hier sind kein Sync-Fehler
     if (source.type === 'WALLET') await importStakingRewards(source)
 
+    // Übersprungene Konto-Typen (fehlende Berechtigung) als Teil-Erfolg ausweisen
+    const partial = snapshot.warnings.length > 0
     const finished = await prisma.syncRun.update({
       where: { id: run.id },
-      data: { status: 'SUCCESS', finishedAt: new Date() },
+      data: {
+        status: 'SUCCESS',
+        finishedAt: new Date(),
+        errorCode: partial ? 'PARTIAL_SYNC' : null,
+        errorMessage: partial ? snapshot.warnings.join('; ') : null,
+      },
     })
     return toSyncRunDto(finished)
   } catch (error) {
@@ -250,8 +294,17 @@ export async function enqueueAutoSync(): Promise<{ sources: number; queued: bool
     try {
       await requestSync(source.userId, source.id)
       count += 1
-    } catch {
-      // z.B. SYNC_ALREADY_RUNNING — überspringen, nicht abbrechen
+    } catch (error) {
+      // SYNC_ALREADY_RUNNING ist erwartbar (vorheriger Lauf läuft noch) — still
+      // überspringen. Alles andere (DB, Entschlüsselung, Provider-Konfig) loggen,
+      // sonst bleibt ein dauerhaft kaputter Auto-Sync unsichtbar.
+      const code = error instanceof AppError ? error.code : null
+      if (code !== 'SYNC_ALREADY_RUNNING') {
+        console.warn(
+          `[auto-sync] Quelle ${source.id} fehlgeschlagen:`,
+          error instanceof Error ? error.message : error,
+        )
+      }
     }
   }
   return { sources: count, queued: isQueueEnabled() }

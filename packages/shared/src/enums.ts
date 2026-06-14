@@ -59,6 +59,20 @@ export const ImportKind = {
 } as const
 export type ImportKind = (typeof ImportKind)[keyof typeof ImportKind]
 
+export const HoldingAccountType = {
+  SPOT: 'SPOT',
+  EARN: 'EARN',
+  MARGIN: 'MARGIN',
+  FUTURES: 'FUTURES',
+} as const
+export type HoldingAccountType = (typeof HoldingAccountType)[keyof typeof HoldingAccountType]
+
+export const PositionSide = {
+  LONG: 'LONG',
+  SHORT: 'SHORT',
+} as const
+export type PositionSide = (typeof PositionSide)[keyof typeof PositionSide]
+
 export const TxType = {
   BUY: 'BUY',
   SELL: 'SELL',

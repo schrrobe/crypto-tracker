@@ -34,7 +34,7 @@
           </ion-label>
         </ion-item>
       </ion-list>
-      <p v-else class="hint" data-testid="swap-no-candidates">{{ $t('transactions.noCandidates') }}</p>
+      <p v-else class="hint" data-testid="swap-no-candidates">{{ $t('transactions.noSwapCandidates') }}</p>
 
       <ion-text v-if="error" color="danger">
         <p class="error" data-testid="swap-error">{{ error }}</p>

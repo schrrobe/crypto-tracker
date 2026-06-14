@@ -1,4 +1,5 @@
 import { createHash, createHmac } from 'node:crypto'
+import type { HoldingAccountType } from '@prisma/client'
 import {
   ProviderError,
   type ExchangeCredentials,
@@ -47,11 +48,21 @@ const SKIP = new Set([
   'KFEE', // Kraken Fee Credits
 ])
 
-export function normalizeKrakenAsset(code: string): string | null {
-  // Staking-/Reward-Varianten wie "ETH2.S", "SOL.S", "XBT.M" → Basis-Asset
+// Suffix bestimmt den Kontotyp: .S = Staking (Earn), .M = Margin, .F = Auto-Earn,
+// .B = Bonded (handelbar → Spot). ETH2 ist gestaktes ETH → Earn.
+function accountTypeForKraken(code: string, base: string): HoldingAccountType {
+  const suffix = code.includes('.') ? code.slice(code.lastIndexOf('.') + 1).toUpperCase() : ''
+  if (suffix === 'S' || suffix === 'F') return 'EARN'
+  if (suffix === 'M') return 'MARGIN'
+  if (base === 'ETH2') return 'EARN'
+  return 'SPOT'
+}
+
+export function normalizeKrakenAsset(code: string): { symbol: string; accountType: HoldingAccountType } | null {
+  // Staking-/Reward-Varianten wie "ETH2.S", "SOL.S", "XBT.M" → Basis-Asset + Kontotyp
   const base = code.split('.')[0] ?? code
   if (SKIP.has(base)) return null
-  return ASSET_MAP[base] ?? base.toUpperCase()
+  return { symbol: ASSET_MAP[base] ?? base.toUpperCase(), accountType: accountTypeForKraken(code, base) }
 }
 
 interface KrakenResponse {
@@ -93,10 +104,10 @@ async function fetchKrakenBalances(creds: ExchangeCredentials): Promise<RawBalan
   const balances: RawBalance[] = []
   for (const [code, amount] of Object.entries(json.result ?? {})) {
     if (Number(amount) <= 0) continue
-    const symbol = normalizeKrakenAsset(code)
-    if (!symbol) continue
-    // Gleiche Symbole (z.B. ETH + ETH2.S) werden im SyncService aufsummiert
-    balances.push({ symbol, amount, meta: { krakenCode: code } })
+    const mapped = normalizeKrakenAsset(code)
+    if (!mapped) continue
+    // ETH (Spot) und ETH2.S (Earn) landen jetzt unter verschiedenen Kontotypen
+    balances.push({ symbol: mapped.symbol, amount, accountType: mapped.accountType, meta: { krakenCode: code } })
   }
   return balances
 }

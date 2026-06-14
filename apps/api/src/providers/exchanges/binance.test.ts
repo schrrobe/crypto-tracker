@@ -52,11 +52,13 @@ describe('binanceProvider.fetchBalances', () => {
     mockFetch(200, ACCOUNT_FIXTURE)
     const balances = await binanceProvider.fetchBalances(CREDS)
 
-    // BTC: free + locked als getrennte Einträge (SyncService summiert per Decimal),
-    // plus LDBTC aus dem Earn-Konto
+    // BTC: free + locked als getrennte SPOT-Einträge (SyncService summiert per Decimal),
+    // plus LDBTC aus dem Earn-Konto — jetzt als EARN getaggt, nicht in Spot gefaltet
     expect(balances.filter((b) => b.symbol === 'BTC').map((b) => b.amount)).toEqual(['0.75', '0.25', '0.1'])
-    expect(balances).toContainEqual({ symbol: 'ETH', amount: '3', meta: { binanceAsset: 'ETH' } })
-    expect(balances).toContainEqual({ symbol: 'BTC', amount: '0.1', meta: { binanceAsset: 'LDBTC' } })
+    expect(balances).toContainEqual({ symbol: 'ETH', amount: '3', accountType: 'SPOT', meta: { binanceAsset: 'ETH' } })
+    expect(balances).toContainEqual({ symbol: 'BTC', amount: '0.1', accountType: 'EARN', meta: { binanceAsset: 'LDBTC' } })
+    // die beiden Spot-BTC-Einträge sind SPOT
+    expect(balances.filter((b) => b.symbol === 'BTC' && b.accountType === 'SPOT')).toHaveLength(2)
     expect(balances.map((b) => b.symbol)).not.toContain('EUR')
     expect(balances.map((b) => b.symbol)).not.toContain('ADA')
     expect(balances).toHaveLength(4)

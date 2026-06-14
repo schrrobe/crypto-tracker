@@ -108,4 +108,15 @@ describe('Tenant-Isolation (Integration)', () => {
     const holdings = await request(app).get(`${API}/holdings`).set(...bearer(bob))
     expect(holdings.body.holdings).toHaveLength(0)
   })
+
+  it('Futures: Alices Positionen sind für Bob unsichtbar', async () => {
+    // Binance-Fake liefert Multi-Konto inkl. Futures-Positionen
+    const binance = await createExchangeSource(alice, 'Alice Binance', 'valid-key-1234', 'BINANCE')
+    await request(app).post(`${API}/sources/${binance.id}/sync`).set(...bearer(alice))
+    const aliceFutures = await request(app).get(`${API}/portfolio/futures`).set(...bearer(alice))
+    expect(aliceFutures.body.positions.length).toBeGreaterThan(0)
+
+    const bobFutures = await request(app).get(`${API}/portfolio/futures`).set(...bearer(bob))
+    expect(bobFutures.body.positions).toHaveLength(0)
+  })
 })

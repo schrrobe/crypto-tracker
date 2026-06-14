@@ -80,6 +80,18 @@ const en: MessageSchema = {
     range30d: '30d',
     range1y: '1Y',
     historyExcluded: '{n} asset(s) without history (no mapping)',
+    accountBreakdown: 'Account breakdown',
+    netLiabilityNote: 'Negative total value: open margin liability.',
+  },
+  futures: {
+    title: 'Futures positions',
+    side: { LONG: 'Long', SHORT: 'Short' },
+    leverage: '{x}× leverage',
+    size: 'Size',
+    liq: 'Liquidation',
+    notional: 'Notional',
+    uPnl: 'Unrealized profit/loss',
+    uPnlNote: 'Not included in total value.',
   },
   pnl: {
     title: 'Profit/Loss',
@@ -106,6 +118,12 @@ const en: MessageSchema = {
   },
   holdings: {
     empty: 'No holdings recorded yet.',
+    accountType: {
+      SPOT: 'Spot',
+      EARN: 'Earn',
+      MARGIN: 'Margin',
+      FUTURES: 'Futures',
+    },
     deleteTitle: 'Delete {symbol}?',
     deleteMessage: 'The holding will be removed from its source.',
     addTitle: 'Add holding',
@@ -271,6 +289,7 @@ const en: MessageSchema = {
     unlinkTitle: 'Remove transfer link?',
     unlinkMessage: 'The cost basis will then no longer be carried over in the tax report.',
     swapModalTitle: 'Link as swap',
+    noSwapCandidates: 'No matching counterpart found (opposite type, different asset, quantity/time must match).',
     swapHint:
       'Link this sale with the purchase of the coin you received (crypto-to-crypto swap). In the tax report (AT), the swap is then tax-neutral — the cost basis moves to the new asset; in DE it remains a taxable disposal.',
     swapBadge: 'Swap ↔ {asset}',

@@ -8,7 +8,8 @@ const BALANCE_FIXTURE = {
     { currency: 'BTC', type: 'main', balance: '0.5', available: '0.5', holds: '0' },
     { currency: 'BTC', type: 'trade', balance: '0.25', available: '0.2', holds: '0.05' },
     { currency: 'ETH', type: 'trade', balance: '3', available: '3', holds: '0' },
-    { currency: 'SOL', type: 'margin', balance: '10', available: '10', holds: '0' }, // Margin → übersprungen
+    { currency: 'SOL', type: 'margin', balance: '10', available: '10', holds: '0' }, // Margin → MARGIN
+    { currency: 'DOT', type: 'pool', balance: '7', available: '7', holds: '0' }, // Earn-Pool → EARN
     { currency: 'USD', type: 'main', balance: '100', available: '100', holds: '0' }, // Fiat → übersprungen
     { currency: 'ADA', type: 'main', balance: '0', available: '0', holds: '0' }, // Nullbestand → übersprungen
   ],
@@ -43,17 +44,19 @@ describe('kucoinSignature', () => {
 })
 
 describe('kucoinProvider.fetchBalances', () => {
-  it('liefert main- und trade-Bestände, ohne Margin, Fiat und Nullen', async () => {
+  it('taggt Kontotypen (Spot/Margin/Earn), ohne Fiat und Nullen', async () => {
     mockFetch(200, BALANCE_FIXTURE)
     const balances = await kucoinProvider.fetchBalances(CREDS)
 
-    // BTC: main + trade als getrennte Einträge (SyncService summiert per Decimal)
+    // BTC: main + trade als getrennte SPOT-Einträge (SyncService summiert per Decimal)
     expect(balances.filter((b) => b.symbol === 'BTC').map((b) => b.amount)).toEqual(['0.5', '0.25'])
-    expect(balances).toContainEqual({ symbol: 'ETH', amount: '3' })
-    expect(balances.map((b) => b.symbol)).not.toContain('SOL')
+    expect(balances.filter((b) => b.symbol === 'BTC').every((b) => b.accountType === 'SPOT')).toBe(true)
+    expect(balances).toContainEqual({ symbol: 'ETH', amount: '3', accountType: 'SPOT' })
+    expect(balances).toContainEqual({ symbol: 'SOL', amount: '10', accountType: 'MARGIN' })
+    expect(balances).toContainEqual({ symbol: 'DOT', amount: '7', accountType: 'EARN' })
     expect(balances.map((b) => b.symbol)).not.toContain('USD')
     expect(balances.map((b) => b.symbol)).not.toContain('ADA')
-    expect(balances).toHaveLength(3)
+    expect(balances).toHaveLength(5)
   })
 
   it('sendet die KuCoin-Auth-Header (Key-Version 2)', async () => {

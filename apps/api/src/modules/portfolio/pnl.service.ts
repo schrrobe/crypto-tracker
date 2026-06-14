@@ -8,6 +8,11 @@ import { computeHoldingsCostBasis } from '../tax/tax.engine'
 
 const ZERO = new Prisma.Decimal(0)
 
+// Gewinn/Verlust in % der Kostenbasis (0 wenn keine Basis vorhanden)
+function pctOf(pnl: Prisma.Decimal, basis: Prisma.Decimal): number {
+  return basis.gt(0) ? Number(pnl.div(basis).mul(100).toFixed(2)) : 0
+}
+
 // Unrealisierter Gewinn/Verlust (Pro): aktueller Wert − FIFO-Kostenbasis je
 // (Quelle, Asset). Nur Bestände mit Transaktionshistorie haben eine Kostenbasis;
 // reine Snapshot-Quellen (Sync) fehlen bewusst. Alles in EUR (Tax-Engine-Basis).
@@ -32,11 +37,16 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
     const price = prices.get(h.assetId)
     if (!basis || !price) continue // keine Kostenbasis (Snapshot) oder kein Preis → kein PnL
 
+    // Die Kostenbasis deckt nur die getrackte Menge ab. Weicht der Bestand davon
+    // ab (z.B. Sync-Snapshot mit zusätzlichen Staking-Rewards: 100 Coins gehalten,
+    // aber nur 2 aus Transaktionen), wäre der Wert (volle Menge) gegen eine
+    // Teil-Basis gerechnet und der PnL grob überzeichnet → Position überspringen.
+    const coverageDiff = basis.quantity.sub(h.quantity).abs()
+    if (coverageDiff.gt(h.quantity.abs().mul('0.005'))) continue
+
     const valueEur = h.quantity.mul(price.priceEur)
     const pnlEur = valueEur.sub(basis.costBasisEur)
-    const pnlPct = basis.costBasisEur.gt(0)
-      ? Number(pnlEur.div(basis.costBasisEur).mul(100).toFixed(2))
-      : 0
+    const pnlPct = pctOf(pnlEur, basis.costBasisEur)
 
     totalCostBasis = totalCostBasis.add(basis.costBasisEur)
     totalValue = totalValue.add(valueEur)
@@ -62,9 +72,7 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
     totalCostBasisEur: totalCostBasis.toFixed(2),
     totalValueEur: totalValue.toFixed(2),
     totalPnlEur: totalPnl.toFixed(2),
-    totalPnlPct: totalCostBasis.gt(0)
-      ? Number(totalPnl.div(totalCostBasis).mul(100).toFixed(2))
-      : 0,
+    totalPnlPct: pctOf(totalPnl, totalCostBasis),
     positions,
   }
 }

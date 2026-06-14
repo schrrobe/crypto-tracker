@@ -1,12 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { HoldingDto, PortfolioPnlDto, PortfolioSummaryDto } from '@crypto-tracker/shared'
+import type {
+  FuturesPositionDto,
+  HoldingDto,
+  PortfolioPnlDto,
+  PortfolioSummaryDto,
+} from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
 import { usePortfoliosStore } from './portfolios.store'
 
 export const usePortfolioStore = defineStore('portfolio', () => {
   const summary = ref<PortfolioSummaryDto | null>(null)
   const holdings = ref<HoldingDto[]>([])
+  const futuresPositions = ref<FuturesPositionDto[]>([])
   const pnl = ref<PortfolioPnlDto | null>(null)
   const loading = ref(false)
 
@@ -26,11 +32,25 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     holdings.value = (await api.get<{ holdings: HoldingDto[] }>(`/holdings${scope}`)).holdings
   }
 
+  async function loadFuturesPositions(): Promise<void> {
+    const scope = usePortfoliosStore().scopeQuery()
+    futuresPositions.value = (
+      await api.get<{ positions: FuturesPositionDto[] }>(`/portfolio/futures${scope}`)
+    ).positions
+  }
+
   async function refresh(): Promise<void> {
     loading.value = true
     try {
       await api.post('/prices/refresh', { portfolioId: usePortfoliosStore().scopeId() })
-      await Promise.all([loadSummary(), loadHoldings()])
+      await Promise.all([
+        loadSummary(),
+        loadHoldings(),
+        loadFuturesPositions(),
+        // PnL nur mitaktualisieren, wenn bereits geladen (Pro) — sonst bliebe die
+        // PnL-Karte nach Pull-to-Refresh auf einem veralteten Wert stehen.
+        ...(pnl.value !== null ? [loadPnl().catch(() => {})] : []),
+      ])
     } finally {
       loading.value = false
     }
@@ -54,16 +74,19 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   function reset(): void {
     summary.value = null
     holdings.value = []
+    futuresPositions.value = []
     pnl.value = null
   }
 
   return {
     summary,
     holdings,
+    futuresPositions,
     pnl,
     loading,
     loadSummary,
     loadHoldings,
+    loadFuturesPositions,
     loadPnl,
     refresh,
     createHolding,
