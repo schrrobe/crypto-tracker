@@ -5,22 +5,22 @@ test('Paywall: Free sperrt Steuerreport, Dev-Toggle Pro hebt das Gate auf', asyn
   await register(page, uniqueEmail('paywall'))
   await page.getByRole('tab', { name: 'Einstellungen' }).click()
 
-  // Free-Plan angezeigt
+  // Free plan shown
   await expect(page.getByTestId('settings-plan')).toHaveText('Free')
 
-  // Steuer-Eintrag → Paywall (kein Navigieren)
+  // Tax entry → paywall (no navigation)
   await page.getByTestId('open-tax-report').click()
   await expect(page.getByTestId('paywall-upgrade')).toBeVisible()
   await page.getByTestId('paywall-close').click()
   await expect(page.getByTestId('paywall-upgrade')).toBeHidden()
 
-  // Dev-Schalter auf Pro
+  // Dev toggle to Pro
   await page
     .locator('[data-testid="dev-plan-toggle"] ion-segment-button', { hasText: 'Pro' })
     .click()
   await expect(page.getByTestId('settings-plan')).toHaveText('Pro')
 
-  // Jetzt öffnet der Steuer-Eintrag den Report
+  // Now the tax entry opens the report
   await page.getByTestId('open-tax-report').click()
   await expect(page).toHaveURL(/tax-report/)
 })

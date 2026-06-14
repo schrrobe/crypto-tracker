@@ -5,8 +5,8 @@ import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
 import { fetchMarkets } from '../../coingecko/coingecko.client'
 
-// Marktüberblick (Top 100 nach Market Cap) — global, kein Portfolio-Scope.
-// Proxy mit Cache: das Frontend spricht nie direkt mit CoinGecko.
+// Market overview (top 100 by market cap) — global, no portfolio scope.
+// Proxy with cache: the frontend never talks to CoinGecko directly.
 
 const marketQuerySchema = z.object({
   currency: z.enum(['EUR', 'USD']).default('EUR'),

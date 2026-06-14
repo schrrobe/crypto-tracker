@@ -174,7 +174,7 @@ const timestamp = ref('')
 const error = ref('')
 const saving = ref(false)
 
-// ISO → Wert für <input type="datetime-local"> (lokale Zeit, Minuten-Auflösung)
+// ISO → value for <input type="datetime-local"> (local time, minute resolution)
 function toLocalInput(iso: string): string {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')

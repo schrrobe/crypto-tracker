@@ -30,7 +30,7 @@ describe('Auth (Integration)', () => {
       .send({ email: uniqueEmail('gibtsnicht'), password: 'egalegalegal1' })
     expect(wrong.status).toBe(401)
     expect(unknown.status).toBe(401)
-    // identische Fehlermeldung für beide Fälle
+    // identical error message for both cases
     expect(wrong.body.error.message).toBe(unknown.body.error.message)
   })
 
@@ -42,11 +42,11 @@ describe('Auth (Integration)', () => {
     expect(first.status).toBe(200)
     expect(first.body.refreshToken).not.toBe(user.refreshToken)
 
-    // alter Token ist verbraucht
+    // old token is consumed
     const replay = await nat().send({ refreshToken: user.refreshToken })
     expect(replay.status).toBe(401)
 
-    // neuer Token funktioniert
+    // new token works
     const second = await nat().send({ refreshToken: first.body.refreshToken })
     expect(second.status).toBe(200)
   })
@@ -66,25 +66,25 @@ describe('Auth (Integration)', () => {
   })
 
   it('Web-Modus: Refresh-Token kommt als httpOnly-Cookie, nicht im Body', async () => {
-    // Web-Client = ohne X-Client-Header; supertest-Agent als Cookie-Jar
+    // Web client = without X-Client header; supertest agent as cookie jar
     const agent = request.agent(app)
     const reg = await agent.post(`${API}/auth/register`).send({ email: uniqueEmail('web'), password: PASSWORD })
     expect(reg.status).toBe(201)
     expect(reg.body.accessToken).toBeTruthy()
-    // Token NICHT im Body
+    // Token NOT in the body
     expect(reg.body.refreshToken).toBeUndefined()
-    // httpOnly-Cookie gesetzt
+    // httpOnly cookie set
     const setCookie = String(reg.headers['set-cookie'] ?? '')
     expect(setCookie).toMatch(/rt=/)
     expect(setCookie).toMatch(/HttpOnly/i)
 
-    // Refresh ohne Body funktioniert (Agent sendet das Cookie automatisch mit)
+    // Refresh without body works (agent sends the cookie automatically)
     const refreshed = await agent.post(`${API}/auth/refresh`)
     expect(refreshed.status).toBe(200)
     expect(refreshed.body.accessToken).toBeTruthy()
     expect(refreshed.body.refreshToken).toBeUndefined()
 
-    // Logout löscht das Cookie → danach kein Refresh mehr
+    // Logout deletes the cookie → no refresh afterwards
     await agent.post(`${API}/auth/logout`).expect(204)
     const afterLogout = await agent.post(`${API}/auth/refresh`)
     expect(afterLogout.status).toBe(401)
@@ -98,19 +98,19 @@ describe('Auth (Integration)', () => {
   it('Konto-Löschung entfernt Nutzer + Daten, Login danach unmöglich', async () => {
     const user = await registerUser('delete-me')
 
-    // Quelle anlegen (prüft, dass Cascade über die Restrict-FK hinweg funktioniert)
+    // create a source (verifies that cascade works across the Restrict FK)
     await createExchangeSource(user, 'Kraken weg')
 
     await request(app).delete(`${API}/auth/me`).set(...bearer(user)).expect(204)
 
-    // Access-Token gilt nicht mehr (User existiert nicht)
+    // Access token is no longer valid (user does not exist)
     await request(app).get(`${API}/auth/me`).set(...bearer(user)).expect(401)
-    // Login mit den alten Daten schlägt fehl
+    // Login with the old credentials fails
     const login = await request(app)
       .post(`${API}/auth/login`)
       .send({ email: user.email, password: PASSWORD })
     expect(login.status).toBe(401)
-    // Alle Quellen des Nutzers sind weg
+    // All of the user's sources are gone
     expect(await prisma.portfolioSource.count({ where: { userId: user.userId } })).toBe(0)
     expect(await prisma.portfolio.count({ where: { userId: user.userId } })).toBe(0)
   })

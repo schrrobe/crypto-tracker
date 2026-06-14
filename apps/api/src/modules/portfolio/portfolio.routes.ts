@@ -22,7 +22,7 @@ portfolioRoutes.get(
   }),
 )
 
-// Unrealisierter Gewinn/Verlust — Pro-Funktion
+// Unrealized profit/loss — Pro feature
 portfolioRoutes.get(
   '/pnl',
   requirePro,
@@ -33,7 +33,7 @@ portfolioRoutes.get(
   }),
 )
 
-// Offene Futures-/Perpetual-Positionen (frei, kein Pro-Gate)
+// Open futures/perpetual positions (free, no Pro gate)
 portfolioRoutes.get(
   '/futures',
   validate(portfolioScopeQuerySchema, 'query'),
@@ -54,7 +54,7 @@ portfolioRoutes.get(
   validate(historyQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { range, currency, portfolioId } = req.query as unknown as z.infer<typeof historyQuerySchema>
-    // erlaubte Zeiträume zentral aus den Entitlements (1y ist Pro-exklusiv)
+    // allowed ranges centrally from the entitlements (1y is Pro-exclusive)
     if (!historyRangesFor(await getPlan(req.userId)).includes(range)) {
       throw AppError.upgradeRequired()
     }

@@ -2,10 +2,10 @@ import type { ProviderId } from '@prisma/client'
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
 
-// Generische EVM-Chain-Provider: eth_getBalance + kuratierte ERC-20-Liste via
-// eth_call balanceOf. Ethereum selbst bleibt in ethereum.ts (eigener RPC aus
-// env, Validator-Rewards) — hier nur die weiteren Chains mit festen
-// publicnode-Endpunkten.
+// Generic EVM chain provider: eth_getBalance + a curated ERC-20 list via
+// eth_call balanceOf. Ethereum itself stays in ethereum.ts (its own RPC from
+// env, validator rewards) — here only the additional chains with fixed
+// publicnode endpoints.
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/
 const BALANCE_OF_SELECTOR = '0x70a08231'

@@ -4,7 +4,7 @@ import { API_ENV, API_PORT, APP_PORT } from './config'
 export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
-  // Gemeinsame DB pro Lauf — Tests nutzen eigene User, aber seriell bleibt es deterministisch
+  // Shared DB per run — tests use their own users, but running serially keeps it deterministic
   workers: 1,
   retries: 0,
   reporter: [['list']],
@@ -12,7 +12,7 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${APP_PORT}`,
     trace: 'retain-on-failure',
-    // Die App folgt der Browsersprache — Tests asserten deutsche Texte
+    // The app follows the browser language — tests assert German texts
     locale: 'de-DE',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],

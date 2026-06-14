@@ -6,7 +6,7 @@ describe('parseBybitPositions', () => {
     const positions = parseBybitPositions([
       { symbol: 'BTCUSDT', side: 'Buy', size: '0.5', avgPrice: '48000', markPrice: '50000', leverage: '5', unrealisedPnl: '1000', liqPrice: '40000' },
       { symbol: 'ETHUSDT', side: 'Sell', size: '2', avgPrice: '3100', markPrice: '3000', leverage: '3', unrealisedPnl: '200', liqPrice: '3600' },
-      { symbol: 'SOLUSDT', side: 'Buy', size: '0' }, // geschlossen → ignoriert
+      { symbol: 'SOLUSDT', side: 'Buy', size: '0' }, // closed → ignored
     ])
     expect(positions).toHaveLength(2)
     expect(positions[0]).toMatchObject({ baseSymbol: 'BTC', side: 'LONG', size: '0.5', quoteCurrency: 'USDT', leverage: 5 })
@@ -14,7 +14,7 @@ describe('parseBybitPositions', () => {
   })
 })
 
-// Realistische Bybit-Wallet-Response (GET /v5/account/wallet-balance?accountType=UNIFIED)
+// Realistic Bybit wallet response (GET /v5/account/wallet-balance?accountType=UNIFIED)
 const WALLET_FIXTURE = {
   retCode: 0,
   retMsg: 'OK',
@@ -24,7 +24,7 @@ const WALLET_FIXTURE = {
         coin: [
           { coin: 'BTC', walletBalance: '0.5' },
           { coin: 'USDT', walletBalance: '1500.25' },
-          { coin: 'ADA', walletBalance: '0' }, // Nullbestand → übersprungen
+          { coin: 'ADA', walletBalance: '0' }, // zero balance → skipped
         ],
       },
     ],
@@ -43,10 +43,10 @@ const CREDS = { apiKey: 'test-key', apiSecret: 'geheim' }
 
 describe('bybitSignature', () => {
   it('berechnet hex(HMAC-SHA256(timestamp + apiKey + recvWindow + queryString))', () => {
-    // Known-Answer-Test: vorab mit node:crypto berechnet
+    // Known-answer test: precomputed with node:crypto
     const signature = bybitSignature('1658384314791', 'test-key', '5000', 'accountType=UNIFIED', 'geheim')
     expect(signature).toBe('98ee7c9d07062ec674daaa2510d346f75402acc70f289969b7981512a5ce5577')
-    // jede Komponente verändert die Signatur
+    // every component changes the signature
     expect(bybitSignature('1658384314792', 'test-key', '5000', 'accountType=UNIFIED', 'geheim')).not.toBe(signature)
     expect(bybitSignature('1658384314791', 'other-key', '5000', 'accountType=UNIFIED', 'geheim')).not.toBe(signature)
   })
@@ -72,7 +72,7 @@ describe('bybitProvider.fetchBalances', () => {
     expect(headers['X-BAPI-API-KEY']).toBe('test-key')
     expect(headers['X-BAPI-TIMESTAMP']).toMatch(/^\d+$/)
     expect(headers['X-BAPI-RECV-WINDOW']).toBe('5000')
-    // Signatur muss zum gesendeten Timestamp passen
+    // signature must match the sent timestamp
     expect(headers['X-BAPI-SIGN']).toBe(
       bybitSignature(headers['X-BAPI-TIMESTAMP'] ?? '', 'test-key', '5000', 'accountType=UNIFIED', 'geheim'),
     )

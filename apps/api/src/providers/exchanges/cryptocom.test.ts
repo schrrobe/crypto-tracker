@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cryptocomParamsString, cryptocomProvider, cryptocomSignature } from './cryptocom'
 
-// Realistische Crypto.com-Response (POST private/user-balance)
+// Realistic Crypto.com response (POST private/user-balance)
 const BALANCE_FIXTURE = {
   id: 11,
   method: 'private/user-balance',
@@ -14,8 +14,8 @@ const BALANCE_FIXTURE = {
         position_balances: [
           { instrument_name: 'CRO', quantity: '24422.72427884', market_value: '4776.10' },
           { instrument_name: 'BTC', quantity: '0.5', market_value: '20000.00' },
-          { instrument_name: 'USD', quantity: '100', market_value: '100' }, // Fiat → übersprungen
-          { instrument_name: 'ADA', quantity: '0', market_value: '0' }, // Nullbestand → übersprungen
+          { instrument_name: 'USD', quantity: '100', market_value: '100' }, // fiat → skipped
+          { instrument_name: 'ADA', quantity: '0', market_value: '0' }, // zero balance → skipped
         ],
       },
     ],
@@ -36,7 +36,7 @@ describe('cryptocomParamsString', () => {
   it('konkateniert Keys alphabetisch sortiert als key+value', () => {
     expect(cryptocomParamsString({})).toBe('')
     expect(cryptocomParamsString({ b: '2', a: '1' })).toBe('a1b2')
-    // verschachtelte Objekte/Arrays rekursiv nach demselben Schema
+    // nested objects/arrays recursively follow the same scheme
     expect(cryptocomParamsString({ c: { y: 'z', x: 1 }, a: [1, 2] })).toBe('a12cx1yz')
   })
 })
@@ -88,7 +88,7 @@ describe('cryptocomProvider.fetchBalances', () => {
     expect(body.method).toBe('private/user-balance')
     expect(body.api_key).toBe('cdc-key')
     expect(body.params).toEqual({})
-    // Signatur passt zu den gesendeten id/nonce-Werten
+    // signature matches the sent id/nonce values
     expect(body.sig).toBe(
       cryptocomSignature('private/user-balance', body.id, 'cdc-key', {}, body.nonce, 'cdc-secret'),
     )

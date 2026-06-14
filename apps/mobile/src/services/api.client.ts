@@ -1,8 +1,8 @@
-// Fetch-Wrapper mit Bearer-Token und automatischem 401→Refresh→Retry.
-// Access-Token lebt nur im Speicher. Refresh-Token-Transport je Plattform:
-//   nativ  → verschlüsseltes Secure Storage (Keychain/Keystore), im Body gesendet
-//   web    → httpOnly-Cookie (für JS unlesbar), automatisch vom Browser gesendet
-// Native Clients signalisieren das per Header X-Client: native.
+// Fetch wrapper with bearer token and automatic 401→refresh→retry.
+// The access token lives in memory only. Refresh-token transport per platform:
+//   native → encrypted Secure Storage (Keychain/Keystore), sent in the body
+//   web    → httpOnly cookie (unreadable to JS), sent automatically by the browser
+// Native clients signal this via the X-Client: native header.
 
 import { Capacitor } from '@capacitor/core'
 import { getStored, removeStored, setStored } from './storage'
@@ -16,7 +16,7 @@ let accessToken: string | null = null
 
 export function setTokens(tokens: { accessToken: string; refreshToken?: string } | null): void {
   accessToken = tokens?.accessToken ?? null
-  // Web: Refresh-Token liegt im httpOnly-Cookie → nichts in JS speichern.
+  // Web: the refresh token lives in the httpOnly cookie → store nothing in JS.
   if (!isNativePlatform) return
   if (tokens?.refreshToken) setStored(REFRESH_KEY, tokens.refreshToken)
   else removeStored(REFRESH_KEY)
@@ -38,11 +38,11 @@ export class ApiError extends Error {
 }
 
 async function rawRequest(path: string, init?: RequestInit): Promise<Response> {
-  // Bei FormData setzt der Browser den Content-Type (multipart boundary) selbst
+  // For FormData the browser sets the Content-Type (multipart boundary) itself
   const isFormData = init?.body instanceof FormData
   return fetch(`${BASE_URL}${path}`, {
     ...init,
-    credentials: 'include', // httpOnly-Refresh-Cookie mitsenden (Web)
+    credentials: 'include', // send the httpOnly refresh cookie along (web)
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -52,12 +52,12 @@ async function rawRequest(path: string, init?: RequestInit): Promise<Response> {
   })
 }
 
-// Ein laufender Refresh wird geteilt, damit parallele 401er nicht mehrfach rotieren
+// A running refresh is shared so that parallel 401s don't rotate multiple times
 let refreshPromise: Promise<boolean> | null = null
 
 async function tryRefresh(): Promise<boolean> {
   refreshPromise ??= (async () => {
-    // Nativ braucht den gespeicherten Token (Body); Web nutzt das Cookie (kein Body).
+    // Native needs the stored token (body); web uses the cookie (no body).
     let body: string | undefined
     if (isNativePlatform) {
       const refreshToken = getRefreshToken()
@@ -101,7 +101,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => null)
     const code = body?.error?.code ?? 'UNKNOWN'
-    // Pro-Gate getroffen → global die Paywall öffnen (App.vue lauscht darauf)
+    // Pro gate hit → open the paywall globally (App.vue listens for this)
     if (res.status === 402 || code === 'PLAN_UPGRADE_REQUIRED') {
       window.dispatchEvent(new CustomEvent('plan:upgrade'))
     }

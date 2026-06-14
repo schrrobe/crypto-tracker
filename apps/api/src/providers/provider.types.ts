@@ -1,19 +1,19 @@
 import type { HoldingAccountType, ProviderId } from '@prisma/client'
 
-// Normalisierte Bilanz eines Providers. `symbol` ist bereits vom Provider-Adapter
-// in das übliche Ticker-Symbol übersetzt (z.B. Kraken XXBT → BTC).
+// Normalized balance from a provider. `symbol` has already been translated by the
+// provider adapter into the usual ticker symbol (e.g. Kraken XXBT → BTC).
 export interface RawBalance {
   symbol: string
-  // Menge als String — nie float; darf bei MARGIN negativ sein (netAsset < 0)
+  // Amount as a string — never float; may be negative for MARGIN (netAsset < 0)
   amount: string
-  // Konto-Typ; fehlt ⇒ SPOT
+  // Account type; absent ⇒ SPOT
   accountType?: HoldingAccountType
-  // z.B. Solana-Mint-Adresse für exaktes Asset-Mapping
+  // e.g. Solana mint address for exact asset mapping
   meta?: Record<string, unknown>
 }
 
-// Offene Derivat-Position (Futures/Perpetual). Beträge als String — nie float.
-// size in Basis-Asset-Einheiten; uPnL in quoteCurrency.
+// Open derivative position (Futures/Perpetual). Amounts as strings — never float.
+// size in base-asset units; uPnL in quoteCurrency.
 export interface RawPosition {
   rawSymbol: string
   baseSymbol: string
@@ -29,7 +29,7 @@ export interface RawPosition {
 
 export interface ExchangeCredentials {
   apiKey: string
-  // Bitpanda authentifiziert nur über den Key
+  // Bitpanda authenticates via the key only
   apiSecret?: string
   passphrase?: string
 }
@@ -37,31 +37,31 @@ export interface ExchangeCredentials {
 export interface ExchangeProvider {
   readonly kind: 'exchange'
   readonly id: ProviderId
-  // Wird beim Anlegen der Quelle aufgerufen — nutzt ausschließlich Lese-Endpoints
+  // Called when the source is created — uses read-only endpoints exclusively
   validateCredentials(creds: ExchangeCredentials): Promise<void>
-  // Spot-Bestände (auch für validateCredentials genutzt)
+  // Spot balances (also used by validateCredentials)
   fetchBalances(creds: ExchangeCredentials): Promise<RawBalance[]>
-  // Optional: Multi-Konto-Sync (Spot + Earn/Margin getaggt, Futures-Positionen,
-  // Warnungen für übersprungene Subendpoints). Wenn vorhanden, nutzt der Sync
-  // diese Methode statt fetchBalances. Spot-only-Börsen implementieren sie nicht.
+  // Optional: multi-account sync (Spot + Earn/Margin tagged, Futures positions,
+  // warnings for skipped sub-endpoints). If present, the sync uses this method
+  // instead of fetchBalances. Spot-only exchanges do not implement it.
   fetchAccount?(creds: ExchangeCredentials): Promise<ExchangeAccountSnapshot>
 }
 
 export interface ExchangeAccountSnapshot {
   balances: RawBalance[]
   positions?: RawPosition[]
-  // z.B. ["EARN nicht freigeschaltet"] → SyncRun bekommt errorCode PARTIAL_SYNC
+  // e.g. ["EARN not enabled"] → SyncRun gets errorCode PARTIAL_SYNC
   warnings?: string[]
 }
 
 export interface WalletFetchOptions {
-  // Tokens ohne kuratiertes Mapping (z.B. unbekannte Solana-Mints) mitliefern?
-  // Default false — Spam-/Dust-Filter
+  // Also return tokens without a curated mapping (e.g. unknown Solana mints)?
+  // Default false — spam/dust filter
   includeUnknownTokens?: boolean
 }
 
-// On-Chain-Staking-Reward, vom Sync als STAKING_REWARD-Transaktion persistiert.
-// externalRef macht den Import idempotent (unique, z.B. sol-reward:<account>:<epoch>).
+// On-chain staking reward, persisted by the sync as a STAKING_REWARD transaction.
+// externalRef makes the import idempotent (unique, e.g. sol-reward:<account>:<epoch>).
 export interface RawStakingReward {
   symbol: string
   amount: string
@@ -74,7 +74,7 @@ export interface WalletProvider {
   readonly id: ProviderId
   validateAddress(address: string): boolean
   fetchBalances(address: string, options?: WalletFetchOptions): Promise<RawBalance[]>
-  // Optional: Staking-Rewards seit lastExternalRef (null = Erst-Import, begrenztes Fenster)
+  // Optional: staking rewards since lastExternalRef (null = first import, limited window)
   fetchStakingRewards?(
     address: string,
     sinceHint: { lastExternalRef: string | null },
@@ -83,7 +83,7 @@ export interface WalletProvider {
 
 export type Provider = ExchangeProvider | WalletProvider
 
-// Typisierte Provider-Fehler → landen als errorCode im SyncRun
+// Typed provider errors → land as errorCode in the SyncRun
 export class ProviderError extends Error {
   constructor(
     public readonly code:
@@ -91,8 +91,8 @@ export class ProviderError extends Error {
       | 'INVALID_ADDRESS'
       | 'RATE_LIMITED'
       | 'PROVIDER_ERROR'
-      // Key ist gültig, aber ein Konto-Typ-Subendpoint (Earn/Margin/Futures) ist
-      // nicht freigeschaltet — darf den Gesamt-Sync nicht abbrechen
+      // Key is valid, but an account-type sub-endpoint (Earn/Margin/Futures) is
+      // not enabled — must not abort the overall sync
       | 'ENDPOINT_FORBIDDEN',
     message: string,
   ) {

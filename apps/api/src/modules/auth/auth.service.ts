@@ -69,7 +69,7 @@ export async function register(email: string, password: string): Promise<AuthRes
     data: {
       email: normalizedEmail,
       passwordHash: await argon2.hash(password),
-      // Default-Portfolio eager — gescopte Endpunkte ohne portfolioId landen hier
+      // Default portfolio eagerly — scoped endpoints without a portfolioId land here
       portfolios: { create: { label: 'Mein Portfolio', isDefault: true } },
     },
   })
@@ -78,7 +78,7 @@ export async function register(email: string, password: string): Promise<AuthRes
 
 export async function login(email: string, password: string): Promise<AuthResult> {
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } })
-  // Bewusst dieselbe Fehlermeldung für "User existiert nicht" und "Passwort falsch"
+  // Deliberately the same error message for "user does not exist" and "wrong password"
   const invalid = AppError.unauthorized('E-Mail oder Passwort ist falsch')
   if (!user) throw invalid
   const ok = await argon2.verify(user.passwordHash, password)
@@ -95,7 +95,7 @@ export async function refresh(refreshToken: string): Promise<AuthResult> {
   if (!stored || stored.expiresAt < new Date()) {
     throw AppError.unauthorized('Sitzung abgelaufen, bitte neu anmelden')
   }
-  // Einfache Rotation: alter Token wird ungültig, neuer wird ausgegeben
+  // Simple rotation: the old token is invalidated, a new one is issued
   await prisma.refreshToken.delete({ where: { id: stored.id } })
   return { user: toUserDto(stored.user), ...(await issueTokens(stored.userId)) }
 }
@@ -104,14 +104,14 @@ export async function logout(refreshToken: string): Promise<void> {
   await prisma.refreshToken.deleteMany({ where: { tokenHash: hashRefreshToken(refreshToken) } })
 }
 
-// Reset anstoßen: existiert die E-Mail, wird ein Einmal-Token erzeugt und der
-// Link versendet (bzw. ins Log geschrieben). Antwortet bewusst immer gleich —
-// keine Auskunft, ob die Adresse registriert ist (keine User-Enumeration).
+// Initiate reset: if the email exists, a one-time token is generated and the
+// link is sent (or written to the log). Responds identically on purpose —
+// no disclosure of whether the address is registered (no user enumeration).
 export async function forgotPassword(email: string): Promise<void> {
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } })
   if (!user) return
 
-  // Offene Tokens des Nutzers entwerten — pro Anforderung gilt nur der neueste
+  // Invalidate the user's outstanding tokens — only the newest one is valid per request
   await prisma.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } })
 
   const token = generatePasswordResetToken()
@@ -135,8 +135,8 @@ export async function forgotPassword(email: string): Promise<void> {
   })
 }
 
-// Reset abschließen: Token prüfen, Passwort setzen, Token verbrauchen und alle
-// aktiven Sitzungen beenden (Refresh-Tokens löschen).
+// Complete reset: verify the token, set the password, consume the token, and end all
+// active sessions (delete refresh tokens).
 export async function resetPassword(token: string, newPassword: string): Promise<void> {
   const stored = await prisma.passwordResetToken.findUnique({
     where: { tokenHash: hashPasswordResetToken(token) },
@@ -151,7 +151,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
       data: { passwordHash: await argon2.hash(newPassword) },
     }),
     prisma.passwordResetToken.update({ where: { id: stored.id }, data: { usedAt: new Date() } }),
-    // Sicherheit: bestehende Sessions nach Passwortwechsel beenden
+    // Security: end existing sessions after a password change
     prisma.refreshToken.deleteMany({ where: { userId: stored.userId } }),
   ])
 }
@@ -166,8 +166,8 @@ export async function updateMe(
   userId: string,
   data: { baseCurrency?: string; plan?: 'FREE' | 'PRO'; autoSyncEnabled?: boolean },
 ): Promise<UserDto> {
-  // plan nur im local-Modus änderbar (Dev-Schalter zum Testen des Gatings ohne
-  // Stripe); in dev/prod wird der Plan ausschließlich per Stripe-Webhook gesetzt.
+  // plan is only changeable in local mode (dev switch for testing gating without
+  // Stripe); in dev/prod the plan is set exclusively via the Stripe webhook.
   const allowPlan = env.APP_ENV === 'local'
   const user = await prisma.user.update({
     where: { id: userId },
@@ -180,19 +180,19 @@ export async function updateMe(
   return toUserDto(user)
 }
 
-// Konto endgültig löschen (Store-Pflicht). Explizite Reihenfolge in einer
-// Transaktion: Quellen zuerst (Holdings/Transaktionen/Imports/Credentials hängen
-// per Cascade dran), dann Portfolios (sonst greift der Restrict-FK
-// PortfolioSource→Portfolio), dann der User selbst (Tokens kaskadieren).
+// Permanently delete the account (store requirement). Explicit ordering within a
+// transaction: sources first (holdings/transactions/imports/credentials cascade
+// off them), then portfolios (otherwise the Restrict FK PortfolioSource→Portfolio
+// kicks in), then the user itself (tokens cascade).
 export async function deleteAccount(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { stripeSubscriptionId: true },
   })
-  // Stripe-Abo kündigen, BEVOR der User (und damit die Kundenzuordnung) gelöscht
-  // wird — sonst läuft die Abrechnung weiter und der Downgrade-Webhook findet den
-  // User nicht mehr. Ein Stripe-Fehler darf die Konto-Löschung (Store-Pflicht)
-  // nicht blockieren: nur protokollieren, damit das Abo manuell beendet werden kann.
+  // Cancel the Stripe subscription BEFORE the user (and thus the customer mapping)
+  // is deleted — otherwise billing keeps running and the downgrade webhook can no
+  // longer find the user. A Stripe error must not block account deletion (store
+  // requirement): only log it so the subscription can be ended manually.
   if (user?.stripeSubscriptionId) {
     try {
       await cancelSubscription(user.stripeSubscriptionId)

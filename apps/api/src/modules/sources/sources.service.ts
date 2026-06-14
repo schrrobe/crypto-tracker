@@ -14,7 +14,7 @@ type SourceWithRelations = Prisma.PortfolioSourceGetPayload<{
 }>
 
 const SOURCE_INCLUDE = {
-  // Bewusst nur keyPreview — verschlüsselte Secrets verlassen den Service nie
+  // Deliberately only keyPreview — encrypted secrets never leave the service
   credential: { select: { keyPreview: true } },
   wallet: true,
   syncRuns: { orderBy: { startedAt: 'desc' as const }, take: 1 },
@@ -46,7 +46,7 @@ export async function listSources(userId: string, portfolioId?: string): Promise
   return sources.map(toSourceDto)
 }
 
-// Wirft 404 statt 403 bei fremden Quellen — verrät nicht, dass die ID existiert
+// Throws 404 instead of 403 for foreign sources — does not reveal that the ID exists
 export async function getOwnedSource(userId: string, sourceId: string): Promise<PortfolioSource> {
   const source = await prisma.portfolioSource.findFirst({ where: { id: sourceId, userId } })
   if (!source) throw AppError.notFound('Quelle nicht gefunden')
@@ -62,7 +62,7 @@ async function reloadDto(sourceId: string): Promise<SourceDto> {
 }
 
 export async function createSource(userId: string, input: CreateSourceInput): Promise<SourceDto> {
-  // Free-Limit: max. FREE_LIMITS.sources Quellen insgesamt
+  // Free limit: max. FREE_LIMITS.sources sources in total
   if ((await getPlan(userId)) !== 'PRO') {
     const count = await prisma.portfolioSource.count({ where: { userId } })
     if (count >= FREE_LIMITS.sources) {
@@ -141,6 +141,6 @@ export async function updateSource(userId: string, sourceId: string, label: stri
 
 export async function deleteSource(userId: string, sourceId: string): Promise<void> {
   await getOwnedSource(userId, sourceId)
-  // Holdings, Credentials, SyncRuns etc. hängen per onDelete: Cascade dran
+  // Holdings, credentials, sync runs etc. cascade off via onDelete: Cascade
   await prisma.portfolioSource.delete({ where: { id: sourceId } })
 }

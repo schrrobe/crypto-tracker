@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { binanceProvider, binanceSignature, normalizeBinanceAsset } from './binance'
 
-// Realistische Binance-Account-Response (GET /api/v3/account)
+// Realistic Binance account response (GET /api/v3/account)
 const ACCOUNT_FIXTURE = {
   balances: [
-    { asset: 'BTC', free: '0.75', locked: '0.25' }, // beide Teile zählen
+    { asset: 'BTC', free: '0.75', locked: '0.25' }, // both parts count
     { asset: 'ETH', free: '3', locked: '0.00000000' },
     { asset: 'LDBTC', free: '0.1', locked: '0' }, // Binance Earn → BTC
-    { asset: 'EUR', free: '2500.50', locked: '0' }, // Fiat → übersprungen
-    { asset: 'ADA', free: '0.00000000', locked: '0.00000000' }, // Nullbestand → übersprungen
+    { asset: 'EUR', free: '2500.50', locked: '0' }, // fiat → skipped
+    { asset: 'ADA', free: '0.00000000', locked: '0.00000000' }, // zero balance → skipped
   ],
 }
 
@@ -37,12 +37,12 @@ describe('normalizeBinanceAsset', () => {
   it('strippt das LD-Präfix von Binance-Earn-Assets', () => {
     expect(normalizeBinanceAsset('LDBTC')).toBe('BTC')
     expect(normalizeBinanceAsset('LDUSDT')).toBe('USDT')
-    expect(normalizeBinanceAsset('LDLDO')).toBe('LDO') // Lido im Earn-Konto
+    expect(normalizeBinanceAsset('LDLDO')).toBe('LDO') // Lido in the Earn account
   })
 
   it('lässt echte Assets unangetastet', () => {
     expect(normalizeBinanceAsset('BTC')).toBe('BTC')
-    expect(normalizeBinanceAsset('LDO')).toBe('LDO') // beginnt mit LD, ist aber kein Earn-Asset
+    expect(normalizeBinanceAsset('LDO')).toBe('LDO') // starts with LD, but is not an Earn asset
     expect(normalizeBinanceAsset('sol')).toBe('SOL')
   })
 })
@@ -52,12 +52,12 @@ describe('binanceProvider.fetchBalances', () => {
     mockFetch(200, ACCOUNT_FIXTURE)
     const balances = await binanceProvider.fetchBalances(CREDS)
 
-    // BTC: free + locked als getrennte SPOT-Einträge (SyncService summiert per Decimal),
-    // plus LDBTC aus dem Earn-Konto — jetzt als EARN getaggt, nicht in Spot gefaltet
+    // BTC: free + locked as separate SPOT entries (SyncService sums them via Decimal),
+    // plus LDBTC from the Earn account — now tagged as EARN, not folded into Spot
     expect(balances.filter((b) => b.symbol === 'BTC').map((b) => b.amount)).toEqual(['0.75', '0.25', '0.1'])
     expect(balances).toContainEqual({ symbol: 'ETH', amount: '3', accountType: 'SPOT', meta: { binanceAsset: 'ETH' } })
     expect(balances).toContainEqual({ symbol: 'BTC', amount: '0.1', accountType: 'EARN', meta: { binanceAsset: 'LDBTC' } })
-    // die beiden Spot-BTC-Einträge sind SPOT
+    // the two spot BTC entries are SPOT
     expect(balances.filter((b) => b.symbol === 'BTC' && b.accountType === 'SPOT')).toHaveLength(2)
     expect(balances.map((b) => b.symbol)).not.toContain('EUR')
     expect(balances.map((b) => b.symbol)).not.toContain('ADA')

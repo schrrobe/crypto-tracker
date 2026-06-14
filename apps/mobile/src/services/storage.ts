@@ -1,16 +1,16 @@
 import { Preferences } from '@capacitor/preferences'
 import { SecureStorage } from '@aparajita/capacitor-secure-storage'
 
-// Persistente Speicherung über Capacitor — funktioniert auf Web (Fallback auf
-// localStorage) und nativ (iOS/Android). Sicherheitskritische Werte landen im
-// verschlüsselten Secure Storage (iOS-Keychain / Android-Keystore), der Rest in
+// Persistent storage via Capacitor — works on web (fallback to localStorage)
+// and native (iOS/Android). Security-critical values land in the encrypted
+// Secure Storage (iOS Keychain / Android Keystore), the rest in
 // @capacitor/preferences.
 //
-// Die Capacitor-Backends sind asynchron; der Startup-Pfad (Theme, Sprache,
-// aktives Portfolio) liest aber synchron. Lösung: beim App-Bootstrap einmal
-// preloadStorage() awaiten, das alle Keys in einen In-Memory-Cache lädt.
-// get/set/remove arbeiten danach synchron gegen den Cache und persistieren
-// write-through asynchron ins jeweilige Backend.
+// The Capacitor backends are asynchronous; the startup path (theme, language,
+// active portfolio) however reads synchronously. Solution: at app bootstrap,
+// await preloadStorage() once, which loads all keys into an in-memory cache.
+// get/set/remove then work synchronously against the cache and persist
+// write-through asynchronously to the respective backend.
 
 export type StorageKey =
   | 'refresh-token'
@@ -29,7 +29,7 @@ const ALL_KEYS: StorageKey[] = [
   'balances-hidden',
 ]
 
-// Nur der Refresh-Token ist sicherheitskritisch → verschlüsseltes Secure Storage.
+// Only the refresh token is security-critical → encrypted Secure Storage.
 const SECURE_KEYS = new Set<StorageKey>(['refresh-token'])
 
 const cache = new Map<StorageKey, string | null>()
@@ -60,7 +60,7 @@ async function backendRemove(key: StorageKey): Promise<void> {
   await Preferences.remove({ key })
 }
 
-// Einmal beim Bootstrap awaiten, bevor die App gemountet wird.
+// Await once at bootstrap, before the app is mounted.
 export async function preloadStorage(): Promise<void> {
   if (preloaded) return
   await Promise.all(

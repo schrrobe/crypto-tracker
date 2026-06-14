@@ -6,17 +6,17 @@ import {
   type RawBalance,
 } from '../provider.types'
 
-// Bitstamp REST API: POST /api/v2/account_balances/ mit X-Auth-Signatur (Version v2).
-// Benötigt einen API-Key mit ausschließlich "Account balance"-Berechtigung (read-only).
+// Bitstamp REST API: POST /api/v2/account_balances/ with X-Auth signature (version v2).
+// Requires an API key with only the "Account balance" permission (read-only).
 
 const HOST = 'www.bitstamp.net'
 const BALANCES_PATH = '/api/v2/account_balances/'
 const AUTH_VERSION = 'v2'
 
-// Signatur = hex(HMAC-SHA256(xAuth + verb + host + path + query + contentType
-// + nonce + timestamp + version + body, secret)). Laut Doku wird der Content-Type
-// bei leerem Body NICHT in den String aufgenommen — wir senden den Header dann
-// auch nicht mit.
+// Signature = hex(HMAC-SHA256(xAuth + verb + host + path + query + contentType
+// + nonce + timestamp + version + body, secret)). Per the docs, the Content-Type
+// is NOT included in the string when the body is empty — in that case we don't
+// send the header either.
 export function bitstampSignature(
   parts: {
     apiKey: string
@@ -57,7 +57,7 @@ interface BitstampError {
   code?: string
 }
 
-// Bitstamp führt Fiat-Konten — Fiat wird in V1 nicht getrackt
+// Bitstamp maintains fiat accounts — fiat is not tracked in V1
 const SKIP = new Set(['EUR', 'USD', 'GBP', 'CHF'])
 
 async function fetchBitstampBalances(creds: ExchangeCredentials): Promise<RawBalance[]> {
@@ -94,7 +94,7 @@ async function fetchBitstampBalances(creds: ExchangeCredentials): Promise<RawBal
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as BitstampError
     const message = typeof body.reason === 'string' ? body.reason : `HTTP ${res.status}`
-    // API0xxx-Codes = Authentifizierung (ungültiger Key, falsche Signatur, fehlende Rechte)
+    // API0xxx codes = authentication (invalid key, wrong signature, missing permissions)
     if (res.status === 401 || res.status === 403 || body.code?.startsWith('API0')) {
       throw new ProviderError('INVALID_API_KEY', `Bitstamp: ${message}`)
     }
@@ -106,7 +106,7 @@ async function fetchBitstampBalances(creds: ExchangeCredentials): Promise<RawBal
   for (const entry of entries) {
     const symbol = entry.currency.toUpperCase()
     if (SKIP.has(symbol)) continue
-    // total = available + reserved — Gesamtbestand laut Doku
+    // total = available + reserved — full balance per the docs
     if (Number(entry.total) > 0) balances.push({ symbol, amount: entry.total })
   }
   return balances
@@ -117,7 +117,7 @@ export const bitstampProvider: ExchangeProvider = {
   id: 'BITSTAMP',
 
   async validateCredentials(creds: ExchangeCredentials): Promise<void> {
-    // Account-Balances ist ein reiner Lese-Endpoint — validiert Key und Secret
+    // Account balances is a read-only endpoint — validates key and secret
     await fetchBitstampBalances(creds)
   },
 

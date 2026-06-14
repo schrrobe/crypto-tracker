@@ -6,8 +6,8 @@ import {
   type RawBalance,
 } from '../provider.types'
 
-// Gate.io REST API v4: GET /api/v4/spot/accounts mit HMAC-SHA512-Signatur.
-// Benötigt einen API-Key mit ausschließlich "Spot: read-only"-Berechtigung.
+// Gate.io REST API v4: GET /api/v4/spot/accounts with HMAC-SHA512 signature.
+// Requires an API key with only the "Spot: read-only" permission.
 
 const BASE_URL = 'https://api.gateio.ws'
 const ACCOUNTS_PATH = '/api/v4/spot/accounts'
@@ -37,7 +37,7 @@ interface GateioError {
   message?: string
 }
 
-// Auth-Labels laut Gate.io-Fehlerdoku (ungültiger Key, falsche Signatur, fehlende Rechte)
+// Auth labels per the Gate.io error docs (invalid key, wrong signature, missing permissions)
 const AUTH_ERROR_LABELS = new Set([
   'INVALID_KEY',
   'INVALID_SIGNATURE',
@@ -49,12 +49,12 @@ const AUTH_ERROR_LABELS = new Set([
   'IP_FORBIDDEN',
 ])
 
-// Fiat wird in V1 nicht getrackt
+// Fiat is not tracked in V1
 const SKIP = new Set(['EUR', 'USD', 'GBP', 'CHF'])
 
 async function fetchGateioBalances(creds: ExchangeCredentials): Promise<RawBalance[]> {
   if (!creds.apiSecret) throw new ProviderError('INVALID_API_KEY', 'Gate.io: API-Secret fehlt')
-  // Gate.io erwartet den Timestamp in Sekunden
+  // Gate.io expects the timestamp in seconds
   const timestamp = Math.floor(Date.now() / 1000).toString()
   const res = await fetch(`${BASE_URL}${ACCOUNTS_PATH}`, {
     headers: {
@@ -79,8 +79,8 @@ async function fetchGateioBalances(creds: ExchangeCredentials): Promise<RawBalan
   for (const entry of entries) {
     const symbol = entry.currency.toUpperCase()
     if (SKIP.has(symbol)) continue
-    // available und locked als getrennte Einträge — der SyncService summiert
-    // gleiche Symbole per Decimal (kein float in der Provider-Schicht)
+    // available and locked as separate entries — the SyncService sums
+    // identical symbols via Decimal (no float in the provider layer)
     for (const amount of [entry.available, entry.locked]) {
       if (Number(amount) > 0) balances.push({ symbol, amount })
     }
@@ -93,7 +93,7 @@ export const gateioProvider: ExchangeProvider = {
   id: 'GATEIO',
 
   async validateCredentials(creds: ExchangeCredentials): Promise<void> {
-    // Spot-Accounts ist ein reiner Lese-Endpoint — validiert Key und Secret
+    // Spot accounts is a pure read endpoint — validates key and secret
     await fetchGateioBalances(creds)
   },
 

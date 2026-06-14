@@ -1,19 +1,19 @@
 import type { Plan } from './auth.schema'
 import type { HistoryRange } from './portfolio.schema'
 
-// Zentrale Definition, was Free vs. Pro darf — genutzt vom Backend-Gating und
-// von der Frontend-Anzeige (Limits, gesperrte Funktionen).
+// Central definition of what Free vs. Pro is allowed to do — used by backend
+// gating and by the frontend display (limits, locked features).
 
 export const FREE_LIMITS = {
   portfolios: 2,
   sources: 5,
 } as const
 
-// Wertverlauf-Zeiträume je Plan. '1y' ist Pro-exklusiv.
+// Value-history ranges per plan. '1y' is Pro-exclusive.
 export const FREE_HISTORY_RANGES: HistoryRange[] = ['24h', '7d', '30d']
 export const PRO_HISTORY_RANGES: HistoryRange[] = ['24h', '7d', '30d', '1y']
 
-// Reine Pro-Funktionen (Anzeige in der Paywall / Gating-Schlüssel).
+// Pro-only features (shown in the paywall / gating keys).
 export const PRO_FEATURES = ['tax', 'pnl', 'autoSync', 'history1y', 'unlimitedPortfolios', 'unlimitedSources'] as const
 export type ProFeature = (typeof PRO_FEATURES)[number]
 

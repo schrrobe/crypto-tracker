@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { API, app, bearer, createExchangeSource, registerUser } from './helpers'
 
 // FAKE_PROVIDERS fetchAccount: SPOT 0.1 BTC + 2 ETH, EARN 0.05 BTC, MARGIN -300 USDT,
-// 2 Futures-Positionen (BTC LONG, ETH SHORT). Preise (FAKE): BTC 50k€, ETH 1€?, USDT 0,9€.
+// 2 futures positions (BTC LONG, ETH SHORT). Prices (FAKE): BTC 50k€, ETH 1€?, USDT 0.9€.
 
 type Holding = { asset: { symbol: string }; accountType: string; quantity: string; valueEur: string | null }
 
@@ -20,7 +20,7 @@ describe('Account-Types (Integration)', () => {
     const holdings = (await request(app).get(`${API}/holdings`).set(...bearer(user))).body.holdings as Holding[]
 
     const btc = holdings.filter((h) => h.asset.symbol === 'BTC').map((h) => h.accountType).sort()
-    expect(btc).toEqual(['EARN', 'SPOT']) // gleiches Asset, zwei Kontotypen
+    expect(btc).toEqual(['EARN', 'SPOT']) // same asset, two account types
     expect(holdings.find((h) => h.asset.symbol === 'USDT')?.accountType).toBe('MARGIN')
   })
 
@@ -28,12 +28,12 @@ describe('Account-Types (Integration)', () => {
     const { user } = await syncedSource('acctneg')
     const holdings = (await request(app).get(`${API}/holdings`).set(...bearer(user))).body.holdings as Holding[]
     const usdt = holdings.find((h) => h.asset.symbol === 'USDT')
-    // -300 USDT × 0,9 € = -270 €
+    // -300 USDT × 0.9 € = -270 €
     expect(usdt?.quantity).toBe('-300')
     expect(Number(usdt?.valueEur)).toBeCloseTo(-270, 2)
 
     const summary = (await request(app).get(`${API}/portfolio/summary`).set(...bearer(user))).body
-    // MARGIN senkt das Netto-Total
+    // MARGIN lowers the net total
     const margin = (summary.byAccountType as Array<{ accountType: string; valueEur: string }>).find(
       (r) => r.accountType === 'MARGIN',
     )
@@ -51,13 +51,13 @@ describe('Account-Types (Integration)', () => {
     expect(positions).toHaveLength(2)
     const btc = positions.find((p) => p.assetSymbol === 'BTC')
     expect(btc?.side).toBe('LONG')
-    // uPnL 40 USDT × 0,9 € = 36 €
+    // uPnL 40 USDT × 0.9 € = 36 €
     expect(Number(btc?.unrealizedPnlEur)).toBeCloseTo(36, 2)
 
     const summary = (await request(app).get(`${API}/portfolio/summary`).set(...bearer(user))).body
-    // uPnL summe (40+100) USDT × 0,9 = 126 €, separat ausgewiesen
+    // uPnL sum (40+100) USDT × 0.9 = 126 €, reported separately
     expect(Number(summary.futuresUnrealizedPnlEur)).toBeCloseTo(126, 2)
-    // Total enthält die uPnL NICHT (nur Holdings)
+    // Total does NOT include the uPnL (holdings only)
     const sumHoldings = (summary.byAccountType as Array<{ valueEur: string }>).reduce(
       (s, r) => s + Number(r.valueEur),
       0,
@@ -78,7 +78,7 @@ describe('Account-Types (Integration)', () => {
     expect(run.body.run.errorCode).toBe('PARTIAL_SYNC')
 
     const holdings = (await request(app).get(`${API}/holdings`).set(...bearer(user))).body.holdings as Holding[]
-    // Spot/Margin da, EARN fehlt
+    // Spot/Margin present, EARN missing
     expect(holdings.some((h) => h.accountType === 'SPOT')).toBe(true)
     expect(holdings.some((h) => h.accountType === 'EARN')).toBe(false)
   })

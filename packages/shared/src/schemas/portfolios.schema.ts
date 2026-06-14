@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-// Multi-Portfolio: strikt getrennte Steuersubjekte unter einem Account.
-// Endpunkte akzeptieren eine optionale portfolioId — weggelassen = Default-Portfolio.
+// Multi-portfolio: strictly separated tax subjects under one account.
+// Endpoints accept an optional portfolioId — omitted = default portfolio.
 
 export const createPortfolioSchema = z.object({
   label: z.string().trim().min(1).max(60),
@@ -9,7 +9,7 @@ export const createPortfolioSchema = z.object({
 
 export const updatePortfolioSchema = createPortfolioSchema
 
-// wiederverwendbar für Reads ohne eigenes Query-Schema
+// reusable for reads without their own query schema
 export const portfolioScopeQuerySchema = z.object({
   portfolioId: z.string().uuid().optional(),
 })

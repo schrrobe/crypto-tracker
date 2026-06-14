@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { prisma } from '../lib/prisma'
 import { API, app, bearer, createExchangeSource, registerUser, uploadCsv } from './helpers'
 
-// Kraken-Ledger-Header → Preset KRAKEN wird erkannt
+// Kraken ledger header → preset KRAKEN is detected
 const KRAKEN_CSV =
   'txid,refid,time,type,asset,amount,fee,balance\n' +
   'L1,R1,2024-01-01T00:00:00Z,deposit,XXBT,0.5,0,0.5\n'
 
-// Generische CSV ohne Preset-Signatur (Heuristik greift, kein Preset erkannt)
+// Generic CSV without a preset signature (heuristic applies, no preset detected)
 const GENERIC_CSV = 'Coin,Menge\nBTC,0.5\nETH,2\n'
 
 async function uploadRaw(user: { token: string }, csv: string, exchange?: string) {
@@ -58,14 +58,14 @@ describe('CSV-Import (Integration)', () => {
     expect(res.body.import.status).toBe('COMPLETED')
     expect(res.body.import.importedRows).toBe(3)
 
-    // Netto: BTC 1 − 0,4 = 0,6 · SOL +10
+    // Net: BTC 1 − 0,4 = 0,6 · SOL +10
     const holdings = await request(app).get(`${API}/holdings`).set(...bearer(user))
     const btc = holdings.body.holdings.find((h: { asset: { symbol: string } }) => h.asset.symbol === 'BTC')
     const sol = holdings.body.holdings.find((h: { asset: { symbol: string } }) => h.asset.symbol === 'SOL')
     expect(btc.quantity).toBe('0.6')
     expect(sol.quantity).toBe('10')
 
-    // Transaktionen vollständig gespeichert, Fee/Preis normalisiert (deutsches Zahlformat)
+    // Transactions fully stored, fee/price normalized (German number format)
     const transactions = await prisma.transaction.findMany({
       where: { sourceId: upload.import.sourceId },
       orderBy: { timestamp: 'asc' },
@@ -163,7 +163,7 @@ describe('CSV-Import (Integration)', () => {
     const user = await registerUser('dup-pick')
     await createExchangeSource(user, 'Bitvavo Haupt', 'valid-key-1234', 'BITVAVO')
 
-    // generische CSV (kein Preset) + explizit gewählte Börse
+    // generic CSV (no preset) + explicitly selected exchange
     const res = await uploadRaw(user, GENERIC_CSV, 'BITVAVO')
     expect(res.preset).toBeNull()
     expect(res.duplicateExchangeSource).toBe('Bitvavo Haupt')

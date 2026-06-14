@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { getStored, preloadStorage, removeStored, setStored } from './storage'
 
-// Web-Pfad: Preferences + Secure-Storage nutzen beide localStorage als Fallback.
-// Geprüft wird der synchrone Cache (set→get) und der Preload aus dem Backend.
+// Web path: Preferences + Secure Storage both use localStorage as a fallback.
+// We check the synchronous cache (set→get) and the preload from the backend.
 
 beforeEach(() => localStorage.clear())
 
@@ -23,9 +23,9 @@ describe('storage-Abstraktion', () => {
   })
 
   it('preload lädt persistierte Werte aus dem Backend in den Cache', async () => {
-    // refresh-token über das verschlüsselte Backend persistieren …
+    // persist refresh-token via the encrypted backend …
     setStored('refresh-token', 'tok-123')
-    // … bis die write-through-Persistenz durch ist
+    // … until the write-through persistence has completed
     await new Promise((r) => setTimeout(r, 10))
     await preloadStorage()
     expect(getStored('refresh-token')).toBe('tok-123')

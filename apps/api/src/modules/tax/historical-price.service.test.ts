@@ -10,7 +10,7 @@ import { fetchHistoricalPrice } from '../../coingecko/coingecko.client'
 import { priceKey, resolveHistoricalPrices } from './historical-price.service'
 
 const mockedFetch = vi.mocked(fetchHistoricalPrice)
-const DATE = new Date('2024-05-10T15:30:00.000Z') // wird auf 00:00 UTC normalisiert
+const DATE = new Date('2024-05-10T15:30:00.000Z') // normalized to 00:00 UTC
 
 async function createTestAsset(coingeckoId: string | null) {
   return prisma.asset.create({
@@ -58,7 +58,7 @@ describe('historical-price.service', () => {
     expect(first.prices.get(priceKey(asset.id, DATE))).toBeNull()
     expect(mockedFetch).toHaveBeenCalledTimes(1)
 
-    // zweiter Lauf: Negativ-Cache greift
+    // second run: the negative cache kicks in
     const second = await resolveHistoricalPrices([
       { assetId: asset.id, coingeckoId: asset.coingeckoId, date: DATE },
     ])
@@ -90,7 +90,7 @@ describe('historical-price.service', () => {
     const asset = await createTestAsset(`hpt-cap-${Date.now()}`)
     mockedFetch.mockResolvedValue(50)
 
-    // 45 unterschiedliche Tage > Cap (40)
+    // 45 distinct days > cap (40)
     const requests = Array.from({ length: 45 }, (_, i) => ({
       assetId: asset.id,
       coingeckoId: asset.coingeckoId,

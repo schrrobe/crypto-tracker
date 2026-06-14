@@ -10,7 +10,7 @@ import * as taxService from './tax.service'
 export const taxRoutes = Router()
 taxRoutes.use(requireAuth)
 
-// Steuerreport ist eine Pro-Funktion
+// The tax report is a Pro feature
 taxRoutes.get(
   '/report',
   requirePro,

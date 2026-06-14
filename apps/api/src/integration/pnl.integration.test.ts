@@ -14,7 +14,7 @@ describe('PnL (Integration)', () => {
     const user = await registerUser('pnl') // Default PRO
     const btcId = await findAssetId(user, 'BTC')
 
-    // BUY 1 BTC @ 20.000 € → Kostenbasis 20.000
+    // BUY 1 BTC @ 20.000 € → cost basis 20.000
     await request(app)
       .post(`${API}/transactions`)
       .set(...bearer(user))
@@ -28,7 +28,7 @@ describe('PnL (Integration)', () => {
       })
       .expect(201)
 
-    // aktuelle (Fake-)Preise holen: BTC = 50.000 €
+    // fetch current (fake) prices: BTC = 50.000 €
     await request(app).post(`${API}/prices/refresh`).set(...bearer(user)).expect(200)
 
     const res = await request(app).get(`${API}/portfolio/pnl`).set(...bearer(user))

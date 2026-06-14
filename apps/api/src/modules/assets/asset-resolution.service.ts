@@ -1,8 +1,8 @@
 import type { Asset } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 
-// Symbol → Asset. Bei Ticker-Kollisionen gewinnt das gemappte Asset (coingeckoId gesetzt);
-// unbekannte Symbole erzeugen ein unmapped Asset (kein Preis, UI zeigt Hinweis).
+// Symbol → asset. On ticker collisions the mapped asset wins (coingeckoId set);
+// unknown symbols create an unmapped asset (no price, the UI shows a hint).
 export async function resolveAssetsBySymbol(symbols: string[]): Promise<Map<string, Asset>> {
   const unique = [...new Set(symbols.map((s) => s.toUpperCase()))]
   const existing = await prisma.asset.findMany({ where: { symbol: { in: unique } } })

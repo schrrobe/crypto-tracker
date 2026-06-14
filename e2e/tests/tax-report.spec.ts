@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { input, makePro, register, uniqueEmail } from './helpers'
 
-// FAKE_PRICES=true: Backfill-Tagespreise sind deterministisch (80–100 % des Fake-Preises)
+// FAKE_PRICES=true: backfill daily prices are deterministic (80–100 % of the fake price)
 
 async function addTransaction(
   page: import('@playwright/test').Page,
@@ -24,12 +24,12 @@ test('manuelle Transaktionen: erfassen, Bestand abgeleitet, Steuerreport mit CSV
   await register(page, uniqueEmail('tax'))
   await makePro(page)
 
-  // Transaktionsseite über Quellen erreichen
+  // Reach the transactions page via Sources
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('open-transactions').click()
   await expect(page.getByTestId('transactions-empty')).toBeVisible()
 
-  // Kauf 2023: 2 BTC à 20.000 € — Verkauf 2024: 1 BTC à 30.000 €
+  // Buy 2023: 2 BTC at 20.000 € — sell 2024: 1 BTC at 30.000 €
   await addTransaction(page, {
     search: 'bitcoin',
     symbol: 'BTC',
@@ -49,11 +49,11 @@ test('manuelle Transaktionen: erfassen, Bestand abgeleitet, Steuerreport mit CSV
   })
   await expect(page.getByTestId('tx-BTC-SELL')).toBeVisible()
 
-  // abgeleiteter Bestand: 1 BTC × 50.000 € Fake-Preis
+  // derived holding: 1 BTC × 50.000 € fake price
   await page.getByRole('tab', { name: 'Dashboard' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/50\.000,00\s€/u)
 
-  // Steuerreport DE 2024
+  // Tax report DE 2024
   await page.getByRole('tab', { name: 'Einstellungen' }).click()
   await page.getByTestId('open-tax-report').click()
   await expect(page.getByTestId('tax-disclaimer')).toBeVisible()
@@ -61,26 +61,26 @@ test('manuelle Transaktionen: erfassen, Bestand abgeleitet, Steuerreport mit CSV
   await page.getByTestId('tax-year').click()
   await page.locator('ion-popover ion-radio', { hasText: '2024' }).click()
 
-  // Verkauf 15.06.2024, Kauf 15.01.2023 → > 1 Jahr → steuerfrei
+  // Sell 15.06.2024, buy 15.01.2023 → > 1 year → tax-free
   const disposal = page.getByTestId('tax-disposal-BTC')
   await expect(disposal).toBeVisible()
   await expect(disposal).toContainText('steuerfrei')
   await expect(page.getByTestId('tax-total-gain')).toContainText('10.000,00')
   await expect(page.getByTestId('tax-taxable-final')).toContainText('0,00')
 
-  // Länderwechsel AT: Neuvermögen, steuerpflichtig
+  // Country switch AT: Neuvermögen, taxable
   await page.getByTestId('tax-country').click()
   await page.locator('ion-popover ion-radio', { hasText: 'Österreich' }).click()
   await expect(page.getByTestId('tax-disposal-BTC')).toContainText('steuerpflichtig')
   await expect(page.getByTestId('tax-neuvermoegen')).toContainText('10.000,00')
 
-  // CSV-Export
+  // CSV export
   const downloadPromise = page.waitForEvent('download')
   await page.getByTestId('tax-export-csv').click()
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('steuerreport-AT-2024.csv')
 
-  // PDF-Export
+  // PDF export
   const pdfPromise = page.waitForEvent('download')
   await page.getByTestId('tax-export-pdf').click()
   const pdf = await pdfPromise
@@ -94,7 +94,7 @@ test('Transfer verknüpfen: Kostenbasis bleibt im DE-Report erhalten', async ({ 
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('open-transactions').click()
 
-  // Kauf 2022 → Auszahlung/Einzahlung 2023 (Transfer) → Verkauf 2024
+  // Buy 2022 → withdrawal/deposit 2023 (transfer) → sell 2024
   await addTransaction(page, {
     search: 'bitcoin',
     symbol: 'BTC',
@@ -125,12 +125,12 @@ test('Transfer verknüpfen: Kostenbasis bleibt im DE-Report erhalten', async ({ 
     timestamp: '2024-06-01T10:00',
   })
 
-  // Auszahlung mit Einzahlung verknüpfen
+  // Link the withdrawal with the deposit
   await page.getByTestId('tx-link-BTC').first().click()
   await page.getByTestId('transfer-candidate-BTC-WITHDRAWAL').or(page.getByTestId('transfer-candidate-BTC-DEPOSIT')).first().click()
   await expect(page.getByTestId('tx-transfer-badge-BTC').first()).toBeVisible()
 
-  // DE-Report 2024: Basis 10.000 erhalten, > 1 Jahr → steuerfrei
+  // DE report 2024: basis 10.000 preserved, > 1 year → tax-free
   await page.getByRole('tab', { name: 'Einstellungen' }).click()
   await page.getByTestId('open-tax-report').click()
   await page.getByTestId('tax-year').click()
@@ -151,7 +151,7 @@ test('Transaktion ohne Kurs: Backfill-Hinweis im Report, Bearbeiten/Löschen', a
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('open-transactions').click()
 
-  // Kauf + Verkauf ohne Kurs → Report nutzt historische Fake-Tagespreise
+  // Buy + sell without price → report uses historical fake daily prices
   await addTransaction(page, {
     search: 'solana',
     symbol: 'SOL',
@@ -176,7 +176,7 @@ test('Transaktion ohne Kurs: Backfill-Hinweis im Report, Bearbeiten/Löschen', a
   await expect(disposal).toBeVisible()
   await expect(disposal).toContainText('historischer Tagespreis')
 
-  // zurück: der Tab merkt sich die Unterseite → direkt wieder auf der Transaktionsliste
+  // back: the tab remembers the subpage → directly back on the transaction list
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('tx-edit-SOL').first().click()
   await input(page, 'tx-quantity').fill('5')

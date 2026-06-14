@@ -1,8 +1,8 @@
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 
-// Toleranz: Exchange-CSVs haben oft nur Tagesgranularität; eine Einzahlung darf
-// nominell bis zu 24 h vor der Auszahlung liegen, ohne dass das Paar abgelehnt wird
+// Tolerance: exchange CSVs often only have day-level granularity; a deposit may
+// nominally precede the withdrawal by up to 24 h without the pair being rejected
 const TIMESTAMP_TOLERANCE_MS = 24 * 60 * 60 * 1000
 
 async function getOwnedTx(userId: string, txId: string) {
@@ -14,9 +14,9 @@ async function getOwnedTx(userId: string, txId: string) {
   return tx
 }
 
-// Verknüpft eine WITHDRAWAL- mit einer DEPOSIT-Transaktion zu einem Transfer-Paar.
-// :id darf beide Seiten sein — die Richtung ergibt sich aus den Typen.
-// Auch importierte (CSV-)Transaktionen sind verlinkbar; `editable` gated nur Feld-Edits.
+// Links a WITHDRAWAL with a DEPOSIT transaction into a transfer pair.
+// :id may be either leg — the direction follows from the types.
+// Imported (CSV) transactions can be linked too; `editable` only gates field edits.
 export async function linkTransfer(userId: string, txId: string, counterpartId: string): Promise<void> {
   const a = await getOwnedTx(userId, txId)
   const b = await getOwnedTx(userId, counterpartId)
@@ -31,8 +31,8 @@ export async function linkTransfer(userId: string, txId: string, counterpartId: 
   const withdrawal = a.type === 'WITHDRAWAL' ? a : b
   const deposit = a.type === 'DEPOSIT' ? a : b
 
-  // Portfolios sind getrennte Steuersubjekte — ein Kostenbasis-Umzug über die
-  // Grenze wäre steuerlich Schenkung/Veräußerung, kein Transfer
+  // Portfolios are separate tax subjects — moving a cost basis across the
+  // boundary would be a gift/disposal for tax purposes, not a transfer
   if (a.source.portfolioId !== b.source.portfolioId) {
     throw AppError.badRequest(
       'TRANSFER_LINK_PORTFOLIO_MISMATCH',

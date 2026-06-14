@@ -6,7 +6,7 @@ import * as billingService from './billing.service'
 export const billingRoutes = Router()
 billingRoutes.use(requireAuth)
 
-// Checkout-Session fürs Pro-Abo → URL zum Stripe-Checkout
+// Checkout session for the Pro subscription → URL to the Stripe Checkout
 billingRoutes.post(
   '/checkout',
   asyncHandler(async (req, res) => {
@@ -14,7 +14,7 @@ billingRoutes.post(
   }),
 )
 
-// Customer Portal (Abo verwalten/kündigen)
+// Customer Portal (manage/cancel the subscription)
 billingRoutes.post(
   '/portal',
   asyncHandler(async (req, res) => {
@@ -22,7 +22,7 @@ billingRoutes.post(
   }),
 )
 
-// Stripe-Webhook — KEIN requireAuth, RAW Body (in app.ts vor express.json gemountet).
+// Stripe webhook — NO requireAuth, RAW body (mounted in app.ts before express.json).
 export const billingWebhookHandler: RequestHandler = (req, res, next) => {
   billingService
     .handleWebhookEvent(req.body as Buffer, req.get('stripe-signature'))

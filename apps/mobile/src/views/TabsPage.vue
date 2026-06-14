@@ -48,7 +48,7 @@ import {
 import { onMounted } from 'vue'
 import { usePortfoliosStore } from '../stores/portfolios.store'
 
-// Portfolios einmal zentral laden — der Switcher in den Tab-Headern braucht sie
+// Load portfolios once centrally — the switcher in the tab headers needs them
 const portfolios = usePortfoliosStore()
 onMounted(() => {
   portfolios.ensureLoaded().catch(() => {})

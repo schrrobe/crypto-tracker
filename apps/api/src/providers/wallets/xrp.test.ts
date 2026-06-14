@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { xrpProvider } from './xrp'
 import { ProviderError } from '../provider.types'
 
-// Live verifizierte Adresse (Binance-Hot-Wallet)
+// Live-verified address (Binance hot wallet)
 const ADDRESS = 'rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh'
 
-// Fixture nach echtem Ripple-JSON-RPC-Format (account_info, validierter Ledger) —
-// Balance als String in Drops (1e6)
+// Fixture based on the real Ripple JSON-RPC format (account_info, validated ledger) —
+// balance as a string in Drops (1e6)
 const ACCOUNT_INFO_FIXTURE = {
   result: {
     account_data: {
@@ -23,7 +23,7 @@ const ACCOUNT_INFO_FIXTURE = {
   },
 }
 
-// Konto nie aktiviert (10-XRP-Reserve nie eingezahlt) — kommt mit HTTP 200
+// Account never activated (10-XRP reserve never deposited) — comes back with HTTP 200
 const ACT_NOT_FOUND_FIXTURE = {
   result: {
     error: 'actNotFound',

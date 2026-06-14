@@ -205,7 +205,7 @@ const report = computed(() => store.report)
 const pageLoading = ref(false)
 const pageError = ref(false)
 
-// Steuerjahre: aktuelles Jahr bis 2015 zurück
+// Tax years: current year back to 2015
 const years = Array.from({ length: new Date().getFullYear() - 2014 }, (_, i) => new Date().getFullYear() - i)
 
 function money(value: string): string {

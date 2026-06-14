@@ -9,20 +9,20 @@ import {
   type WalletProvider,
 } from './provider.types'
 
-// Deterministische Provider für E2E-Tests und lokale Entwicklung (FAKE_PROVIDERS=true).
-// Steuerbar über den API-Key bzw. die Adresse:
-//   apiKey "INVALID..."      → validateCredentials schlägt fehl
-//   apiKey "SYNCFAIL..."     → validateCredentials ok, fetchBalances wirft (Fehlerpfad im SyncRun)
-//   apiKey "FORBIDDEN-EARN…" → Spot synct, der EARN-Subendpoint wirft ENDPOINT_FORBIDDEN
-//                              (Teil-Erfolg → SyncRun-errorCode PARTIAL_SYNC)
+// Deterministic providers for E2E tests and local development (FAKE_PROVIDERS=true).
+// Controllable via the API key or the address:
+//   apiKey "INVALID..."      → validateCredentials fails
+//   apiKey "SYNCFAIL..."     → validateCredentials ok, fetchBalances throws (error path in the SyncRun)
+//   apiKey "FORBIDDEN-EARN…" → Spot syncs, the EARN sub-endpoint throws ENDPOINT_FORBIDDEN
+//                              (partial success → SyncRun errorCode PARTIAL_SYNC)
 
 const FAKE_EXCHANGE_BALANCES: RawBalance[] = [
   { symbol: 'BTC', amount: '0.1', accountType: 'SPOT' },
   { symbol: 'ETH', amount: '2', accountType: 'SPOT' },
 ]
 
-// Earn/Margin getrennt — gleiches Asset (BTC) unter mehreren Kontotypen, plus
-// eine negative Margin-Verbindlichkeit (USDT) für den Netto-Bewertungstest
+// Earn/Margin kept separate — same asset (BTC) under multiple account types, plus
+// a negative margin liability (USDT) for the net valuation test
 const FAKE_EARN_BALANCES: RawBalance[] = [{ symbol: 'BTC', amount: '0.05', accountType: 'EARN' }]
 const FAKE_MARGIN_BALANCES: RawBalance[] = [{ symbol: 'USDT', amount: '-300', accountType: 'MARGIN' }]
 
@@ -72,8 +72,8 @@ const FAKE_WALLET_BALANCES: Record<string, RawBalance[]> = {
   COSMOS: [{ symbol: 'ATOM', amount: '25' }],
 }
 
-// Deterministische Rewards für Integrationstests: feste externalRefs →
-// wiederholter Sync darf keine Duplikate erzeugen (skipDuplicates-Pfad)
+// Deterministic rewards for integration tests: fixed externalRefs →
+// a repeated sync must not produce duplicates (skipDuplicates path)
 const FAKE_STAKING_REWARDS: Record<string, Array<{ symbol: string; amount: string; iso: string; ref: string }>> = {
   SOLANA: [
     { symbol: 'SOL', amount: '0.05', iso: '2024-03-01T00:00:00.000Z', ref: 'fake-sol-reward:1' },
@@ -82,9 +82,9 @@ const FAKE_STAKING_REWARDS: Record<string, Array<{ symbol: string; amount: strin
   ETHEREUM: [{ symbol: 'ETH', amount: '0.01', iso: '2024-04-01T00:00:00.000Z', ref: 'fake-eth-wd:1' }],
 }
 
-// Nur diese Fake-Provider liefern Multi-Konto-Daten (Earn/Margin/Futures) —
-// Spot-only-Börsen (Kraken, Coinbase, …) bleiben beim einfachen Bestand, damit
-// bestehende Tests/Fixtures unverändert gelten.
+// Only these fake providers return multi-account data (Earn/Margin/Futures) —
+// spot-only exchanges (Kraken, Coinbase, …) stay on the simple balance, so that
+// existing tests/fixtures remain unchanged.
 const MULTI_ACCOUNT_FAKES = new Set<ProviderId>(['BINANCE', 'OKX', 'BYBIT', 'KUCOIN'])
 
 export function fakeExchangeProvider(id: ProviderId): ExchangeProvider {
@@ -110,7 +110,7 @@ export function fakeExchangeProvider(id: ProviderId): ExchangeProvider {
       }
       const balances = [...FAKE_EXCHANGE_BALANCES, ...FAKE_MARGIN_BALANCES]
       const warnings: string[] = []
-      // EARN nur, wenn der Key den Subendpoint nicht sperrt
+      // EARN only if the key does not block the sub-endpoint
       if (creds.apiKey.startsWith('FORBIDDEN-EARN')) {
         warnings.push('Earn: nicht freigeschaltet (simuliert)')
       } else {
@@ -133,8 +133,8 @@ export function fakeWalletProvider(id: ProviderId): WalletProvider {
       return FAKE_WALLET_BALANCES[id] ?? []
     },
     async fetchStakingRewards(address: string) {
-      // Adresse in die Ref aufnehmen — externalRef ist global unique (beim echten
-      // Provider übernimmt das der Stake-Account-Pubkey bzw. der Withdrawal-Index)
+      // Include the address in the ref — externalRef is globally unique (in the real
+      // provider this is handled by the stake-account pubkey or the withdrawal index)
       return (FAKE_STAKING_REWARDS[id] ?? []).map((r) => ({
         symbol: r.symbol,
         amount: r.amount,

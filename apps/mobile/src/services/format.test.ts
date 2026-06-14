@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { setStored } from './storage'
 
-// Sprache vor dem i18n-Import festnageln (i18n liest den Storage-Cache beim Laden)
+// Pin the language before the i18n import (i18n reads the storage cache on load)
 beforeAll(() => {
   setStored('language', 'de')
 })
 
-// Intl nutzt geschützte Leerzeichen — für Assertions normalisieren
+// Intl uses non-breaking spaces — normalize for assertions
 function plain(s: string): string {
   return s.replace(/\u00a0/g, ' ')
 }
@@ -34,7 +34,7 @@ describe('format (Locale de)', () => {
     expect(formatRelativeTime('2026-06-11T11:59:50Z')).toBe('gerade eben')
     expect(formatRelativeTime('2026-06-11T11:45:00Z')).toBe('vor 15 Min.')
     expect(formatRelativeTime('2026-06-11T09:00:00Z')).toBe('vor 3 Std.')
-    // älter als 24h → Datum
+    // older than 24h → date
     expect(formatRelativeTime('2026-06-01T09:00:00Z')).toContain('2026')
 
     vi.useRealTimers()
@@ -47,7 +47,7 @@ describe('format (Locale de)', () => {
     balancesHidden.value = true
     expect(formatCurrency('25000', 'EUR')).toBe(BALANCE_MASK)
     expect(formatQuantity('0.5')).toBe(BALANCE_MASK)
-    // Roh-Formatter (Markt-Preise) bleibt sichtbar
+    // Raw formatter (market prices) stays visible
     expect(plain(formatCurrencyRaw('25000', 'EUR'))).toBe('25.000,00 €')
 
     balancesHidden.value = false

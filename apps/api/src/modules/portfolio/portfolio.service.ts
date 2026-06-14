@@ -25,7 +25,7 @@ export async function getSummary(userId: string, portfolioId?: string): Promise<
   const assetIds = [...new Set(holdings.map((h) => h.assetId))]
   const prices = await getLatestPrices(assetIds)
 
-  // Aggregation über alle Quellen je Asset
+  // Aggregate across all sources per asset
   const byAssetMap = new Map<string, { asset: AssetDto; quantity: Prisma.Decimal }>()
   for (const h of holdings) {
     const entry = byAssetMap.get(h.assetId)
@@ -69,10 +69,10 @@ export async function getSummary(userId: string, portfolioId?: string): Promise<
     byAsset.push({ asset, quantity: quantity.toString(), valueEur, valueUsd })
   }
 
-  // Größte Position zuerst
+  // Largest position first
   byAsset.sort((a, b) => Number(b.valueEur ?? 0) - Number(a.valueEur ?? 0))
 
-  // Signierte Aufschlüsselung je Kontotyp (MARGIN ggf. negativ)
+  // Signed breakdown per account type (MARGIN may be negative)
   const accTotals = new Map<HoldingAccountType, { eur: Prisma.Decimal; usd: Prisma.Decimal }>()
   for (const h of holdings) {
     const price = prices.get(h.assetId)
@@ -89,7 +89,7 @@ export async function getSummary(userId: string, portfolioId?: string): Promise<
     valueUsd: v.usd.toFixed(2),
   }))
 
-  // Futures-uPnL separat (NICHT in totalEur — Collateral steckt schon in den Holdings)
+  // Futures uPnL separately (NOT in totalEur — collateral is already part of the holdings)
   const { eur: futuresUnrealizedPnlEur, usd: futuresUnrealizedPnlUsd } = await futuresUpnl(userId, pid)
 
   return {
@@ -104,8 +104,8 @@ export async function getSummary(userId: string, portfolioId?: string): Promise<
   }
 }
 
-// Summe der unrealisierten Futures-PnL (in quoteCurrency ≈ USD) → EUR/USD über
-// den Stablecoin-Kurs (tether). Null, wenn keine Positionen oder kein Kurs.
+// Sum of the unrealized futures PnL (in quoteCurrency ≈ USD) → EUR/USD via
+// the stablecoin price (tether). Null when there are no positions or no price.
 async function futuresUpnl(
   userId: string,
   portfolioId: string,
@@ -130,12 +130,12 @@ const RANGE_CONFIG: Record<HistoryRange, { days: 1 | 7 | 30 | 365; buckets: numb
   '1y': { days: 365, buckets: 52 },
 }
 
-// Begrenzte Asset-Anzahl pro Verlauf: 1 market_chart-Call pro Asset/Währung —
-// Top-N nach aktuellem Wert deckt praktisch das gesamte Portfolio ab.
+// Limited number of assets per history: 1 market_chart call per asset/currency —
+// top-N by current value covers practically the entire portfolio.
 const HISTORY_MAX_ASSETS = 10
 
-// Letzter bekannter Preis ≤ Bucket-Zeitpunkt (Serien verschiedener Coins haben
-// leicht versetzte Zeitstempel)
+// Last known price ≤ bucket timestamp (series of different coins have
+// slightly offset timestamps)
 function priceAt(series: MarketChartPoint[], timestampMs: number): number | null {
   let result: number | null = null
   for (const [t, price] of series) {
@@ -145,8 +145,8 @@ function priceAt(series: MarketChartPoint[], timestampMs: number): number | null
   return result ?? (series[0] ? series[0][1] : null)
 }
 
-// Wertverlauf der AKTUELLEN Bestände zu historischen Preisen — bewusst keine
-// Holdings-Historie (Käufe/Verkäufe in der Vergangenheit werden nicht zurückgerechnet).
+// Value history of the CURRENT holdings at historical prices — deliberately no
+// holdings history (past buys/sells are not back-calculated).
 export async function getHistory(
   userId: string,
   range: HistoryRange,
@@ -161,7 +161,7 @@ export async function getHistory(
     include: { asset: { select: { coingeckoId: true } } },
   })
 
-  // je Asset aggregieren; nur gemappte Assets haben eine Preis-Historie
+  // aggregate per asset; only mapped assets have a price history
   const byCoin = new Map<string, Prisma.Decimal>()
   let excludedAssets = 0
   for (const h of holdings) {
@@ -175,7 +175,7 @@ export async function getHistory(
 
   if (byCoin.size === 0) return { range, currency, points: [], excludedAssets }
 
-  // Top-N nach aktuellem Wert
+  // Top-N by current value
   const prices = await getLatestPrices(holdings.map((h) => h.assetId))
   const currentValue = new Map<string, number>()
   for (const h of holdings) {
@@ -193,8 +193,8 @@ export async function getHistory(
   const vsCurrency = currency.toLowerCase() as 'eur' | 'usd'
   const series = new Map<string, MarketChartPoint[]>()
   for (const coinId of topCoins) {
-    // Pro Asset absichern: ein fehlgeschlagener market_chart-Call (Rate-Limit,
-    // kein Cache) darf nicht die ganze History killen — Asset überspringen.
+    // Guard per asset: a failed market_chart call (rate limit, no cache) must
+    // not kill the entire history — skip the asset.
     try {
       series.set(coinId, await fetchMarketChart(coinId, vsCurrency, days))
     } catch (err) {
@@ -219,7 +219,7 @@ export async function getHistory(
   return { range, currency, points, excludedAssets }
 }
 
-// Manueller Preis-Refresh für alle Assets des Users
+// Manual price refresh for all of the user's assets
 export async function refreshUserPrices(
   userId: string,
   portfolioId?: string,

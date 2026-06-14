@@ -11,8 +11,8 @@ import {
   type TestUser,
 } from './helpers'
 
-// Tenant-Isolation: User B darf Ressourcen von User A weder sehen noch verändern.
-// Erwartung ist überall 404 (nicht 403) — die Existenz fremder IDs wird nicht verraten.
+// Tenant isolation: user B may neither see nor modify resources belonging to user A.
+// The expectation is always 404 (not 403) — the existence of foreign IDs is not revealed.
 
 describe('Tenant-Isolation (Integration)', () => {
   let alice: TestUser
@@ -29,7 +29,7 @@ describe('Tenant-Isolation (Integration)', () => {
     aliceManualId = (await createManualSource(alice, 'Alice Manuell')).id
     aliceExchangeId = (await createExchangeSource(alice, 'Alice Exchange')).id
 
-    // Manueller BTC-Bestand für Alice
+    // Manual BTC holding for Alice
     const assets = await request(app).get(`${API}/assets/search?q=bitcoin`).set(...bearer(alice))
     const btcId = assets.body.assets[0].id as string
     const holding = await request(app)
@@ -74,7 +74,7 @@ describe('Tenant-Isolation (Integration)', () => {
       .set(...bearer(bob))
       .expect(404)
 
-    // Alices Bestand ist unverändert
+    // Alice's holding is unchanged
     const aliceHoldings = await request(app).get(`${API}/holdings`).set(...bearer(alice))
     const btc = aliceHoldings.body.holdings.find(
       (h: { id: string }) => h.id === aliceHoldingId,
@@ -85,7 +85,7 @@ describe('Tenant-Isolation (Integration)', () => {
   it('Sync: fremde Quellen können nicht synchronisiert oder eingesehen werden', async () => {
     await request(app).post(`${API}/sources/${aliceExchangeId}/sync`).set(...bearer(bob)).expect(404)
     await request(app).get(`${API}/sources/${aliceExchangeId}/sync-runs`).set(...bearer(bob)).expect(404)
-    // sync-all von Bob fasst Alices Quellen nicht an
+    // Bob's sync-all does not touch Alice's sources
     const res = await request(app).post(`${API}/sources/sync-all`).set(...bearer(bob))
     expect(res.body.results).toHaveLength(0)
   })
@@ -110,7 +110,7 @@ describe('Tenant-Isolation (Integration)', () => {
   })
 
   it('Futures: Alices Positionen sind für Bob unsichtbar', async () => {
-    // Binance-Fake liefert Multi-Konto inkl. Futures-Positionen
+    // Binance fake returns a multi-account setup including futures positions
     const binance = await createExchangeSource(alice, 'Alice Binance', 'valid-key-1234', 'BINANCE')
     await request(app).post(`${API}/sources/${binance.id}/sync`).set(...bearer(alice))
     const aliceFutures = await request(app).get(`${API}/portfolio/futures`).set(...bearer(alice))

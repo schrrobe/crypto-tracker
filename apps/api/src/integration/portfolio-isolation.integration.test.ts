@@ -15,7 +15,7 @@ describe('Portfolio-Isolation (Integration)', () => {
     const eltern = await createPortfolio(user, 'Eltern')
     const btcId = await findAssetId(user, 'BTC')
 
-    // Default: Exchange-Quelle (Fake) + Sync → 0.1 BTC + 2 ETH
+    // Default: exchange source (fake) + sync → 0.1 BTC + 2 ETH
     const exchange = await request(app)
       .post(`${API}/sources`)
       .set(...bearer(user))
@@ -23,7 +23,7 @@ describe('Portfolio-Isolation (Integration)', () => {
     expect(exchange.status).toBe(201)
     await request(app).post(`${API}/sources/${exchange.body.source.id}/sync`).set(...bearer(user))
 
-    // Eltern: manuelle Transaktionen (BUY 2023, SELL 2024 → Gewinn)
+    // Eltern: manual transactions (BUY 2023, SELL 2024 → gain)
     for (const tx of [
       { type: 'BUY', quantity: '1', pricePerUnit: '20000', timestamp: '2023-01-15T10:00:00.000Z' },
       { type: 'SELL', quantity: '1', pricePerUnit: '30000', timestamp: '2024-06-15T10:00:00.000Z' },
@@ -35,7 +35,7 @@ describe('Portfolio-Isolation (Integration)', () => {
       expect(res.status).toBe(201)
     }
 
-    // Quellen getrennt
+    // sources separated
     const defaultSources = await request(app).get(`${API}/sources`).set(...bearer(user))
     expect(defaultSources.body.sources).toHaveLength(1)
     expect(defaultSources.body.sources[0].label).toBe('Mein Kraken')
@@ -45,7 +45,7 @@ describe('Portfolio-Isolation (Integration)', () => {
     expect(elternSources.body.sources).toHaveLength(1)
     expect(elternSources.body.sources[0].type).toBe('MANUAL')
 
-    // Transaktionen getrennt
+    // transactions separated
     const defaultTxs = await request(app).get(`${API}/transactions`).set(...bearer(user))
     expect(defaultTxs.body.transactions).toHaveLength(0)
     const elternTxs = await request(app)
@@ -53,7 +53,7 @@ describe('Portfolio-Isolation (Integration)', () => {
       .set(...bearer(user))
     expect(elternTxs.body.transactions).toHaveLength(2)
 
-    // Summary getrennt: Default hat Exchange-Bestände, Eltern hat 0 BTC (Netto 0)
+    // summary separated: Default has exchange holdings, Eltern has 0 BTC (net 0)
     const defaultSummary = await request(app).get(`${API}/portfolio/summary`).set(...bearer(user))
     expect(Number(defaultSummary.body.totalEur)).toBeGreaterThan(0)
     const elternSummary = await request(app)
@@ -61,19 +61,19 @@ describe('Portfolio-Isolation (Integration)', () => {
       .set(...bearer(user))
     expect(elternSummary.body.totalEur).toBe('0.00')
 
-    // Steuerreport getrennt: Eltern haben den Gewinn, Default nicht
+    // tax report separated: Eltern has the gain, Default does not
     const elternReport = await request(app)
       .get(`${API}/tax/report?year=2024&country=DE&portfolioId=${eltern.id}`)
       .set(...bearer(user))
     expect(elternReport.body.disposals).toHaveLength(1)
-    // > 1 Jahr gehalten → steuerfrei, aber der Gewinn gehört den Eltern
+    // > 1 year held → tax-free, but the gain belongs to Eltern
     expect(elternReport.body.totals.totalGainEur).toBe('10000.00')
     expect(elternReport.body.totals.taxFreeGainEur).toBe('10000.00')
     const defaultReport = await request(app)
       .get(`${API}/tax/report?year=2024&country=DE`)
       .set(...bearer(user))
     expect(defaultReport.body.disposals).toHaveLength(0)
-    // Exchange-Quelle des Defaults bleibt dort als uncovered gelistet
+    // the Default's exchange source remains listed there as uncovered
     expect(defaultReport.body.uncoveredSources).toHaveLength(1)
     expect(elternReport.body.uncoveredSources).toHaveLength(0)
   })
@@ -99,7 +99,7 @@ describe('Portfolio-Isolation (Integration)', () => {
       .send({ portfolioId: eltern.id })
     expect(syncAll.body.results).toHaveLength(1)
 
-    // Default-Quelle wurde nicht angefasst
+    // Default source was not touched
     const defaultSources = await request(app).get(`${API}/sources`).set(...bearer(user))
     expect(defaultSources.body.sources[0].lastSyncAt).toBeNull()
   })

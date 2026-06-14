@@ -53,7 +53,7 @@ transactionsRoutes.delete(
   }),
 )
 
-// Transfer-Paare: WITHDRAWAL ↔ DEPOSIT verknüpfen/lösen
+// Transfer pairs: link/unlink WITHDRAWAL ↔ DEPOSIT
 transactionsRoutes.post(
   '/:id/transfer-link',
   validate(transferLinkSchema),
@@ -71,7 +71,7 @@ transactionsRoutes.delete(
   }),
 )
 
-// Swap-Paare: SELL (Asset A) ↔ BUY (Asset B) verknüpfen/lösen
+// Swap pairs: link/unlink SELL (Asset A) ↔ BUY (Asset B)
 transactionsRoutes.post(
   '/:id/swap-link',
   validate(swapLinkSchema),

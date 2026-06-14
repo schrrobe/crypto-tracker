@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bitvavoProvider, bitvavoSignature } from './bitvavo'
 
-// Realistische Bitvavo-Balance-Response (GET /v2/balance)
+// Realistic Bitvavo balance response (GET /v2/balance)
 const BALANCE_FIXTURE = [
-  { symbol: 'EUR', available: '2500.50', inOrder: '0' }, // Fiat → übersprungen
-  { symbol: 'BTC', available: '0.75', inOrder: '0.25' }, // beide Teile zählen
+  { symbol: 'EUR', available: '2500.50', inOrder: '0' }, // fiat → skipped
+  { symbol: 'BTC', available: '0.75', inOrder: '0.25' }, // both parts count
   { symbol: 'ETH', available: '3', inOrder: '0' },
-  { symbol: 'ADA', available: '0', inOrder: '0' }, // Nullbestand → übersprungen
+  { symbol: 'ADA', available: '0', inOrder: '0' }, // zero balance → skipped
 ]
 
 function mockFetch(status: number, body: unknown) {
@@ -23,9 +23,9 @@ describe('bitvavoSignature', () => {
   it('berechnet HMAC-SHA256 über timestamp+method+path+body', () => {
     const sig = bitvavoSignature('1548183481067', 'GET', '/v2/balance', '', 'geheim')
     expect(sig).toMatch(/^[0-9a-f]{64}$/)
-    // deterministisch
+    // deterministic
     expect(bitvavoSignature('1548183481067', 'GET', '/v2/balance', '', 'geheim')).toBe(sig)
-    // jede Komponente verändert die Signatur
+    // every component changes the signature
     expect(bitvavoSignature('1548183481068', 'GET', '/v2/balance', '', 'geheim')).not.toBe(sig)
     expect(bitvavoSignature('1548183481067', 'POST', '/v2/balance', '', 'geheim')).not.toBe(sig)
   })
@@ -36,7 +36,7 @@ describe('bitvavoProvider.fetchBalances', () => {
     mockFetch(200, BALANCE_FIXTURE)
     const balances = await bitvavoProvider.fetchBalances(CREDS)
 
-    // BTC: available + inOrder als getrennte Einträge (SyncService summiert per Decimal)
+    // BTC: available + inOrder as separate entries (SyncService sums them via Decimal)
     expect(balances.filter((b) => b.symbol === 'BTC').map((b) => b.amount)).toEqual(['0.75', '0.25'])
     expect(balances).toContainEqual({ symbol: 'ETH', amount: '3' })
     expect(balances.map((b) => b.symbol)).not.toContain('EUR')

@@ -22,8 +22,8 @@ import {
 
 export const authRoutes = Router()
 
-// Antwort je Client: nativ bekommt den Refresh-Token im Body (Secure Storage),
-// Web bekommt ein httpOnly-Cookie und den Token NICHT im Body (für JS unlesbar).
+// Response per client: native clients get the refresh token in the body (Secure Storage),
+// web gets an httpOnly cookie and NOT the token in the body (unreadable to JS).
 function sendAuth(req: Request, res: Response, result: authService.AuthResult, status = 200): void {
   if (isNativeClient(req)) {
     res.status(status).json(result)
@@ -86,7 +86,7 @@ authRoutes.post(
   validate(forgotPasswordSchema),
   asyncHandler(async (req, res) => {
     await authService.forgotPassword(req.body.email)
-    // Immer 204 — keine Auskunft, ob die Adresse registriert ist
+    // Always 204 — no disclosure of whether the address is registered
     res.status(204).end()
   }),
 )
@@ -111,7 +111,7 @@ authRoutes.get(
 const updateMeSchema = z.object({
   baseCurrency: z.enum(['EUR', 'USD']).optional(),
   autoSyncEnabled: z.boolean().optional(),
-  // nur im local-Modus wirksam (Dev-Schalter) — Service ignoriert es sonst
+  // only effective in local mode (dev switch) — otherwise the service ignores it
   plan: z.enum(['FREE', 'PRO']).optional(),
 })
 
@@ -124,8 +124,8 @@ authRoutes.patch(
   }),
 )
 
-// Konto-Löschung (Apple/Google verlangen In-App-Löschung). Entfernt alle Daten
-// des Nutzers; auf Web zusätzlich das Refresh-Cookie löschen.
+// Account deletion (Apple/Google require in-app deletion). Removes all of the
+// user's data; on web, also clear the refresh cookie.
 authRoutes.delete(
   '/me',
   requireAuth,

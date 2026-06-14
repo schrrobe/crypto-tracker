@@ -1,9 +1,9 @@
 import nodemailer from 'nodemailer'
 import { env } from '../config/env'
 
-// E-Mail-Versand ist optional: nur wenn SMTP_HOST gesetzt ist, wird wirklich
-// versendet. Ohne SMTP-Konfiguration (local) landet die Nachricht im API-Log —
-// so funktioniert der Passwort-Reset-Flow auch ohne Mailserver.
+// Email sending is optional: mail is only actually sent when SMTP_HOST is set.
+// Without SMTP configuration (local) the message lands in the API log —
+// so the password reset flow works even without a mail server.
 
 interface Mail {
   to: string
@@ -25,7 +25,7 @@ export const mailerConfigured = transporter !== null
 
 export async function sendMail(mail: Mail): Promise<void> {
   if (!transporter) {
-    // Konsolen-Fallback: kein SMTP konfiguriert (local/dev ohne Mailserver)
+    // Console fallback: no SMTP configured (local/dev without mail server)
     console.info(
       `[mailer] Kein SMTP konfiguriert — E-Mail an ${mail.to} nicht versendet.\n` +
         `Betreff: ${mail.subject}\n${mail.text}`,

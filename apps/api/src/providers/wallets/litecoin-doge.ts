@@ -2,18 +2,18 @@ import type { ProviderId } from '@prisma/client'
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
 
-// Litecoin-/Dogecoin-Bestand über die Blockchair-Dashboards-API (kein API-Key nötig).
-// Beide Chains liefern dieselbe Antwortform — data[adresse].address.balance in
-// Basis-Einheiten (1e8) — daher eine gemeinsame Factory.
-// ?limit=0 spart die Transaktionsliste, wir brauchen nur die Balance.
+// Litecoin/Dogecoin balance via the Blockchair dashboards API (no API key required).
+// Both chains return the same response shape — data[address].address.balance in
+// base units (1e8) — hence a shared factory.
+// ?limit=0 skips the transaction list; we only need the balance.
 
-// Legacy (L…), P2SH (M…) als Base58Check; Bech32 (ltc1…)
+// Legacy (L…), P2SH (M…) as Base58Check; Bech32 (ltc1…)
 const LTC_ADDRESS_RE = /^(ltc1[02-9ac-hj-np-z]{8,87}|[LM][1-9A-HJ-NP-Za-km-z]{25,34})$/
-// Base58Check: D + Versions-Zeichen (5-9, A-H, J-N, P-U) + 32 Base58-Zeichen
+// Base58Check: D + version character (5-9, A-H, J-N, P-U) + 32 Base58 characters
 const DOGE_ADDRESS_RE = /^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{32}$/
 
 interface BlockchairDashboard {
-  // balance ist bei nie benutzten Adressen null
+  // balance is null for never-used addresses
   data: Record<string, { address: { balance: string | null } }> | null
   context: { code: number; error?: string }
 }
@@ -38,8 +38,8 @@ function makeBlockchairProvider(config: ChainConfig): WalletProvider {
       const res = await fetch(
         `https://api.blockchair.com/${config.chain}/dashboards/address/${encodeURIComponent(address)}?limit=0`,
       )
-      // Blockchair meldet Limits mit eigenen HTTP-Codes: 402 (Request-Limit),
-      // 430 (IP temporär geblacklistet, live verifiziert) und 435 (Soft-Limit bei Last).
+      // Blockchair signals limits with its own HTTP codes: 402 (request limit),
+      // 430 (IP temporarily blacklisted, verified live) and 435 (soft limit under load).
       if (res.status === 429 || res.status === 430 || res.status === 402 || res.status === 435) {
         throw new ProviderError(
           'RATE_LIMITED',

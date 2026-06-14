@@ -1,10 +1,10 @@
 import { Capacitor } from '@capacitor/core'
 import { Browser } from '@capacitor/browser'
 
-// Externe Links (z.B. die API-Key-Anleitungen der Exchanges) öffnen:
-//  - Web: neuer Tab.
-//  - Nativ: In-App-Browser (Capacitor Browser), damit der Nutzer per „Fertig"
-//    in die App zurückkehrt statt sie über den System-Browser zu verlassen.
+// Open external links (e.g. the exchanges' API-key guides):
+//  - Web: new tab.
+//  - Native: in-app browser (Capacitor Browser), so the user returns to the app
+//    via "Done" instead of leaving it through the system browser.
 export async function openExternal(url: string | undefined): Promise<void> {
   if (!url) return
   if (Capacitor.isNativePlatform()) {

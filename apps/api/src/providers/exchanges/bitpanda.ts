@@ -5,8 +5,8 @@ import {
   type RawBalance,
 } from '../provider.types'
 
-// Bitpanda Public API: GET /v1/wallets mit X-Api-Key (kein Secret).
-// Liefert nur Krypto-Wallets; Fiat liegt unter /v1/fiatwallets und wird nicht getrackt.
+// Bitpanda Public API: GET /v1/wallets with X-Api-Key (no secret).
+// Returns crypto wallets only; fiat lives under /v1/fiatwallets and is not tracked.
 
 const BASE_URL = 'https://api.bitpanda.com/v1'
 

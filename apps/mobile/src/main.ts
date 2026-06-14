@@ -8,7 +8,7 @@ import { applyDetectedLocale, i18n } from './i18n'
 import { preloadStorage } from './services/storage'
 import { initPrivacy } from './services/privacy'
 
-/* Ionic Core-Styles */
+/* Ionic core styles */
 import '@ionic/vue/css/core.css'
 import '@ionic/vue/css/normalize.css'
 import '@ionic/vue/css/structure.css'
@@ -20,14 +20,14 @@ import '@ionic/vue/css/text-transformation.css'
 import '@ionic/vue/css/flex-utils.css'
 import '@ionic/vue/css/display.css'
 
-/* Dark Mode über CSS-Klasse (manueller Toggle + System-Default) */
+/* Dark mode via CSS class (manual toggle + system default) */
 import '@ionic/vue/css/palettes/dark.class.css'
 
 import './theme/variables.css'
 
 async function bootstrap(): Promise<void> {
-  // Persistente Werte (Token, Sprache, Theme, aktives Portfolio) aus Capacitor
-  // Storage in den synchronen Cache laden, bevor die App gemountet wird.
+  // Load persistent values (token, language, theme, active portfolio) from Capacitor
+  // Storage into the synchronous cache before the app is mounted.
   await preloadStorage()
   applyDetectedLocale()
   initPrivacy()

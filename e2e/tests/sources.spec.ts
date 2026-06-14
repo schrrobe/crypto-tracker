@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { input, register, uniqueEmail } from './helpers'
 
-// FAKE_PROVIDERS=true im E2E-API-Server:
-//   Exchange-Sync liefert 0,1 BTC + 2 ETH (Fake-Preise: BTC 50.000 €, ETH 2.000 €)
-//   Bitcoin-Wallet liefert 0,05 BTC · apiKey "INVALID…" → Ablehnung · "SYNCFAIL…" → Sync-Fehler
+// FAKE_PROVIDERS=true in the E2E API server:
+//   Exchange sync delivers 0,1 BTC + 2 ETH (fake prices: BTC 50.000 €, ETH 2.000 €)
+//   Bitcoin wallet delivers 0,05 BTC · apiKey "INVALID…" → rejection · "SYNCFAIL…" → sync error
 
 async function openSourceModal(page: import('@playwright/test').Page) {
   await page.getByRole('tab', { name: 'Quellen' }).click()
@@ -62,7 +62,7 @@ test('fehlgeschlagener Sync landet als Fehler-Badge am SyncRun', async ({ page }
   await page.getByTestId('source-sync-Wackelig').click()
   await expect(page.getByTestId('source-Wackelig')).toContainText('Fehler: Anbieter nicht erreichbar')
 
-  // Bestände bleiben leer, kein halber Sync
+  // Holdings stay empty, no half sync
   await page.getByRole('tab', { name: 'Bestände' }).click()
   await expect(page.getByTestId('holdings-empty')).toBeVisible()
 })

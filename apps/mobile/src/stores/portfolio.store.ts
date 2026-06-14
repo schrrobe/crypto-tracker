@@ -16,7 +16,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   const pnl = ref<PortfolioPnlDto | null>(null)
   const loading = ref(false)
 
-  // Pro-Feature: bei Free wirft die API 402 → Paywall (global gehandhabt)
+  // Pro feature: on Free the API throws 402 → paywall (handled globally)
   async function loadPnl(): Promise<void> {
     const scope = usePortfoliosStore().scopeQuery()
     pnl.value = await api.get<PortfolioPnlDto>(`/portfolio/pnl${scope}`)
@@ -47,8 +47,8 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         loadSummary(),
         loadHoldings(),
         loadFuturesPositions(),
-        // PnL nur mitaktualisieren, wenn bereits geladen (Pro) — sonst bliebe die
-        // PnL-Karte nach Pull-to-Refresh auf einem veralteten Wert stehen.
+        // Only refresh PnL if it was already loaded (Pro) — otherwise the
+        // PnL card would stay on a stale value after pull-to-refresh.
         ...(pnl.value !== null ? [loadPnl().catch(() => {})] : []),
       ])
     } finally {

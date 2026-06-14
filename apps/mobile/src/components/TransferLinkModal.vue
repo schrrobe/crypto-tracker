@@ -63,7 +63,7 @@ import { apiErrorMessage } from '../services/errors'
 import { formatQuantity, intlLocale } from '../services/format'
 import { useTransactionsStore } from '../stores/transactions.store'
 
-// Einzahlung darf nominell bis 24 h vor der Auszahlung liegen (CSV-Tagesgranularität)
+// Deposit may nominally precede the withdrawal by up to 24 h (CSV day granularity)
 const TIMESTAMP_TOLERANCE_MS = 24 * 60 * 60 * 1000
 
 const props = defineProps<{
@@ -82,7 +82,7 @@ watch(
   },
 )
 
-// Kandidaten clientseitig: Gegentyp, gleiches Asset, unverlinkt, Mengen-/Zeitregeln
+// Candidates client-side: opposite type, same asset, unlinked, quantity/time rules
 const candidates = computed<TransactionDto[]>(() => {
   const tx = props.transaction
   if (!tx) return []

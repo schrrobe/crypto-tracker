@@ -35,14 +35,14 @@ async function fetchSnapshotForSource(source: PortfolioSource): Promise<SourceSn
     const credential = await prisma.exchangeCredential.findUnique({ where: { sourceId: source.id } })
     if (!credential) throw new ProviderError('INVALID_API_KEY', 'Keine Zugangsdaten hinterlegt')
     const provider = getExchangeProvider(source.provider)
-    // Secrets nur hier, unmittelbar vor dem Call, entschlüsseln
+    // Decrypt secrets only here, immediately before the call
     const creds = {
       apiKey: decryptSecret(credential.encryptedApiKey),
       apiSecret: credential.encryptedApiSecret ? decryptSecret(credential.encryptedApiSecret) : undefined,
       passphrase: credential.encryptedPassphrase ? decryptSecret(credential.encryptedPassphrase) : undefined,
     }
-    // Multi-Konto-Provider liefern Spot + Earn/Margin + Futures + Warnungen,
-    // sonst Spot-only (Bestände gelten dann als SPOT)
+    // Multi-account providers return spot + earn/margin + futures + warnings,
+    // otherwise spot-only (balances then count as SPOT)
     if (provider.fetchAccount) {
       const snap = await withTimeout(provider.fetchAccount(creds), FETCH_TIMEOUT_MS)
       return { balances: snap.balances, positions: snap.positions ?? [], warnings: snap.warnings ?? [] }
@@ -62,10 +62,10 @@ async function fetchSnapshotForSource(source: PortfolioSource): Promise<SourceSn
   throw AppError.badRequest('SOURCE_NOT_SYNCABLE', 'Diese Quelle hat keinen Sync')
 }
 
-// Staking-Rewards des Wallets als STAKING_REWARD-Transaktionen persistieren.
-// Idempotent über externalRef (unique + skipDuplicates), inkrementell ab der
-// jüngsten bekannten Reward-Ref. Kurs bleibt leer — der Steuerreport ergänzt
-// den EUR-Tagespreis per Backfill.
+// Persist the wallet's staking rewards as STAKING_REWARD transactions.
+// Idempotent via externalRef (unique + skipDuplicates), incremental from the
+// most recent known reward ref. Price stays empty — the tax report adds
+// the EUR daily price via backfill.
 async function importStakingRewards(source: PortfolioSource): Promise<void> {
   try {
     const provider = getWalletProvider(source.provider)
@@ -100,7 +100,7 @@ async function importStakingRewards(source: PortfolioSource): Promise<void> {
     })
     if (data.length > 0) await prisma.transaction.createMany({ data, skipDuplicates: true })
   } catch (error) {
-    // Rewards sind Zusatzinformation — der Bestands-Sync bleibt davon unberührt
+    // Rewards are supplementary information — the balance sync is unaffected by this
     console.warn(
       `Staking-Reward-Import für Quelle ${source.id} fehlgeschlagen:`,
       error instanceof Error ? error.message : error,
@@ -108,9 +108,9 @@ async function importStakingRewards(source: PortfolioSource): Promise<void> {
   }
 }
 
-// Schritt 1: Validierung + Run anlegen (RUNNING). Getrennt von der Ausführung,
-// damit der Queue-Modus den Run sofort zurückgeben und die Arbeit an den
-// Worker übergeben kann.
+// Step 1: validation + create the run (RUNNING). Separated from execution
+// so the queue mode can return the run immediately and hand the work off to
+// the worker.
 export async function startSyncRun(userId: string, sourceId: string): Promise<SyncRunDto> {
   const source = await getOwnedSource(userId, sourceId)
   if (source.type !== 'EXCHANGE' && source.type !== 'WALLET') {
@@ -128,10 +128,10 @@ export async function startSyncRun(userId: string, sourceId: string): Promise<Sy
   return toSyncRunDto(run)
 }
 
-// Schritt 2: Run ausführen — bewusst ohne Express-Abhängigkeit (läuft inline
-// oder im Queue-Worker). Provider-Fehler landen im SyncRun (status ERROR),
-// nicht als HTTP-Fehler. Bereits abgeschlossene Runs sind ein No-op
-// (Queue-Retries dürfen nicht doppelt schreiben).
+// Step 2: execute the run — deliberately without an Express dependency (runs inline
+// or in the queue worker). Provider errors land in the SyncRun (status ERROR),
+// not as an HTTP error. Already finished runs are a no-op
+// (queue retries must not write twice).
 export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
   const run = await prisma.syncRun.findUnique({
     where: { id: runId },
@@ -145,15 +145,15 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
 
   try {
     const snapshot = await fetchSnapshotForSource(source)
-    // exakte Null verwerfen, aber negative MARGIN-Bestände (Verbindlichkeit) behalten
+    // discard exact zero, but keep negative MARGIN balances (a liability)
     const balances = snapshot.balances.filter((b) => Number(b.amount) !== 0)
-    // Bilanz- und Positions-Basis-Symbole gemeinsam auflösen
+    // resolve balance and position base symbols together
     const assetMap = await resolveAssetsBySymbol([
       ...balances.map((b) => b.symbol),
       ...snapshot.positions.map((p) => p.baseSymbol),
     ])
 
-    // Gleiche Symbole je Kontotyp zusammenfassen (unique sourceId+assetId+accountType)
+    // Combine identical symbols per account type (unique sourceId+assetId+accountType)
     const byKey = new Map<string, { assetId: string; accountType: HoldingAccountType; quantity: Prisma.Decimal }>()
     for (const balance of balances) {
       const asset = assetMap.get(balance.symbol.toUpperCase())
@@ -179,7 +179,7 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
       liquidationPrice: p.liquidationPrice ? new Prisma.Decimal(p.liquidationPrice) : null,
     }))
 
-    // Holdings + Futures-Positionen der Quelle spiegeln exakt den Provider-Stand
+    // The source's holdings + futures positions mirror exactly the provider state
     await prisma.$transaction([
       prisma.holding.deleteMany({ where: { sourceId } }),
       prisma.holding.createMany({
@@ -191,19 +191,19 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
         })),
       }),
       prisma.futuresPosition.deleteMany({ where: { sourceId } }),
-      // skipDuplicates: ein doppeltes (rawSymbol, side) darf nicht die ganze
-      // Sync-Transaktion (Holdings + Positionen + lastSyncAt) per P2002 zurückrollen
+      // skipDuplicates: a duplicate (rawSymbol, side) must not roll back the whole
+      // sync transaction (holdings + positions + lastSyncAt) via P2002
       prisma.futuresPosition.createMany({ data: positionRows, skipDuplicates: true }),
       prisma.portfolioSource.update({ where: { id: sourceId }, data: { lastSyncAt: new Date() } }),
     ])
 
-    // Preis-Fehler sind kein Sync-Fehler (UI zeigt dann ältere Preise)
+    // Price errors are not a sync error (the UI then shows older prices)
     await refreshPrices([...new Set([...byKey.values()].map((v) => v.assetId))])
 
-    // On-Chain-Staking-Rewards als Transaktionen — Fehler hier sind kein Sync-Fehler
+    // On-chain staking rewards as transactions — errors here are not a sync error
     if (source.type === 'WALLET') await importStakingRewards(source)
 
-    // Übersprungene Konto-Typen (fehlende Berechtigung) als Teil-Erfolg ausweisen
+    // Report skipped account types (missing permission) as a partial success
     const partial = snapshot.warnings.length > 0
     const finished = await prisma.syncRun.update({
       where: { id: run.id },
@@ -229,14 +229,14 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
   }
 }
 
-// Inline-Modus (ohne Queue): Start + Ausführung in einem Aufruf — heutiges Verhalten
+// Inline mode (without queue): start + execution in one call — current behavior
 export async function syncSource(userId: string, sourceId: string): Promise<SyncRunDto> {
   const run = await startSyncRun(userId, sourceId)
   return executeSyncRun(run.id)
 }
 
-// Einstieg für die Routen: mit Queue wird nur gestartet und enqueued (Run bleibt
-// RUNNING, Frontend pollt /sync-runs), ohne Queue läuft alles inline wie bisher.
+// Entry point for the routes: with a queue it only starts and enqueues (the run stays
+// RUNNING, the frontend polls /sync-runs); without a queue everything runs inline as before.
 export async function requestSync(
   userId: string,
   sourceId: string,
@@ -249,7 +249,7 @@ export async function requestSync(
   return { run, queued: true }
 }
 
-// Sequenziell (schont Provider-Rate-Limits); ein Fehler bricht die anderen nicht ab
+// Sequential (spares provider rate limits); one failure does not abort the others
 export async function syncAllSources(
   userId: string,
   portfolioId?: string,
@@ -264,7 +264,7 @@ export async function syncAllSources(
     const run = await requestSync(userId, source.id)
       .then((r) => r.run)
       .catch((e) => {
-        // z.B. SYNC_ALREADY_RUNNING — als Fehler-Run melden statt abzubrechen
+        // e.g. SYNC_ALREADY_RUNNING — report as an error run instead of aborting
         const message = e instanceof Error ? e.message : String(e)
         return {
           id: 'skipped',
@@ -280,9 +280,9 @@ export async function syncAllSources(
   return { results, queued: isQueueEnabled() }
 }
 
-// Automatischer Sync (Pro): alle syncbaren Quellen von Pro-Nutzern mit
-// aktiviertem Auto-Sync anstoßen. Im Worker (Repeatable Job) aufgerufen.
-// Mit Redis werden Runs enqueued, ohne Redis (Tests) inline ausgeführt.
+// Automatic sync (Pro): trigger all syncable sources of Pro users with
+// auto-sync enabled. Called in the worker (repeatable job).
+// With Redis, runs are enqueued; without Redis (tests) they run inline.
 export async function enqueueAutoSync(): Promise<{ sources: number; queued: boolean }> {
   const sources = await prisma.portfolioSource.findMany({
     where: {
@@ -297,9 +297,9 @@ export async function enqueueAutoSync(): Promise<{ sources: number; queued: bool
       await requestSync(source.userId, source.id)
       count += 1
     } catch (error) {
-      // SYNC_ALREADY_RUNNING ist erwartbar (vorheriger Lauf läuft noch) — still
-      // überspringen. Alles andere (DB, Entschlüsselung, Provider-Konfig) loggen,
-      // sonst bleibt ein dauerhaft kaputter Auto-Sync unsichtbar.
+      // SYNC_ALREADY_RUNNING is expected (a previous run is still going) — skip
+      // silently. Log everything else (DB, decryption, provider config),
+      // otherwise a permanently broken auto-sync stays invisible.
       const code = error instanceof AppError ? error.code : null
       if (code !== 'SYNC_ALREADY_RUNNING') {
         console.warn(

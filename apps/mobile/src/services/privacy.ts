@@ -1,17 +1,17 @@
 import { ref } from 'vue'
 import { getStored, setStored } from './storage'
 
-// Privatsphäre-Modus: blendet alle Geldbeträge/Bestände in der UI aus, damit man
-// das Dashboard zeigen kann, ohne die eigenen Finanzen preiszugeben. Reaktiv —
-// Templates, die formatCurrency/formatQuantity aufrufen, rendern beim Umschalten neu.
+// Privacy mode: hides all monetary amounts/balances in the UI so the dashboard
+// can be shown without revealing one's own finances. Reactive —
+// templates that call formatCurrency/formatQuantity re-render when toggled.
 const STORAGE_KEY = 'balances-hidden'
 
 export const balancesHidden = ref(false)
 
-// Maskierungs-Platzhalter für ausgeblendete Beträge.
+// Masking placeholder for hidden amounts.
 export const BALANCE_MASK = '••••'
 
-// Nach preloadStorage() im Bootstrap aufrufen (Cache ist dann gefüllt).
+// Call after preloadStorage() in bootstrap (the cache is filled by then).
 export function initPrivacy(): void {
   balancesHidden.value = getStored(STORAGE_KEY) === '1'
 }

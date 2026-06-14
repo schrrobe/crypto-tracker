@@ -8,14 +8,14 @@ import { computeHoldingsCostBasis } from '../tax/tax.engine'
 
 const ZERO = new Prisma.Decimal(0)
 
-// Gewinn/Verlust in % der Kostenbasis (0 wenn keine Basis vorhanden)
+// Profit/loss as % of the cost basis (0 if no basis is present)
 function pctOf(pnl: Prisma.Decimal, basis: Prisma.Decimal): number {
   return basis.gt(0) ? Number(pnl.div(basis).mul(100).toFixed(2)) : 0
 }
 
-// Unrealisierter Gewinn/Verlust (Pro): aktueller Wert − FIFO-Kostenbasis je
-// (Quelle, Asset). Nur Bestände mit Transaktionshistorie haben eine Kostenbasis;
-// reine Snapshot-Quellen (Sync) fehlen bewusst. Alles in EUR (Tax-Engine-Basis).
+// Unrealized profit/loss (Pro): current value − FIFO cost basis per
+// (source, asset). Only holdings with a transaction history have a cost basis;
+// pure snapshot sources (sync) are deliberately absent. Everything in EUR (tax-engine basis).
 export async function getPnl(userId: string, portfolioId?: string): Promise<PortfolioPnlDto> {
   const pid = await resolvePortfolioId(userId, portfolioId)
 
@@ -28,10 +28,10 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
   })
   const prices = await getLatestPrices(holdings.map((h) => h.assetId))
 
-  // Bestände über Konto-Typen (SPOT/EARN/MARGIN/FUTURES) je (Quelle, Asset)
-  // zusammenfassen: die FIFO-Kostenbasis ist konto-typ-unabhängig (Transaktionen
-  // kennen keinen Konto-Typ). Ohne das Summieren würde ein über mehrere Konto-Typen
-  // verteiltes Asset die Basis mehrfach zählen bzw. an der Deckungsprüfung scheitern.
+  // Combine holdings across account types (SPOT/EARN/MARGIN/FUTURES) per (source, asset):
+  // the FIFO cost basis is account-type-independent (transactions don't know an
+  // account type). Without summing, an asset spread across several account types
+  // would count the basis multiple times or fail the coverage check.
   interface AggHolding {
     sourceId: string
     assetId: string
@@ -63,12 +63,12 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
   for (const h of bySourceAsset.values()) {
     const basis = costBasis.get(`${h.sourceId}|${h.assetId}`)
     const price = prices.get(h.assetId)
-    if (!basis || !price) continue // keine Kostenbasis (Snapshot) oder kein Preis → kein PnL
+    if (!basis || !price) continue // no cost basis (snapshot) or no price → no PnL
 
-    // Die Kostenbasis deckt nur die getrackte Menge ab. Weicht der Bestand davon
-    // ab (z.B. Sync-Snapshot mit zusätzlichen Staking-Rewards: 100 Coins gehalten,
-    // aber nur 2 aus Transaktionen), wäre der Wert (volle Menge) gegen eine
-    // Teil-Basis gerechnet und der PnL grob überzeichnet → Position überspringen.
+    // The cost basis only covers the tracked quantity. If the holding deviates
+    // from it (e.g. a sync snapshot with extra staking rewards: 100 coins held,
+    // but only 2 from transactions), the value (full quantity) would be computed
+    // against a partial basis and the PnL grossly overstated → skip the position.
     const coverageDiff = basis.quantity.sub(h.quantity).abs()
     if (coverageDiff.gt(h.quantity.abs().mul('0.005'))) continue
 
@@ -92,7 +92,7 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
     })
   }
 
-  // größter absoluter Beitrag zuerst
+  // largest absolute contribution first
   positions.sort((a, b) => Math.abs(Number(b.pnlEur)) - Math.abs(Number(a.pnlEur)))
 
   const totalPnl = totalValue.sub(totalCostBasis)

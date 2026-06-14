@@ -3,9 +3,9 @@ import request from 'supertest'
 import { EXCHANGE_PROVIDERS, PASSPHRASE_REQUIRED_PROVIDERS, WALLET_PROVIDERS } from '@crypto-tracker/shared'
 import { API, app, bearer, registerUser } from './helpers'
 
-// Verkabelungs-Smoke über ALLE Provider (Fake-Registry): Quelle anlegen +
-// syncen muss für jede ProviderId funktionieren — fängt vergessene Enum-/
-// Registry-/Schema-Einträge beim nächsten Provider-Ausbau ab.
+// Wiring smoke test across ALL providers (fake registry): creating a source +
+// syncing must work for every ProviderId — catches forgotten enum/
+// registry/schema entries on the next provider rollout.
 
 describe('Provider-Verkabelung (Smoke)', () => {
   it('jeder Exchange-Provider lässt sich anlegen und syncen', async () => {

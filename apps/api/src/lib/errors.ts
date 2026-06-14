@@ -25,7 +25,7 @@ export class AppError extends Error {
     return new AppError(code, 409, message)
   }
 
-  // 402 Payment Required — Funktion erfordert ein Pro-Abo
+  // 402 Payment Required — feature requires a Pro subscription
   static upgradeRequired(message = 'Diese Funktion erfordert Crypto Tracker Pro') {
     return new AppError('PLAN_UPGRADE_REQUIRED', 402, message)
   }

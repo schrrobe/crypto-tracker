@@ -93,7 +93,7 @@ async function load() {
 }
 
 function onRangeChange(value: HistoryRange) {
-  // 1-Jahres-Verlauf ist Pro — Free-Nutzer bekommen die Paywall statt der Range
+  // 1-year history is Pro — free users get the paywall instead of the range
   if (value === '1y' && !auth.isPro) {
     openPaywall()
     return
@@ -130,7 +130,7 @@ function formatDelta(value: number): string {
   return `${value >= 0 ? '+' : '−'}${formatted} %`
 }
 
-// Skalierung auf viewBox 300×90 mit 4 % Wertepuffer oben/unten
+// Scale to viewBox 300×90 with a 4 % value buffer top/bottom
 const scaled = computed(() => {
   const values = points.value.map((p) => Number(p.value))
   if (values.length < 2) return []

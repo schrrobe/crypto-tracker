@@ -4,7 +4,7 @@ import { API, app, bearer, createManualSource, createPortfolio, registerUser } f
 
 type U = Awaited<ReturnType<typeof registerUser>>
 async function setPlan(user: U, plan: 'FREE' | 'PRO') {
-  // Dev-Schalter (nur APP_ENV=local) — Tests laufen mit local
+  // Dev toggle (APP_ENV=local only) — tests run with local
   await request(app).patch(`${API}/auth/me`).set(...bearer(user)).send({ plan }).expect(200)
 }
 
@@ -24,7 +24,7 @@ describe('Plan-Gating (Integration)', () => {
     const user = await registerUser('gate-hist', 'FREE')
     const free = await request(app).get(`${API}/portfolio/history?range=1y`).set(...bearer(user))
     expect(free.status).toBe(402)
-    // 30d ist im Free erlaubt
+    // 30d is allowed on Free
     await request(app).get(`${API}/portfolio/history?range=30d`).set(...bearer(user)).expect(200)
 
     await setPlan(user, 'PRO')
@@ -34,7 +34,7 @@ describe('Plan-Gating (Integration)', () => {
   it('Free: 6. Quelle → 402; Pro hebt das Limit auf', async () => {
     const user = await registerUser('gate-src', 'FREE')
     for (let i = 0; i < 5; i++) await createManualSource(user, `Quelle ${i}`)
-    // 6. Quelle überschreitet das Free-Limit (5)
+    // 6th source exceeds the Free limit (5)
     const sixth = await request(app)
       .post(`${API}/sources`)
       .set(...bearer(user))
@@ -48,7 +48,7 @@ describe('Plan-Gating (Integration)', () => {
 
   it('Free: 3. Portfolio → 402; Pro hebt das Limit auf', async () => {
     const user = await registerUser('gate-pf', 'FREE')
-    // 1 Default-Portfolio existiert bereits → ein weiteres ist ok (=2)
+    // 1 default portfolio already exists → one more is ok (=2)
     await createPortfolio(user, 'Zweites')
     const third = await request(app)
       .post(`${API}/portfolios`)

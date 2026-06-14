@@ -1,5 +1,5 @@
 <template>
-  <!-- Nur sichtbar, wenn es mehr als ein Portfolio gibt -->
+  <!-- Only visible when there is more than one portfolio -->
   <ion-button
     v-if="store.hasMultiple"
     fill="clear"
@@ -41,8 +41,8 @@ const open = ref(false)
 async function switchTo(id: string) {
   const isDefault = store.portfolios.find((p) => p.id === id)?.isDefault
   store.setActive(isDefault ? null : id)
-  // gescopte Stores leeren — die sichtbare Seite lädt über ihr ionViewWillEnter
-  // bzw. das switched-Event neu
+  // Clear scoped stores — the visible page reloads via its ionViewWillEnter
+  // or the switched event
   usePortfolioStore().reset()
   useSourcesStore().reset()
   useTransactionsStore().reset()

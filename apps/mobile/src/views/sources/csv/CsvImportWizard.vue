@@ -11,7 +11,7 @@
       </ion-toolbar>
     </ion-header>
     <ion-content class="ion-padding">
-      <!-- Schritt 1: Upload -->
+      <!-- Step 1: Upload -->
       <template v-if="step === 'upload'">
         <p class="hint">{{ $t('csv.intro') }}</p>
         <ion-text color="warning">
@@ -34,7 +34,7 @@
             data-testid="csv-label"
           />
         </ion-item>
-        <!-- Optionale Börse → aktive Doppel-Erkennung gegen vorhandene API-Quellen -->
+        <!-- Optional exchange → enables duplicate detection against existing API sources -->
         <ion-item>
           <ion-select
             :label="$t('csv.exchangeOptional')"
@@ -68,7 +68,7 @@
         </ion-button>
       </template>
 
-      <!-- Schritt 2: Mapping bestätigen -->
+      <!-- Step 2: Confirm mapping -->
       <template v-else-if="step === 'mapping'">
         <p class="hint" data-testid="csv-row-count">
           {{ $t('csv.rowsDetected', { n: uploadResult?.import.totalRows }) }}
@@ -185,7 +185,7 @@
         </ion-button>
       </template>
 
-      <!-- Schritt 3: Ergebnis -->
+      <!-- Step 3: Result -->
       <template v-else>
         <ion-text :color="result?.status === 'COMPLETED' ? 'success' : 'danger'">
           <h2 data-testid="csv-result">

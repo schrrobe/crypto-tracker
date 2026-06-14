@@ -15,12 +15,12 @@ export const useAuthStore = defineStore('auth', () => {
   const isPro = computed(() => user.value?.plan === 'PRO')
   let initPromise: Promise<void> | null = null
 
-  // Beim App-Start: vorhandenen Refresh-Token gegen neue Session tauschen
+  // On app start: exchange an existing refresh token for a new session
   function init(): Promise<void> {
     initPromise ??= (async () => {
       const refreshToken = getRefreshToken()
-      // Nativ ohne gespeicherten Token → keine Session. Web versucht immer den
-      // Refresh (das httpOnly-Cookie trägt die Session, falls vorhanden).
+      // Native without a stored token → no session. Web always attempts the
+      // refresh (the httpOnly cookie carries the session, if present).
       if (isNativePlatform && !refreshToken) {
         initialized.value = true
         return
@@ -54,7 +54,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout(): Promise<void> {
-    // Nativ: Token im Body; Web: Cookie (kein Body) — Server löscht es.
+    // Native: token in the body; web: cookie (no body) — the server deletes it.
     const refreshToken = getRefreshToken()
     await api.post('/auth/logout', refreshToken ? { refreshToken } : undefined).catch(() => {})
     setTokens(null)
@@ -77,13 +77,13 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = res.user
   }
 
-  // Plan neu laden (z.B. nach Rückkehr vom Stripe-Checkout)
+  // Reload the plan (e.g. after returning from Stripe Checkout)
   async function refreshUser(): Promise<void> {
     const { user: u } = await api.get<{ user: UserDto }>('/auth/me')
     user.value = u
   }
 
-  // Dev-Schalter (nur local wirksam) zum Testen des Gatings ohne Stripe
+  // Dev switch (only effective on local) to test the gating without Stripe
   async function setDevPlan(plan: 'FREE' | 'PRO'): Promise<void> {
     const { user: u } = await api.patch<{ user: UserDto }>('/auth/me', { plan })
     user.value = u

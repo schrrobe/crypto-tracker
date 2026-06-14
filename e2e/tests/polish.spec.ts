@@ -5,18 +5,18 @@ test('Onboarding: drei Einstiege vom leeren Dashboard öffnen die richtigen Flow
   await register(page, uniqueEmail('onboarding'))
   await expect(page.getByTestId('dashboard-empty')).toBeVisible()
 
-  // Einstieg 1: Quelle verbinden → Quellen-Tab mit offenem Modal
+  // Entry 1: connect source → Sources tab with the modal open
   await page.getByTestId('onboarding-connect').click()
   await expect(page.getByTestId('source-save')).toBeVisible()
   await page.getByTestId('source-modal-cancel').click()
 
-  // Einstieg 2: CSV importieren → Wizard offen
+  // Entry 2: import CSV → wizard open
   await page.getByRole('tab', { name: 'Dashboard' }).click()
   await page.getByTestId('onboarding-csv').click()
   await expect(page.getByTestId('csv-upload')).toBeVisible()
   await page.getByTestId('csv-cancel').click()
 
-  // Einstieg 3: Manuell erfassen → Bestände-Tab mit offenem Modal
+  // Entry 3: record manually → Holdings tab with the modal open
   await page.getByRole('tab', { name: 'Dashboard' }).click()
   await page.getByTestId('onboarding-manual').click()
   await expect(page.getByTestId('holding-save')).toBeVisible()
@@ -31,7 +31,7 @@ test('Basiswährung USD wird als Dashboard-Standard übernommen', async ({ page 
   await page.locator('ion-popover ion-radio', { hasText: 'USD' }).click()
   await expect(page.locator('ion-popover')).toHaveCount(0)
 
-  // Bestand anlegen: 1 BTC = 55.000 $ (Fake-Preis USD)
+  // Create holding: 1 BTC = 55.000 $ (fake USD price)
   await page.getByRole('tab', { name: 'Bestände' }).click()
   await page.getByTestId('add-holding').click()
   await page.getByTestId('asset-search').locator('input').fill('bitcoin')
@@ -47,11 +47,11 @@ test('Basiswährung USD wird als Dashboard-Standard übernommen', async ({ page 
 test('Tokens ohne Preis sind standardmäßig eingeklappt', async ({ page }) => {
   await register(page, uniqueEmail('unpriced'))
 
-  // Lauf-eindeutiges unbekanntes Symbol — Assets sind global und die E2E-DB
-  // persistiert; ein einmal gemapptes Symbol bliebe sonst dauerhaft bepreist
+  // Run-unique unknown symbol — assets are global and the E2E DB
+  // persists; a once-mapped symbol would otherwise stay priced permanently
   const symbol = `U${process.pid % 10000}X${Math.floor(Math.random() * 10000)}`
 
-  // CSV mit BTC (gemappt) und einem unbekannten Symbol (kein Preis)
+  // CSV with BTC (mapped) and an unknown symbol (no price)
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('open-csv-import').click()
   await page.getByTestId('csv-file').setInputFiles({
@@ -66,7 +66,7 @@ test('Tokens ohne Preis sind standardmäßig eingeklappt', async ({ page }) => {
 
   await page.getByRole('tab', { name: 'Bestände' }).click()
   await expect(page.getByTestId('holding-BTC')).toBeVisible()
-  // Unbekanntes Symbol ist eingeklappt
+  // Unknown symbol is collapsed
   await expect(page.getByTestId(`holding-${symbol}`)).toHaveCount(0)
 
   await page.getByTestId('toggle-unpriced').click()

@@ -21,7 +21,7 @@ import {
   type EngineTx,
 } from './tax.engine'
 
-// Bewusst Express-frei (wie sync.service) — später auch aus Worker/Cron aufrufbar.
+// Deliberately Express-free (like sync.service) — also callable from a worker/cron later.
 
 const TAX_TX_INCLUDE = {
   asset: true,
@@ -42,8 +42,8 @@ function swapGroupId(tx: TxWithAsset): string | null {
   return tx.swapOut?.id ?? tx.swapIn?.id ?? null
 }
 
-// Engine rechnet nur in EUR. Kurs in Fremdwährung wird verworfen (keine
-// FX-Umrechnung in V1) und — wie fehlende Kurse — per Tagespreis-Backfill ersetzt.
+// The engine computes only in EUR. A foreign-currency price is discarded (no
+// FX conversion in V1) and — like missing prices — replaced via daily-price backfill.
 async function enrichTransactions(
   txs: TxWithAsset[],
 ): Promise<{ engineTxs: EngineTx[]; warnings: TaxWarningDto[] }> {
@@ -65,7 +65,7 @@ async function enrichTransactions(
     if (tx.pricePerUnit !== null && !isEur) {
       foreignCurrency.set(tx.asset.symbol, (foreignCurrency.get(tx.asset.symbol) ?? 0) + 1)
     }
-    // Kurs fehlt oder ist nicht in EUR → Backfill; Gebühr ist dann nicht verwertbar
+    // Price missing or not in EUR → backfill; the fee is then not usable
     return { tx, priceEur: null, feeEur: null, needsBackfill: true }
   })
 
@@ -73,10 +73,10 @@ async function enrichTransactions(
     warnings.push({ code: TaxWarningCode.FOREIGN_CURRENCY_PRICE_IGNORED, assetSymbol, count })
   }
 
-  // Nur Typen backfillen, deren Kurs steuerlich relevant ist
-  // (STAKING_REWARD: DE braucht den Zuflusswert als Einkommen + Kostenbasis).
-  // Verlinkte Transfer-Deposits brauchen keinen Kurs — ihre Basis kommt aus
-  // den umgezogenen Slices (spart CoinGecko-Budget).
+  // Only backfill types whose price is tax-relevant
+  // (STAKING_REWARD: DE needs the inflow value as income + cost basis).
+  // Linked transfer deposits need no price — their basis comes from
+  // the moved-over slices (saves CoinGecko budget).
   const requests: HistoricalPriceRequest[] = pending
     .filter((p) => p.needsBackfill && ['BUY', 'SELL', 'DEPOSIT', 'STAKING_REWARD'].includes(p.tx.type))
     .filter((p) => !(p.tx.type === 'DEPOSIT' && transferGroupId(p.tx) !== null))
@@ -132,8 +132,8 @@ function toDisposalDto(d: EngineDisposal, sourceLabels: Map<string, string>): Ta
   }
 }
 
-// Transaktionen eines Portfolios laden + mit EUR-(Backfill-)Kursen anreichern.
-// Geteilt mit der PnL-Berechnung (computeHoldingsCostBasis).
+// Load a portfolio's transactions + enrich them with EUR (backfill) prices.
+// Shared with the PnL calculation (computeHoldingsCostBasis).
 export async function loadEnrichedTransactions(
   userId: string,
   portfolioId?: string,
@@ -166,16 +166,16 @@ export async function getReport(
   const report: EngineReport =
     country === 'DE' ? computeReportDE(engineTxs, year) : computeReportAT(engineTxs, year)
 
-  // Quellen mit Beständen, aber ohne Transaktionshistorie — für diese kann
-  // keine Steuer berechnet werden; der Report weist sie explizit aus
+  // Sources with balances but no transaction history — no tax can be computed
+  // for these; the report flags them explicitly
   const uncovered = await prisma.portfolioSource.findMany({
     where: { userId, portfolioId: pid, holdings: { some: {} }, transactions: { none: {} } },
     select: { id: true, label: true, type: true },
     orderBy: { createdAt: 'asc' },
   })
 
-  // Wallets mit ausschließlich Reward-Importen gelten nicht als „abgedeckt" —
-  // ihre Käufe/Verkäufe fehlen weiterhin (Hinweis statt falscher Sicherheit)
+  // Wallets with reward-only imports do not count as "covered" —
+  // their buys/sells are still missing (a hint instead of false confidence)
   const rewardsOnlyWallets = await prisma.portfolioSource.count({
     where: {
       userId,

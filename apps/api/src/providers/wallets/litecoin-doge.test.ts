@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { dogecoinProvider, litecoinProvider } from './litecoin-doge'
 import { ProviderError } from '../provider.types'
 
-// Fixture nach echtem Blockchair-Response-Format
-// (GET /{chain}/dashboards/address/{address}?limit=0) — Balance in Basis-Einheiten (1e8)
+// Fixture based on the real Blockchair response format
+// (GET /{chain}/dashboards/address/{address}?limit=0) — balance in base units (1e8)
 function dashboardFixture(address: string, balance: number | null) {
   return {
     data: {
@@ -48,7 +48,7 @@ function mockRawFetch(status: number, body: string) {
 
 afterEach(() => vi.unstubAllGlobals())
 
-// Live verifizierte Adressen (Blockchair-Richlist bzw. bekannte Explorer-Adressen)
+// Live-verified addresses (Blockchair rich list or well-known explorer addresses)
 const LTC_ADDRESS = 'MQd1fJwqBJvwLuyhr17PhEFx1swiqDbPQS'
 const DOGE_ADDRESS = 'DH5yaieqoZN36fDVciNyRueRGvGLR3mr7L'
 
@@ -75,7 +75,7 @@ describe('litecoinProvider', () => {
   it('filtert Nullbestände heraus (balance 0 und null)', async () => {
     mockFetch(200, dashboardFixture(LTC_ADDRESS, 0))
     expect(await litecoinProvider.fetchBalances(LTC_ADDRESS)).toEqual([])
-    // Blockchair liefert null für nie benutzte Adressen
+    // Blockchair returns null for never-used addresses
     mockFetch(200, dashboardFixture(LTC_ADDRESS, null))
     expect(await litecoinProvider.fetchBalances(LTC_ADDRESS)).toEqual([])
   })
@@ -99,7 +99,7 @@ describe('litecoinProvider', () => {
   it('wirft PROVIDER_ERROR bei Serverfehlern und fehlenden Daten', async () => {
     mockFetch(503)
     await expect(litecoinProvider.fetchBalances(LTC_ADDRESS)).rejects.toBeInstanceOf(ProviderError)
-    // 200, aber data enthält die Adresse nicht
+    // 200, but data does not contain the address
     mockFetch(200, { data: null, context: { code: 200 } })
     await expect(litecoinProvider.fetchBalances(LTC_ADDRESS)).rejects.toMatchObject({
       code: 'PROVIDER_ERROR',
@@ -111,7 +111,7 @@ describe('dogecoinProvider', () => {
   it('akzeptiert nur Dogecoin-Adressen', () => {
     expect(dogecoinProvider.validateAddress(DOGE_ADDRESS)).toBe(true)
     expect(dogecoinProvider.validateAddress(LTC_ADDRESS)).toBe(false) // Litecoin
-    expect(dogecoinProvider.validateAddress('D0H5yaieqoZN36fDVciNyRueRGvGLR3mr7')).toBe(false) // 0 ist kein Base58
+    expect(dogecoinProvider.validateAddress('D0H5yaieqoZN36fDVciNyRueRGvGLR3mr7')).toBe(false) // 0 is not Base58
     expect(dogecoinProvider.validateAddress('nicht-gueltig')).toBe(false)
   })
 

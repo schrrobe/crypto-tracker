@@ -20,7 +20,7 @@ async function createTx(user: TestUser, body: Record<string, unknown>) {
   return res.body.transaction as { id: string; sourceId: string }
 }
 
-// CSV-Quelle mit BUY + WITHDRAWAL (Quelle A des Transfers)
+// CSV source with BUY + WITHDRAWAL (source A of the transfer)
 async function createCsvWithdrawalSource(user: TestUser) {
   const csv =
     'Datum;Typ;Coin;Menge;Kurs\n' +
@@ -78,7 +78,7 @@ describe('Transfer-Links (Integration)', () => {
     expect(d?.transferLink?.direction).toBe('IN')
     expect(d?.transferLink?.counterpartSourceLabel).toBe('Exchange A')
 
-    // Verkauf aus Quelle B → Basis 1000 aus 2020 erhalten, > 1 Jahr → steuerfrei
+    // Sale from source B → cost basis 1000 from 2020 retained, > 1 year → tax-free
     await createTx(user, {
       assetId: btcId,
       type: 'SELL',
@@ -146,7 +146,7 @@ describe('Transfer-Links (Integration)', () => {
     expect((await link(user, withdrawal.id, tooBig.id)).body.error.code).toBe('TRANSFER_LINK_QUANTITY_INVALID')
     expect((await link(user, withdrawal.id, tooEarly.id)).body.error.code).toBe('TRANSFER_LINK_TIMESTAMP_INVALID')
 
-    // gültiger Link — auch von der Deposit-Seite aus erlaubt
+    // valid link — also allowed from the deposit side
     expect((await link(user, ok.id, withdrawal.id)).status).toBe(201)
     const again = await createTx(user, {
       assetId: btcId,
@@ -220,7 +220,7 @@ describe('Transfer-Links (Integration)', () => {
     expect(patchQty.status).toBe(409)
     expect(patchQty.body.error.code).toBe('TRANSFER_LINKED_TX_IMMUTABLE')
 
-    // Kurs ist keine Link-Invariante
+    // price is not a link invariant
     const patchPrice = await request(app)
       .patch(`${API}/transactions/${d.id}`)
       .set(...bearer(user))
@@ -240,7 +240,7 @@ describe('Transfer-Links (Integration)', () => {
     })
     expect((await link(user, withdrawal.id, d.id)).status).toBe(201)
 
-    // CSV-Quelle löschen → Withdrawal + Link verschwinden per Cascade
+    // delete CSV source → withdrawal + link disappear via cascade
     const del = await request(app)
       .delete(`${API}/sources/${sourceId}`)
       .set(...bearer(user))

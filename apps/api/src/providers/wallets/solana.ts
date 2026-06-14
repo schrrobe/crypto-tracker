@@ -7,34 +7,34 @@ import {
   type WalletProvider,
 } from '../provider.types'
 
-// Solana-Bestand über öffentliches JSON-RPC (Endpoint via SOLANA_RPC_URL konfigurierbar):
-// getBalance (SOL) + getTokenAccountsByOwner (klassische SPL-Tokens, jsonParsed).
-// Token-2022-Accounts sind bewusst "Später".
+// Solana balance via public JSON-RPC (endpoint configurable via SOLANA_RPC_URL):
+// getBalance (SOL) + getTokenAccountsByOwner (classic SPL tokens, jsonParsed).
+// Token-2022 accounts are deliberately deferred.
 
 const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
 const STAKE_PROGRAM_ID = 'Stake11111111111111111111111111111111111111'
-// Stake-Account-Layout: Withdrawer-Authority liegt bei Byte-Offset 44, Größe 200 Bytes
+// Stake account layout: the withdrawer authority sits at byte offset 44, size 200 bytes
 const STAKE_ACCOUNT_SIZE = 200
 const STAKE_WITHDRAWER_OFFSET = 44
 
-// Erst-Import: maximal so viele Epochen rückwärts (~2 Tage/Epoche ≈ 2 Monate).
-// Öffentliche RPCs halten ältere Epochen ohnehin oft nicht vor; ältere Historie
-// kommt über CSV-Import. Folge-Syncs laufen inkrementell ab lastExternalRef.
+// First import: at most this many epochs backwards (~2 days/epoch ≈ 2 months).
+// Public RPCs often don't retain older epochs anyway; older history
+// comes via CSV import. Subsequent syncs run incrementally from lastExternalRef.
 const REWARD_BACKFILL_EPOCHS = 30
 
-// Kuratiertes Mint→Symbol-Mapping; unbekannte Mints werden als unmapped Asset angelegt
-// (kein Preis, UI-Hinweis). Vollständiges Contract-Mapping über CoinGecko kommt mit M8.
+// Curated mint→symbol mapping; unknown mints are created as an unmapped asset
+// (no price, UI hint). Full contract mapping via CoinGecko arrives with M8.
 const KNOWN_MINTS: Record<string, string> = {
   EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC',
   Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'USDT',
   DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263: 'BONK',
   JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN: 'JUP',
-  // Liquid-Staking-Tokens — sonst fallen sie dem Dust-Filter zum Opfer
+  // Liquid-staking tokens — otherwise they fall victim to the dust filter
   mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So: 'MSOL',
   J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn: 'JITOSOL',
 }
 
-// Base58, 32 Bytes → 32-44 Zeichen
+// Base58, 32 bytes → 32-44 characters
 const ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
 
 interface RpcResponse<T> {
@@ -74,9 +74,9 @@ interface TokenAccount {
   }
 }
 
-// Nativ gestakte SOL liegen in eigenen Stake-Accounts (Stake-Programm) — über
-// die Withdrawer-Authority finden. account.lamports = delegierter Stake +
-// Rent-Reserve + aufgelaufene Rewards.
+// Natively staked SOL lives in dedicated stake accounts (stake program) — found
+// via the withdrawer authority. account.lamports = delegated stake +
+// rent reserve + accrued rewards.
 async function fetchStakeAccounts(address: string): Promise<Array<{ pubkey: string; lamports: bigint }>> {
   const result = await rpc<Array<{ pubkey: string; account: { lamports: number } }>>('getProgramAccounts', [
     STAKE_PROGRAM_ID,
@@ -91,7 +91,7 @@ async function fetchStakeAccounts(address: string): Promise<Array<{ pubkey: stri
   return result.map((r) => ({ pubkey: r.pubkey, lamports: BigInt(r.account.lamports) }))
 }
 
-// Epoche aus einer Reward-externalRef (sol-reward:<account>:<epoch>) ziehen
+// Extract the epoch from a reward externalRef (sol-reward:<account>:<epoch>)
 function epochFromExternalRef(ref: string | null): number | null {
   const match = ref?.match(/^sol-reward:[^:]+:(\d+)$/)
   return match ? Number(match[1]) : null
@@ -121,7 +121,7 @@ export const solanaProvider: WalletProvider = {
       { encoding: 'jsonParsed' },
     ])
 
-    // Mehrere Token-Accounts können denselben Mint halten → in Basis-Einheiten summieren
+    // Multiple token accounts can hold the same mint → sum in base units
     const byMint = new Map<string, { raw: bigint; decimals: number }>()
     for (const account of tokenResult.value) {
       const info = account.account.data.parsed.info
@@ -134,7 +134,7 @@ export const solanaProvider: WalletProvider = {
     for (const [mint, { raw, decimals }] of byMint) {
       if (raw === 0n) continue
       const known = KNOWN_MINTS[mint]
-      // Dust-/Spam-Filter: unbekannte Mints nur auf ausdrücklichen Wunsch importieren
+      // Dust/spam filter: import unknown mints only on explicit request
       if (!known && !options?.includeUnknownTokens) continue
       const symbol = known ?? `${mint.slice(0, 4)}…${mint.slice(-4)}`
       balances.push({ symbol, amount: fromBaseUnits(raw, decimals), meta: { mint } })
@@ -143,9 +143,9 @@ export const solanaProvider: WalletProvider = {
     return balances
   },
 
-  // Inflation-Rewards der Stake-Accounts, eine Abfrage pro Epoche. Inkrementell:
-  // ab der Epoche nach lastExternalRef; Erst-Import begrenzt auf REWARD_BACKFILL_EPOCHS.
-  // Nicht vorgehaltene Epochen (RPC-Pruning) werden still übersprungen.
+  // Inflation rewards of the stake accounts, one query per epoch. Incremental:
+  // from the epoch after lastExternalRef; first import limited to REWARD_BACKFILL_EPOCHS.
+  // Epochs that are not retained (RPC pruning) are silently skipped.
   async fetchStakingRewards(
     address: string,
     sinceHint: { lastExternalRef: string | null },
@@ -155,7 +155,7 @@ export const solanaProvider: WalletProvider = {
     const pubkeys = stakeAccounts.map((s) => s.pubkey)
 
     const epochInfo = await rpc<{ epoch: number }>('getEpochInfo', [])
-    // Rewards für Epoche E werden zu Beginn von E+1 gutgeschrieben → letzte fertige = E−1
+    // Rewards for epoch E are credited at the start of E+1 → last completed = E−1
     const lastComplete = epochInfo.epoch - 1
     const lastKnown = epochFromExternalRef(sinceHint.lastExternalRef)
     const fromEpoch = Math.max(
@@ -169,14 +169,14 @@ export const solanaProvider: WalletProvider = {
       try {
         results = await rpc('getInflationReward', [pubkeys, { epoch }])
       } catch {
-        continue // Epoche nicht (mehr) verfügbar
+        continue // epoch not (or no longer) available
       }
 
-      // effectiveSlot ist für alle Accounts einer Epoche gleich → ein getBlockTime reicht
+      // effectiveSlot is the same for all accounts in an epoch → one getBlockTime suffices
       const first = results.find((r) => r !== null && r.amount > 0)
       if (!first) continue
       const blockTime = await rpc<number | null>('getBlockTime', [first.effectiveSlot]).catch(() => null)
-      if (blockTime === null) continue // ohne belastbaren Zeitstempel kein Steuer-Datensatz
+      if (blockTime === null) continue // without a reliable timestamp there is no tax record
       const timestamp = new Date(blockTime * 1000)
 
       results.forEach((r, i) => {

@@ -1,5 +1,5 @@
-// Konvertiert ganzzahlige Basis-Einheiten (Satoshi, Lamports, SPL-Raw-Amounts)
-// in einen Dezimal-String — bewusst ohne float, BigInt-basiert.
+// Converts integer base units (satoshis, lamports, SPL raw amounts)
+// into a decimal string — deliberately float-free, BigInt-based.
 export function fromBaseUnits(units: bigint, decimals: number): string {
   const negative = units < 0n
   const abs = negative ? -units : units

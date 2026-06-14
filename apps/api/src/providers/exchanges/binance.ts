@@ -9,31 +9,31 @@ import {
 } from '../provider.types'
 import { safeSubFetch } from './account-snapshot'
 
-// Binance Spot REST API: GET /api/v3/account mit HMAC-SHA256-Signatur (SIGNED).
-// Benötigt einen API-Key mit ausschließlich "Enable Reading"-Berechtigung (read-only).
-// Multi-Konto: Cross-Margin (/sapi/v1/margin/account) + USDⓈ-M-Futures
-// (/fapi/v2/account, /fapi/v2/positionRisk). Fehlende Berechtigung auf einem
-// Subendpoint ⇒ ENDPOINT_FORBIDDEN (übersprungen, Spot läuft weiter).
+// Binance Spot REST API: GET /api/v3/account with HMAC-SHA256 signature (SIGNED).
+// Requires an API key with only the "Enable Reading" permission (read-only).
+// Multi-account: Cross-Margin (/sapi/v1/margin/account) + USDⓈ-M-Futures
+// (/fapi/v2/account, /fapi/v2/positionRisk). Missing permission on a
+// sub-endpoint ⇒ ENDPOINT_FORBIDDEN (skipped, spot continues).
 
 const BASE_URL = 'https://api.binance.com'
 const FAPI_URL = 'https://fapi.binance.com'
 const ACCOUNT_PATH = '/api/v3/account'
 
-// Signatur = HMAC-SHA256(queryString ohne signature-Parameter, secret), hex
+// Signature = HMAC-SHA256(queryString without signature parameter, secret), hex
 export function binanceSignature(queryString: string, secret: string): string {
   return createHmac('sha256', secret).update(queryString).digest('hex')
 }
 
-// 'LD'-Präfix = Binance Earn / Flexible Savings (z.B. LDBTC → BTC).
-// Ausnahme: echte Assets, deren Ticker selbst mit LD beginnt (z.B. LDO = Lido) —
-// nach dem Strippen muss ein plausibles Symbol (≥ 2 Zeichen) übrig bleiben.
+// 'LD' prefix = Binance Earn / Flexible Savings (e.g. LDBTC → BTC).
+// Exception: real assets whose ticker itself starts with LD (e.g. LDO = Lido) —
+// after stripping, a plausible symbol (≥ 2 characters) must remain.
 export function normalizeBinanceAsset(asset: string): string {
   const upper = asset.toUpperCase()
   if (upper.startsWith('LD') && upper.length >= 4) return upper.slice(2)
   return upper
 }
 
-// Binance führt auch Fiat-Bestände — Fiat wird in V1 nicht getrackt
+// Binance also holds fiat balances — fiat is not tracked in V1
 const SKIP = new Set(['EUR', 'GBP', 'TRY', 'BRL', 'ARS', 'AUD', 'PLN', 'RON', 'UAH', 'ZAR', 'JPY', 'CZK'])
 
 interface BinanceAccountResponse {
@@ -58,7 +58,7 @@ async function fetchBinanceBalances(creds: ExchangeCredentials): Promise<RawBala
     headers: { 'X-MBX-APIKEY': creds.apiKey },
   })
 
-  // 418 = IP-Auto-Ban nach ignorierten 429ern — ebenfalls Rate-Limit
+  // 418 = IP auto-ban after ignored 429s — also a rate limit
   if (res.status === 429 || res.status === 418) {
     throw new ProviderError('RATE_LIMITED', 'Binance Rate-Limit erreicht')
   }
@@ -77,10 +77,10 @@ async function fetchBinanceBalances(creds: ExchangeCredentials): Promise<RawBala
   for (const entry of json.balances ?? []) {
     const symbol = normalizeBinanceAsset(entry.asset)
     if (SKIP.has(symbol)) continue
-    // 'LD'-Präfix = Flexible Savings (Earn) → eigener Kontotyp, nicht in Spot falten
+    // 'LD' prefix = Flexible Savings (Earn) → its own account type, do not fold into Spot
     const accountType = entry.asset.toUpperCase().startsWith('LD') && entry.asset.length >= 4 ? 'EARN' : 'SPOT'
-    // free und locked als getrennte Einträge — der SyncService summiert
-    // gleiche Symbole per Decimal (kein float in der Provider-Schicht)
+    // free and locked as separate entries — the SyncService sums
+    // identical symbols via Decimal (no float in the provider layer)
     for (const amount of [entry.free, entry.locked]) {
       if (Number(amount) > 0) balances.push({ symbol, amount, accountType, meta: { binanceAsset: entry.asset } })
     }
@@ -88,8 +88,8 @@ async function fetchBinanceBalances(creds: ExchangeCredentials): Promise<RawBala
   return balances
 }
 
-// Signierter GET auf sapi/fapi. ENDPOINT_FORBIDDEN, wenn der Key diesen
-// Kontotyp nicht freigeschaltet hat (Spot-Key ohne Margin/Futures-Recht).
+// Signed GET on sapi/fapi. ENDPOINT_FORBIDDEN if the key has not enabled this
+// account type (spot key without margin/futures permission).
 async function signedGet<T>(baseUrl: string, path: string, creds: ExchangeCredentials): Promise<T> {
   if (!creds.apiSecret) throw new ProviderError('INVALID_API_KEY', 'Binance: API-Secret fehlt')
   const query = `recvWindow=5000&timestamp=${Date.now()}`
@@ -101,7 +101,7 @@ async function signedGet<T>(baseUrl: string, path: string, creds: ExchangeCreden
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as BinanceError
     const message = body.msg ?? `HTTP ${res.status}`
-    // Auf einem Subendpoint heißt 401/403/Auth-Code: Key hat diese Berechtigung nicht
+    // On a sub-endpoint, 401/403/auth-code means: the key lacks this permission
     if (res.status === 401 || res.status === 403 || (body.code !== undefined && AUTH_CODES.has(body.code))) {
       throw new ProviderError('ENDPOINT_FORBIDDEN', `Binance: ${message}`)
     }
@@ -115,7 +115,7 @@ interface BinanceMarginResponse {
   userAssets?: { asset: string; netAsset: string }[]
 }
 
-// Cross-Margin: netAsset je Asset (kann negativ sein = Verbindlichkeit)
+// Cross-Margin: netAsset per asset (can be negative = liability)
 export async function fetchBinanceMargin(creds: ExchangeCredentials): Promise<RawBalance[]> {
   const json = await signedGet<BinanceMarginResponse>(BASE_URL, '/sapi/v1/margin/account', creds)
   const balances: RawBalance[] = []
@@ -140,7 +140,7 @@ interface BinanceFuturesPositionRisk {
   liquidationPrice: string
 }
 
-// USDⓈ-M-Futures: Wallet-Collateral (FUTURES-Bestand) + offene Positionen.
+// USDⓈ-M-Futures: wallet collateral (FUTURES balance) + open positions.
 export async function fetchBinanceFutures(
   creds: ExchangeCredentials,
 ): Promise<{ balances: RawBalance[]; positions: RawPosition[] }> {
@@ -156,21 +156,21 @@ export async function fetchBinanceFutures(
   for (const p of risk) {
     const amt = Number(p.positionAmt)
     if (amt === 0) continue
-    // Quote ergibt sich aus dem Contract-Suffix (BTCUSDT → USDT), Basis ist der Rest
+    // Quote derives from the contract suffix (BTCUSDT → USDT), base is the remainder
     const quote = p.symbol.endsWith('USDC') ? 'USDC' : 'USDT'
     const base = p.symbol.slice(0, -quote.length)
     positions.push({
       rawSymbol: p.symbol,
       baseSymbol: base,
       side: amt > 0 ? 'LONG' : 'SHORT',
-      // Vorzeichen über Number, Größe aber als String (keine float-Präzisionsverluste)
+      // Sign via Number, but size as a string (no float precision loss)
       size: p.positionAmt.replace(/^-/, ''),
       entryPrice: p.entryPrice,
       markPrice: p.markPrice,
       leverage: Number(p.leverage) || undefined,
       unrealizedPnl: p.unRealizedProfit,
       quoteCurrency: quote,
-      // Binance liefert "0" für Positionen ohne Liquidationspreis → nicht als 0 anzeigen
+      // Binance returns "0" for positions without a liquidation price → do not show as 0
       liquidationPrice: Number(p.liquidationPrice) > 0 ? p.liquidationPrice : undefined,
     })
   }
@@ -182,7 +182,7 @@ export const binanceProvider: ExchangeProvider = {
   id: 'BINANCE',
 
   async validateCredentials(creds: ExchangeCredentials): Promise<void> {
-    // Account ist ein reiner Lese-Endpoint — validiert Key, Secret und Berechtigung
+    // Account is a pure read endpoint — validates key, secret and permission
     await fetchBinanceBalances(creds)
   },
 
@@ -190,7 +190,7 @@ export const binanceProvider: ExchangeProvider = {
 
   async fetchAccount(creds: ExchangeCredentials): Promise<ExchangeAccountSnapshot> {
     const warnings: string[] = []
-    const balances = await fetchBinanceBalances(creds) // Spot+Earn (pflicht)
+    const balances = await fetchBinanceBalances(creds) // Spot+Earn (mandatory)
     balances.push(...(await safeSubFetch(() => fetchBinanceMargin(creds), 'Binance Margin', warnings)))
     let positions: RawPosition[] = []
     try {

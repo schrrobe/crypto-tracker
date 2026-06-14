@@ -33,8 +33,8 @@ function toImportDto(record: ImportWithSource): CsvImportDto {
   }
 }
 
-// Schritt 1: Datei hochladen → eigene CSV-Quelle + Import (PENDING_MAPPING) mit
-// Roh-Zeilen und Mapping-Vorschlag. Bestände entstehen erst nach bestätigtem Mapping.
+// Step 1: upload file → dedicated CSV source + import (PENDING_MAPPING) with
+// raw rows and a suggested mapping. Holdings are only created after the mapping is confirmed.
 export async function uploadCsv(
   userId: string,
   file: { originalname: string; buffer: Buffer },
@@ -70,10 +70,10 @@ export async function uploadCsv(
 
   const { mapping, preset } = suggestMappingWithPreset(headers, kind)
 
-  // Aktive Doppel-Erkennung: Börse entweder explizit gewählt (deckt alle 11)
-  // oder per Preset erkannt (KRAKEN/BITPANDA = ProviderId). Existiert im selben
-  // Portfolio bereits eine API-Quelle dieser Börse, würde der Import dieselben
-  // Bestände ein zweites Mal zählen.
+  // Active duplicate detection: exchange either chosen explicitly (covers all 11)
+  // or detected via preset (KRAKEN/BITPANDA = ProviderId). If an API source for the
+  // same exchange already exists in the same portfolio, the import would count the
+  // same balances a second time.
   const candidateProvider = exchange ?? preset ?? null
   let duplicateExchangeSource: string | null = null
   let duplicateExchangeProvider: (typeof EXCHANGE_PROVIDERS)[number] | null = null
@@ -99,8 +99,8 @@ export async function uploadCsv(
   }
 }
 
-// Schritt 2: Mapping bestätigen → Zeilen validieren, Holdings der CSV-Quelle ersetzen.
-// Fehlerzeilen brechen den Import nicht ab — sie landen nachvollziehbar in errorRows.
+// Step 2: confirm mapping → validate rows, replace the CSV source's holdings.
+// Error rows do not abort the import — they are recorded traceably in errorRows.
 type AnyMapping = BalanceMapping & Partial<TransactionMapping>
 
 export async function confirmMapping(
@@ -142,7 +142,7 @@ export async function confirmMapping(
 
   const { valid, errors } = applyBalanceMapping(rows, mapping)
 
-  // Mehrfache Symbole in einer Datei aufsummieren
+  // Sum up duplicate symbols within a single file
   const assetMap = await resolveAssetsBySymbol(valid.map((r) => r.symbol))
   const byAsset = new Map<string, Prisma.Decimal>()
   for (const row of valid) {
@@ -167,7 +167,7 @@ export async function confirmMapping(
         columnMapping: { symbol: mapping.symbol, quantity: mapping.quantity },
         importedRows: valid.length,
         errorRows: errors as unknown as Prisma.InputJsonValue,
-        rawRows: Prisma.DbNull, // Roh-Zeilen nach Ausführung nicht weiter vorhalten
+        rawRows: Prisma.DbNull, // do not retain raw rows after execution
       },
       include: { source: { select: { label: true } } },
     }),
@@ -177,9 +177,9 @@ export async function confirmMapping(
   return toImportDto(updated)
 }
 
-// Transaktionen werden gespeichert (Nachvollziehbarkeit) und zu Netto-Beständen
-// verdichtet: BUY/DEPOSIT zählen positiv, SELL/WITHDRAWAL negativ, TRANSFER/OTHER neutral.
-// Keine PnL-/Kostenbasis-Berechnung in V1.
+// Transactions are stored (for traceability) and condensed into net balances:
+// BUY/DEPOSIT count positive, SELL/WITHDRAWAL negative, TRANSFER/OTHER neutral.
+// No PnL/cost-basis calculation in V1.
 async function confirmTransactionImport(
   record: ImportWithSource,
   rows: Array<Record<string, string>>,
@@ -247,7 +247,7 @@ export async function listImports(userId: string, portfolioId?: string): Promise
   return records.map(toImportDto)
 }
 
-// Import löschen = zugehörige CSV-Quelle löschen (Holdings + Import per Cascade)
+// Deleting an import = deleting the associated CSV source (holdings + import via cascade)
 export async function deleteImport(userId: string, importId: string): Promise<void> {
   const record = await prisma.csvImport.findFirst({ where: { id: importId, source: { userId } } })
   if (!record) throw AppError.notFound('Import nicht gefunden')

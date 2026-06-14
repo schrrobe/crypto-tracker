@@ -19,13 +19,13 @@ export function createApp() {
   const app = express()
 
   app.use(helmet())
-  // credentials: true → Browser darf das httpOnly-Refresh-Cookie senden/empfangen
-  // (nur mit exakten Origins aus CORS_ORIGINS, kein Wildcard)
+  // credentials: true → the browser may send/receive the httpOnly refresh cookie
+  // (only with exact origins from CORS_ORIGINS, no wildcard)
   app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }))
   app.use(cookieParser())
 
-  // Stripe-Webhook braucht den unveränderten Raw-Body für die Signaturprüfung —
-  // daher VOR express.json mit express.raw mounten.
+  // The Stripe webhook needs the unmodified raw body for signature verification —
+  // so mount it with express.raw BEFORE express.json.
   app.post('/api/v1/billing/webhook', express.raw({ type: '*/*' }), billingWebhookHandler)
 
   app.use(express.json({ limit: '1mb' }))

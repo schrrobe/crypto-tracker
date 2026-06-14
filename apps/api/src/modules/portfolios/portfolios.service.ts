@@ -18,16 +18,16 @@ function toPortfolioDto(p: PortfolioWithCount): PortfolioDto {
   }
 }
 
-// Wirft 404 statt 403 bei fremden Portfolios — verrät nicht, dass die ID existiert
+// Throws 404 instead of 403 for foreign portfolios — does not reveal that the ID exists
 export async function getOwnedPortfolio(userId: string, portfolioId: string): Promise<Portfolio> {
   const portfolio = await prisma.portfolio.findFirst({ where: { id: portfolioId, userId } })
   if (!portfolio) throw AppError.notFound('Portfolio nicht gefunden')
   return portfolio
 }
 
-// Kompatibilitäts-Auflösung für alle gescopten Endpunkte: explizite ID →
-// Ownership-Check, keine ID → Default-Portfolio. Lazy-Anlage als Netz für
-// direkt geseedete User (Registrierung legt den Default eager an).
+// Compatibility resolution for all scoped endpoints: explicit ID →
+// ownership check, no ID → default portfolio. Lazy creation as a safety net for
+// directly seeded users (registration creates the default eagerly).
 export async function resolvePortfolioId(userId: string, portfolioId?: string): Promise<string> {
   if (portfolioId) {
     const portfolio = await getOwnedPortfolio(userId, portfolioId)
@@ -42,7 +42,7 @@ export async function resolvePortfolioId(userId: string, portfolioId?: string): 
 }
 
 export async function listPortfolios(userId: string): Promise<PortfolioDto[]> {
-  // Default sicherstellen, damit die Liste nie leer ist
+  // Ensure a default exists so the list is never empty
   await resolvePortfolioId(userId)
   const portfolios = await prisma.portfolio.findMany({
     where: { userId },
@@ -53,7 +53,7 @@ export async function listPortfolios(userId: string): Promise<PortfolioDto[]> {
 }
 
 export async function createPortfolio(userId: string, label: string): Promise<PortfolioDto> {
-  // Free-Limit: max. FREE_LIMITS.portfolios Portfolios
+  // Free limit: at most FREE_LIMITS.portfolios portfolios
   if ((await getPlan(userId)) !== 'PRO') {
     const count = await prisma.portfolio.count({ where: { userId } })
     if (count >= FREE_LIMITS.portfolios) {
@@ -81,9 +81,9 @@ export async function renamePortfolio(
   return toPortfolioDto(portfolio)
 }
 
-// Kein Cascade: ein Portfolio ist die komplette Steuerhistorie eines
-// Steuersubjekts. Löschen nur, wenn leer und nicht das letzte; beim Löschen
-// des Defaults wird das älteste verbleibende zum neuen Default.
+// No cascade: a portfolio is the complete tax history of a tax subject.
+// Delete only when empty and not the last one; when deleting the default,
+// the oldest remaining one becomes the new default.
 export async function deletePortfolio(userId: string, portfolioId: string): Promise<void> {
   const portfolio = await getOwnedPortfolio(userId, portfolioId)
 

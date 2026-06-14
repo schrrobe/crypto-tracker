@@ -6,13 +6,13 @@ import {
   type RawBalance,
 } from '../provider.types'
 
-// Bitvavo REST API: GET /v2/balance mit HMAC-SHA256-Signatur.
-// Benötigt einen API-Key mit ausschließlich "View"-Berechtigung (read-only).
+// Bitvavo REST API: GET /v2/balance with HMAC-SHA256 signature.
+// Requires an API key with only the "View" permission (read-only).
 
 const BASE_URL = 'https://api.bitvavo.com'
 const BALANCE_PATH = '/v2/balance'
 
-// Signatur = HMAC-SHA256(timestamp + method + path + body, secret), hex
+// Signature = HMAC-SHA256(timestamp + method + path + body, secret), hex
 export function bitvavoSignature(
   timestamp: string,
   method: string,
@@ -34,7 +34,7 @@ interface BitvavoError {
   error?: string
 }
 
-// Bitvavo ist eine EUR-Börse — Fiat wird in V1 nicht getrackt
+// Bitvavo is a EUR exchange — fiat is not tracked in V1
 const SKIP = new Set(['EUR'])
 
 async function fetchBitvavoBalances(creds: ExchangeCredentials): Promise<RawBalance[]> {
@@ -53,7 +53,7 @@ async function fetchBitvavoBalances(creds: ExchangeCredentials): Promise<RawBala
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as BitvavoError
     const message = body.error ?? `HTTP ${res.status}`
-    // 3xx-Fehlercodes = Authentifizierung (ungültiger Key, falsche Signatur, fehlende Rechte)
+    // 3xx error codes = authentication (invalid key, wrong signature, missing permissions)
     if (res.status === 401 || res.status === 403 || (body.errorCode && body.errorCode >= 300 && body.errorCode < 400)) {
       throw new ProviderError('INVALID_API_KEY', `Bitvavo: ${message}`)
     }
@@ -64,8 +64,8 @@ async function fetchBitvavoBalances(creds: ExchangeCredentials): Promise<RawBala
   const balances: RawBalance[] = []
   for (const entry of entries) {
     if (SKIP.has(entry.symbol)) continue
-    // available und inOrder als getrennte Einträge — der SyncService summiert
-    // gleiche Symbole per Decimal (kein float in der Provider-Schicht)
+    // available and inOrder as separate entries — the SyncService sums
+    // identical symbols via Decimal (no float in the provider layer)
     for (const amount of [entry.available, entry.inOrder]) {
       if (Number(amount) > 0) balances.push({ symbol: entry.symbol.toUpperCase(), amount })
     }

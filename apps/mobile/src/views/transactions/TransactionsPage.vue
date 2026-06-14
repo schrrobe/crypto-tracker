@@ -183,7 +183,7 @@ const router = useRouter()
 const pageLoading = ref(false)
 const pageError = ref(false)
 
-// Label der gefilterten Quelle aus den geladenen Transaktionen ableiten
+// Derive the label of the filtered source from the loaded transactions
 const filterLabel = computed(() => {
   if (!store.filterSourceId) return null
   return store.transactions.find((t) => t.sourceId === store.filterSourceId)?.sourceLabel ?? '…'
@@ -200,12 +200,12 @@ const linkTransaction = ref<TransactionDto | null>(null)
 const swapModalOpen = ref(false)
 const swapTransaction = ref<TransactionDto | null>(null)
 
-// nur unverlinkte Auszahlungen/Einzahlungen sind als Transfer verknüpfbar
+// only unlinked withdrawals/deposits can be linked as a transfer
 function isLinkable(tx: TransactionDto): boolean {
   return !tx.transferLink && (tx.type === 'WITHDRAWAL' || tx.type === 'DEPOSIT')
 }
 
-// nur unverlinkte Käufe/Verkäufe sind als Krypto-zu-Krypto-Tausch verknüpfbar
+// only unlinked buys/sells can be linked as a crypto-to-crypto swap
 function isSwapLinkable(tx: TransactionDto): boolean {
   return !tx.swapLink && (tx.type === 'BUY' || tx.type === 'SELL')
 }

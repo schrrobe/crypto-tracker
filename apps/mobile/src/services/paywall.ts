@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 
-// Globaler Paywall-Zustand — von der 402-Behandlung (api.client) und von
-// Gating-UI (Schloss-Icons) geöffnet, gerendert in App.vue via PaywallModal.
+// Global paywall state — opened by the 402 handling (api.client) and by
+// gating UI (lock icons), rendered in App.vue via PaywallModal.
 export const paywallOpen = ref(false)
 
 export function openPaywall(): void {

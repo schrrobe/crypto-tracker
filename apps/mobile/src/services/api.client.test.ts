@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Diese Tests prüfen den nativen Pfad (Refresh-Token im Body + Secure Storage).
-// Der Web-Cookie-Pfad ist im Backend-Integrationstest abgedeckt.
+// These tests check the native path (refresh token in body + Secure Storage).
+// The web cookie path is covered by the backend integration test.
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => true } }))
 
-// api.client hält Modul-State (accessToken, geteiltes Refresh-Promise) —
-// jeder Test bekommt eine frische Modul-Instanz.
+// api.client holds module state (accessToken, shared refresh promise) —
+// each test gets a fresh module instance.
 async function loadClient() {
   vi.resetModules()
   return await import('./api.client')
@@ -60,7 +60,7 @@ describe('api.client', () => {
     const result = await api.get<{ ok: boolean }>('/holdings')
     expect(result.ok).toBe(true)
     expect(calls.filter((u) => u.endsWith('/auth/refresh'))).toHaveLength(1)
-    expect(getRefreshToken()).toBe('refresh-neu') // rotierter Token persistiert
+    expect(getRefreshToken()).toBe('refresh-neu') // rotated token is persisted
   })
 
   it('parallele 401er teilen sich einen einzigen Refresh', async () => {
@@ -110,7 +110,7 @@ describe('api.client', () => {
     await expect(api.post('/auth/login', { email: 'a@b.c', password: 'x' })).rejects.toMatchObject({
       status: 401,
     })
-    expect(fn).toHaveBeenCalledTimes(1) // kein /auth/refresh-Folgecall
+    expect(fn).toHaveBeenCalledTimes(1) // no follow-up /auth/refresh call
   })
 
   it('FormData-Upload setzt keinen JSON-Content-Type', async () => {

@@ -1,13 +1,13 @@
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
 
-// Cardano-Bestand über die öffentliche Koios-API (kein API-Key nötig):
-// POST /address_info liefert die aggregierte Balance in Lovelace (1e6) als String.
-// Native Assets (asset_list der UTxOs) sind bewusst "Später" — nur ADA.
+// Cardano balance via the public Koios API (no API key required):
+// POST /address_info returns the aggregated balance in Lovelace (1e6) as a string.
+// Native assets (asset_list of the UTxOs) are deliberately deferred — ADA only.
 
 const KOIOS_URL = 'https://api.koios.rest/api/v1/address_info'
 
-// Shelley-Adressen (Bech32): Enterprise ~58, Base ~103 Zeichen gesamt
+// Shelley addresses (Bech32): Enterprise ~58, Base ~103 characters total
 const ADDRESS_RE = /^addr1[a-z0-9]{50,110}$/
 
 interface AddressInfo {
@@ -32,8 +32,8 @@ export const cardanoProvider: WalletProvider = {
     if (res.status === 429) {
       throw new ProviderError('RATE_LIMITED', 'Koios Rate-Limit erreicht, bitte später erneut')
     }
-    // Koios beantwortet ungültige Adressen mit 200 + leerem Array (live verifiziert);
-    // 4xx kommt nur bei kaputtem Request — dennoch als Adressfehler einstufen.
+    // Koios answers invalid addresses with 200 + an empty array (verified live);
+    // a 4xx only occurs for a malformed request — still classify it as an address error.
     if (res.status >= 400 && res.status < 500) {
       throw new ProviderError('INVALID_ADDRESS', 'Cardano-Adresse wurde von Koios abgelehnt')
     }
@@ -42,7 +42,7 @@ export const cardanoProvider: WalletProvider = {
     }
 
     const json = (await res.json()) as AddressInfo[]
-    // Leeres Array: Adresse unbekannt/ungenutzt → kein Bestand, kein Fehler
+    // Empty array: address unknown/unused → no balance, no error
     const info = json[0]
     if (!info) return []
 

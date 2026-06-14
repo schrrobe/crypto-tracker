@@ -27,7 +27,7 @@ describe('bitpandaProvider.fetchBalances', () => {
       { symbol: 'BTC', amount: '0.75' },
       { symbol: 'SOL', amount: '12' },
     ])
-    // Auth nur über X-Api-Key, kein Secret
+    // auth only via X-Api-Key, no secret
     const [url, init] = fn.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('https://api.bitpanda.com/v1/wallets')
     expect((init.headers as Record<string, string>)['X-Api-Key']).toBe('test-key')

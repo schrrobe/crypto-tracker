@@ -1,5 +1,5 @@
-// Muss mit den Prisma-Enums in apps/api/prisma/schema.prisma übereinstimmen.
-// Hier als const-Objekte, damit das Frontend keine Prisma-Abhängigkeit braucht.
+// Must stay in sync with the Prisma enums in apps/api/prisma/schema.prisma.
+// Declared as const objects here so the frontend needs no Prisma dependency.
 
 export const SourceType = {
   EXCHANGE: 'EXCHANGE',

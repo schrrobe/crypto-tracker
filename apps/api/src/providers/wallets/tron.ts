@@ -1,21 +1,21 @@
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
 
-// Tron-Bestand über die TronGrid-Accounts-API (kein API-Key nötig):
-// data[0].balance in Sun (1e6) → TRX. Zusätzlich USDT aus der trc20-Liste —
-// jedes Element ist ein Ein-Schlüssel-Objekt {contractAdresse: betragString}.
-// Weitere TRC-20-Tokens sind bewusst "Später" (Spam-Filter).
+// Tron balance via the TronGrid accounts API (no API key required):
+// data[0].balance in Sun (1e6) → TRX. Additionally USDT from the trc20 list —
+// each element is a single-key object {contractAddress: amountString}.
+// Further TRC-20 tokens are deliberately deferred (spam filter).
 
 const TRONGRID_URL = 'https://api.trongrid.io/v1/accounts'
 
-// Offizieller Tether-USDT-Contract auf Tron, 6 Dezimalstellen
+// Official Tether USDT contract on Tron, 6 decimals
 const USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'
 
-// Base58Check, immer T + 33 Zeichen
+// Base58Check, always T + 33 characters
 const ADDRESS_RE = /^T[1-9A-HJ-NP-Za-km-z]{33}$/
 
 interface TronAccount {
-  // fehlt, wenn das Konto 0 TRX hält
+  // missing when the account holds 0 TRX
   balance?: number
   frozenV2?: Array<{ amount?: number }>
   trc20?: Array<Record<string, string>>
@@ -36,7 +36,7 @@ export const tronProvider: WalletProvider = {
 
   async fetchBalances(address: string): Promise<RawBalance[]> {
     const res = await fetch(`${TRONGRID_URL}/${encodeURIComponent(address)}`)
-    // TronGrid lehnt ungültige Adressen (auch falsche Checksumme) mit 400 ab — live verifiziert
+    // TronGrid rejects invalid addresses (including a wrong checksum) with 400 — verified live
     if (res.status === 400) {
       throw new ProviderError('INVALID_ADDRESS', 'Tron-Adresse wurde von TronGrid abgelehnt')
     }
@@ -51,7 +51,7 @@ export const tronProvider: WalletProvider = {
     if (!json.success) {
       throw new ProviderError('PROVIDER_ERROR', 'TronGrid meldet einen Fehler')
     }
-    // Leeres data: Konto wurde on-chain nie aktiviert → kein Bestand, kein Fehler
+    // Empty data: the account was never activated on-chain → no balance, no error
     const account = json.data[0]
     if (!account) return []
     const balances: RawBalance[] = []
@@ -62,7 +62,7 @@ export const tronProvider: WalletProvider = {
     }
     if (sun > 0n) balances.push({ symbol: 'TRX', amount: fromBaseUnits(sun, 6) })
 
-    // USDT aus den TRC-20-Beständen herausfiltern (Beträge als String in 1e6)
+    // Filter USDT out of the TRC-20 balances (amounts as strings in 1e6)
     let usdtRaw = 0n
     for (const entry of account.trc20 ?? []) {
       const amount = entry[USDT_CONTRACT]

@@ -2,8 +2,8 @@ import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 import { API, app, bearer, createExchangeSource, registerUser } from './helpers'
 
-// FAKE_PRICES: market_chart liefert deterministisch 90 % → 100 % des aktuellen
-// Fake-Preises; der letzte Verlaufspunkt entspricht damit dem Summary-Gesamtwert.
+// FAKE_PRICES: market_chart deterministically returns 90 % → 100 % of the current
+// fake price; the last history point therefore matches the summary total value.
 
 describe('Portfolio-Verlauf (Integration)', () => {
   it('liefert Buckets, deren letzter Punkt dem aktuellen Gesamtwert entspricht', async () => {
@@ -16,13 +16,13 @@ describe('Portfolio-Verlauf (Integration)', () => {
       .set(...bearer(user))
     expect(history.status).toBe(200)
     expect(history.body.range).toBe('24h')
-    expect(history.body.points).toHaveLength(25) // 24 Buckets + Endpunkt
+    expect(history.body.points).toHaveLength(25) // 24 buckets + endpoint
 
     const summary = await request(app).get(`${API}/portfolio/summary`).set(...bearer(user))
     const last = history.body.points.at(-1)
     expect(Number(last.value)).toBeCloseTo(Number(summary.body.totalEur), 0)
 
-    // Fake-Verlauf steigt: erster Punkt ≈ 90 % des letzten
+    // Fake history rises: first point ≈ 90 % of the last
     const first = history.body.points[0]
     expect(Number(first.value) / Number(last.value)).toBeCloseTo(0.9, 1)
   })
@@ -39,7 +39,7 @@ describe('Portfolio-Verlauf (Integration)', () => {
       .get(`${API}/portfolio/history?range=7d&currency=USD`)
       .set(...bearer(user))
     expect(usd.body.currency).toBe('USD')
-    // Fake: BTC 50.000 EUR / 55.000 USD → USD-Verlauf liegt höher
+    // Fake: BTC 50.000 EUR / 55.000 USD → USD history is higher
     expect(Number(usd.body.points.at(-1).value)).toBeGreaterThan(Number(eur.body.points.at(-1).value))
   })
 

@@ -1,13 +1,13 @@
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
 
-// XRP-Bestand über das öffentliche Ripple-JSON-RPC (account_info, validierter Ledger).
-// Balance kommt als String in Drops (1e6). Issued Currencies/Trustlines sind
-// bewusst "Später" — nur natives XRP.
+// XRP balance via the public Ripple JSON-RPC (account_info, validated ledger).
+// Balance comes as a string in drops (1e6). Issued currencies/trustlines are
+// deliberately deferred — native XRP only.
 
 const RPC_URL = 'https://s1.ripple.com:51234/'
 
-// Classic Address: Base58 (Ripple-Alphabet teilt die Zeichenmenge mit Bitcoin-Base58)
+// Classic Address: Base58 (the Ripple alphabet shares the character set with Bitcoin Base58)
 const ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/
 
 interface AccountInfoResult {
@@ -44,10 +44,10 @@ export const xrpProvider: WalletProvider = {
     const json = (await res.json()) as { result?: AccountInfoResult }
     const result = json.result
 
-    // Konto existiert (noch) nicht on-ledger — die 10-XRP-Reserve wurde nie
-    // eingezahlt. Kein Fehler: leeres Wallet, kein Bestand.
+    // Account does not (yet) exist on-ledger — the 10-XRP reserve was never
+    // deposited. Not an error: empty wallet, no balance.
     if (result?.error === 'actNotFound') return []
-    // Fehler kommen mit HTTP 200 + result.error (live verifiziert)
+    // Errors arrive with HTTP 200 + result.error (verified live)
     if (result?.error === 'actMalformed') {
       throw new ProviderError('INVALID_ADDRESS', 'XRP-Adresse wurde vom Ripple-RPC abgelehnt')
     }

@@ -4,8 +4,8 @@ import { redisConnection, SYNC_QUEUE_NAME } from './modules/sync/sync.queue'
 import { enqueueAutoSync, executeSyncRun } from './modules/sync/sync.service'
 import { refreshAllHeldPrices } from './coingecko/price.service'
 
-// Queue-Worker für Background-Sync + Preis-Refresh-Cron.
-// Läuft als eigener Prozess: pnpm --filter @crypto-tracker/api dev:worker
+// Queue worker for background sync + price-refresh cron.
+// Runs as its own process: pnpm --filter @crypto-tracker/api dev:worker
 
 if (!env.REDIS_URL) {
   console.error('Worker braucht REDIS_URL — ohne Queue läuft der Sync inline in der API.')
@@ -33,7 +33,7 @@ const worker = new Worker(
       console.log(`[worker] auto-sync: ${result.sources} Quellen angestoßen (queued=${result.queued})`)
     }
   },
-  // Concurrency 1: schont Provider-Rate-Limits (gleiches Kalkül wie syncAllSources)
+  // Concurrency 1: spares provider rate limits (same reasoning as syncAllSources)
   { connection: redisConnection(), concurrency: 1 },
 )
 
@@ -41,14 +41,14 @@ worker.on('failed', (job, err) => {
   console.error(`[worker] Job ${job?.name ?? '?'} fehlgeschlagen:`, err.message)
 })
 
-// Preis-Refresh als Repeatable Job registrieren (idempotent bei mehrfachem Start)
+// Register price refresh as a repeatable job (idempotent across multiple starts)
 const queue = new Queue(SYNC_QUEUE_NAME, { connection: redisConnection() })
 await queue.upsertJobScheduler(
   'price-refresh-schedule',
   { every: PRICE_REFRESH_EVERY_MS },
   { name: 'price-refresh' },
 )
-// Auto-Sync (Pro) als Repeatable Job
+// Auto-sync (Pro) as a repeatable job
 await queue.upsertJobScheduler(
   'auto-sync-schedule',
   { every: AUTO_SYNC_EVERY_MS },

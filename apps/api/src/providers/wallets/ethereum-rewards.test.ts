@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// env mit gesetztem beaconcha.in-Key mocken — das echte Test-Env hat keinen
+// mock env with a beaconcha.in key set — the real test env has none
 vi.mock('../../config/env', () => ({
   env: {
     ETH_RPC_URL: 'https://ethereum-rpc.publicnode.com',
@@ -31,7 +31,7 @@ describe('ethereumProvider.fetchStakingRewards (mit API-Key)', () => {
       {
         status: 'OK',
         data: [
-          // 0.012 ETH Reward in Epoche 250000
+          // 0.012 ETH reward in epoch 250000
           { epoch: 250_000, amount: 12_000_000, withdrawalindex: 5001, address: ADDRESS },
         ],
       },
@@ -43,7 +43,7 @@ describe('ethereumProvider.fetchStakingRewards (mit API-Key)', () => {
     expect(rewards[0]?.symbol).toBe('ETH')
     expect(rewards[0]?.amount).toBe('0.012')
     expect(rewards[0]?.externalRef).toBe('eth-wd:5001')
-    // Beacon-Genesis 1606824023 + 250000 × 384 s
+    // Beacon genesis 1606824023 + 250000 × 384 s
     expect(rewards[0]?.timestamp.getTime()).toBe((1606824023 + 250_000 * 384) * 1000)
   })
 
@@ -53,8 +53,8 @@ describe('ethereumProvider.fetchStakingRewards (mit API-Key)', () => {
       {
         status: 'OK',
         data: [
-          { epoch: 250_000, amount: 10_000_000, withdrawalindex: 1, address: ADDRESS }, // Reward
-          { epoch: 250_001, amount: 32 * GWEI_PER_ETH, withdrawalindex: 2, address: ADDRESS }, // Exit
+          { epoch: 250_000, amount: 10_000_000, withdrawalindex: 1, address: ADDRESS }, // reward
+          { epoch: 250_001, amount: 32 * GWEI_PER_ETH, withdrawalindex: 2, address: ADDRESS }, // exit
         ],
       },
     ])

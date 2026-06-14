@@ -23,7 +23,7 @@ function isSupported(code: string): code is LocaleCode {
   return SUPPORTED_LOCALES.some((l) => l.code === code)
 }
 
-// Gespeicherte Wahl → Browsersprache → Englisch
+// Stored choice → browser language → English
 function detectLocale(): LocaleCode {
   const stored = getStored(STORAGE_KEY)
   if (stored && isSupported(stored)) return stored
@@ -39,14 +39,14 @@ export const i18n = createI18n({
   messages: { de, en, fr, pl, cs, ru },
 })
 
-// Für Nutzung außerhalb von <script setup> (Alerts, Services)
+// For use outside of <script setup> (alerts, services)
 export function t(key: string, params?: Record<string, unknown>): string {
   return params ? i18n.global.t(key, params) : i18n.global.t(key)
 }
 
-// i18n wird beim Import erstellt — zu diesem Zeitpunkt ist der Storage-Cache
-// noch leer. Nach preloadStorage() im Bootstrap die gespeicherte Sprache erneut
-// anwenden (ohne erneut zu persistieren — es ist Erkennung, keine Nutzerwahl).
+// i18n is created at import time — at that point the storage cache is
+// still empty. After preloadStorage() in the bootstrap, reapply the stored
+// language (without persisting again — it is detection, not a user choice).
 export function applyDetectedLocale(): void {
   const code = detectLocale()
   i18n.global.locale.value = code
@@ -63,7 +63,7 @@ export function setLocale(code: LocaleCode): void {
   document.documentElement.lang = code
 }
 
-// Für Intl.NumberFormat / toLocaleString
+// For Intl.NumberFormat / toLocaleString
 const INTL_LOCALES: Record<LocaleCode, string> = {
   de: 'de-DE',
   en: 'en-US',

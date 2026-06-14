@@ -1,6 +1,6 @@
-// PDF-Export des Steuerreports. Inhalt bewusst immer Deutsch — Empfänger ist
-// Finanzamt/Steuerberater in DE/AT; vermeidet zudem Font-Embedding für
-// Sonderzeichen aus PL/CS/RU (jsPDF-Standardfonts decken Latin-1 ab).
+// PDF export of the tax report. Content is deliberately always German — the
+// recipient is the tax office/tax advisor in DE/AT; it also avoids font embedding
+// for special characters from PL/CS/RU (jsPDF default fonts cover Latin-1).
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { TaxReportDto } from '@crypto-tracker/shared'
@@ -47,7 +47,7 @@ export function buildTaxReportPdf(report: TaxReportDto): jsPDF {
   doc.text(`Erstellt am ${date(report.generatedAt)} · Crypto Tracker · Währung EUR`, 14, 24)
   doc.setTextColor(0)
 
-  // Summenblock
+  // Totals block
   const totals: Array<[string, string]> = [
     ['Gesamtergebnis', eur(report.totals.totalGainEur)],
     ['Steuerfrei (Haltefrist)', eur(report.totals.taxFreeGainEur)],
@@ -78,7 +78,7 @@ export function buildTaxReportPdf(report: TaxReportDto): jsPDF {
     columnStyles: { 1: { halign: 'right' } },
   })
 
-  // Veräußerungsliste
+  // Disposals list
   if (report.disposals.length > 0) {
     autoTable(doc, {
       startY: (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6,
@@ -99,7 +99,7 @@ export function buildTaxReportPdf(report: TaxReportDto): jsPDF {
     })
   }
 
-  // Hinweise
+  // Notes
   if (report.warnings.length > 0) {
     let y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8
     doc.setFontSize(10)
@@ -117,7 +117,7 @@ export function buildTaxReportPdf(report: TaxReportDto): jsPDF {
     }
   }
 
-  // Disclaimer als Fußnote auf jeder Seite
+  // Disclaimer as a footnote on every page
   const pageCount = doc.getNumberOfPages()
   for (let i = 1; i <= pageCount; i += 1) {
     doc.setPage(i)

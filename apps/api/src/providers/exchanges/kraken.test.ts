@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { krakenProvider, krakenSignature, normalizeKrakenAsset } from './kraken'
 
-// Realistische Kraken-Balance-Response (POST /0/private/Balance)
+// Realistic Kraken balance response (POST /0/private/Balance)
 const BALANCE_FIXTURE = {
   error: [],
   result: {
-    ZEUR: '1500.0000', // Fiat → übersprungen
+    ZEUR: '1500.0000', // fiat → skipped
     XXBT: '0.5000000000',
     XETH: '2.0000000000',
     SOL: '10.00000000',
-    'ETH2.S': '1.0000000000', // gestaktes ETH → ETH
-    ADA: '0.00000000', // Nullbestand → übersprungen
-    KFEE: '155.00', // Fee-Credits → übersprungen
+    'ETH2.S': '1.0000000000', // staked ETH → ETH
+    ADA: '0.00000000', // zero balance → skipped
+    KFEE: '155.00', // fee credits → skipped
   },
 }
 
@@ -68,10 +68,10 @@ describe('krakenProvider.fetchBalances', () => {
 
     expect(balances).toContainEqual({ symbol: 'BTC', amount: '0.5000000000', accountType: 'SPOT', meta: { krakenCode: 'XXBT' } })
     expect(balances).toContainEqual({ symbol: 'SOL', amount: '10.00000000', accountType: 'SPOT', meta: { krakenCode: 'SOL' } })
-    // ETH (Spot) + gestaktes ETH2.S (Earn) als getrennte, unterschiedlich getaggte Einträge
+    // ETH (Spot) + staked ETH2.S (Earn) as separate, differently tagged entries
     expect(balances.filter((b) => b.symbol === 'ETH')).toHaveLength(2)
     expect(balances).toContainEqual({ symbol: 'ETH', amount: '1.0000000000', accountType: 'EARN', meta: { krakenCode: 'ETH2.S' } })
-    // Fiat, Fee-Credits und Nullbestände fehlen
+    // fiat, fee credits and zero balances are absent
     expect(balances.map((b) => b.symbol)).not.toContain('ADA')
     // XXBT + XETH + SOL + ETH2.S
     expect(balances).toHaveLength(4)

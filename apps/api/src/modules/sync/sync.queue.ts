@@ -1,9 +1,9 @@
 import { Queue } from 'bullmq'
 import { env } from '../../config/env'
 
-// Queue-Modus ist optional: ohne REDIS_URL läuft der Sync inline (Tests, einfaches
-// lokales Setup). Mit REDIS_URL legt die Route nur noch den Run an und enqueued —
-// der Worker (src/worker.ts) führt aus.
+// Queue mode is optional: without REDIS_URL the sync runs inline (tests, simple
+// local setup). With REDIS_URL the route only creates the run and enqueues it —
+// the worker (src/worker.ts) executes it.
 
 export const SYNC_QUEUE_NAME = 'sync'
 
@@ -30,7 +30,7 @@ export async function enqueueSyncRun(runId: string): Promise<void> {
   await getQueue().add(
     'sync-run',
     { runId },
-    // Kein Auto-Retry: executeSyncRun schreibt Provider-Fehler selbst in den Run
+    // No auto-retry: executeSyncRun writes provider errors into the run itself
     { attempts: 1, removeOnComplete: 100, removeOnFail: 100 },
   )
 }

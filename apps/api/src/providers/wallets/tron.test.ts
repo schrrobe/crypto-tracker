@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { tronProvider } from './tron'
 import { ProviderError } from '../provider.types'
 
-// Live verifizierte Adresse (USDT-Contract selbst, hält auch TRX)
+// Live-verified address (the USDT contract itself, also holds TRX)
 const ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'
 const USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'
 
-// Fixture nach echtem TronGrid-Response-Format (GET /v1/accounts/{address}) —
-// balance in Sun (1e6), trc20 als Liste von {contractAdresse: betragString}
+// Fixture based on the real TronGrid response format (GET /v1/accounts/{address}) —
+// balance in Sun (1e6), trc20 as a list of {contractAddress: amountString}
 const ACCOUNT_FIXTURE = {
   data: [
     {
@@ -15,7 +15,7 @@ const ACCOUNT_FIXTURE = {
       balance: 1_075_165_255_653,
       trc20: [
         { [USDT_CONTRACT]: '2500000000' }, // 2500 USDT
-        { TS6dcmkzuthz48t3HsWEmGxKGtv19icco1: '999666888000000000000000001' }, // Spam-Token → ignorieren
+        { TS6dcmkzuthz48t3HsWEmGxKGtv19icco1: '999666888000000000000000001' }, // spam token → ignore
       ],
       account_resource: {},
       frozenV2: [],
@@ -43,8 +43,8 @@ describe('tronProvider', () => {
   it('akzeptiert Tron-Adressen (T + 33 Base58-Zeichen)', () => {
     expect(tronProvider.validateAddress(ADDRESS)).toBe(true)
     expect(tronProvider.validateAddress('TV6MuMXfmLbBqPZvBHdwFsDnQeVfnmiuSi')).toBe(true)
-    expect(tronProvider.validateAddress('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6')).toBe(false) // zu kurz
-    expect(tronProvider.validateAddress('T0r7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6')).toBe(false) // 0 ist kein Base58
+    expect(tronProvider.validateAddress('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6')).toBe(false) // too short
+    expect(tronProvider.validateAddress('T0r7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6')).toBe(false) // 0 is not Base58
     expect(tronProvider.validateAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F')).toBe(false)
     expect(tronProvider.validateAddress('nicht-gueltig')).toBe(false)
   })
@@ -80,7 +80,7 @@ describe('tronProvider', () => {
   })
 
   it('filtert Nullbestände heraus (fehlende balance, kein USDT)', async () => {
-    // TronGrid lässt balance weg, wenn das Konto 0 TRX hält
+    // TronGrid omits balance when the account holds 0 TRX
     mockFetch(200, { data: [{ trc20: [] }], success: true, meta: {} })
     expect(await tronProvider.fetchBalances(ADDRESS)).toEqual([])
   })

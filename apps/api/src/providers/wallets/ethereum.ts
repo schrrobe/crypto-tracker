@@ -7,24 +7,24 @@ import {
   type WalletProvider,
 } from '../provider.types'
 
-// Ethereum-Bestand über öffentliches JSON-RPC (ETH_RPC_URL konfigurierbar):
-// eth_getBalance (ETH) + kuratierte ERC-20-Liste via eth_call balanceOf.
-// Kein Indexer/API-Key — unbekannte Tokens sind damit prinzipbedingt unsichtbar
-// (includeUnknownTokens hat hier keine Wirkung).
+// Ethereum balance via public JSON-RPC (ETH_RPC_URL is configurable):
+// eth_getBalance (ETH) + a curated ERC-20 list via eth_call balanceOf.
+// No indexer/API key — unknown tokens are therefore inherently invisible
+// (includeUnknownTokens has no effect here).
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/
 
-// balanceOf(address) — Funktions-Selector
+// balanceOf(address) — function selector
 const BALANCE_OF_SELECTOR = '0x70a08231'
 
-// Kuratierte Mainnet-Tokens: Symbol → Contract + Decimals
+// Curated mainnet tokens: symbol → contract + decimals
 const KNOWN_TOKENS: Array<{ symbol: string; contract: string; decimals: number }> = [
   { symbol: 'USDC', contract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 },
   { symbol: 'USDT', contract: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6 },
   { symbol: 'DAI', contract: '0x6B175474E89094C44Da98b954EedeAC495271d0F', decimals: 18 },
   { symbol: 'WETH', contract: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18 },
   { symbol: 'WBTC', contract: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', decimals: 8 },
-  // Liquid Staking: stETH rebased (Bestand wächst), wstETH/rETH steigen im Kurs
+  // Liquid staking: stETH rebases (balance grows), wstETH/rETH appreciate in price
   { symbol: 'STETH', contract: '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84', decimals: 18 },
   { symbol: 'WSTETH', contract: '0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0', decimals: 18 },
   { symbol: 'RETH', contract: '0xae78736Cd615f374D3085123A210448E74Fc6393', decimals: 18 },
@@ -32,17 +32,17 @@ const KNOWN_TOKENS: Array<{ symbol: string; contract: string; decimals: number }
   { symbol: 'UNI', contract: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', decimals: 18 },
 ]
 
-// Withdrawals ab dieser Höhe gelten als Principal-Rückzahlung (Exit), nicht als
-// Reward — Partial Withdrawals (Rewards) liegen weit unter 8 ETH, ein Exit
-// bringt ≥ den Einsatz. Rückzahlung ist kein steuerlicher Zufluss.
+// Withdrawals at or above this amount count as a principal repayment (exit), not as
+// a reward — partial withdrawals (rewards) stay well below 8 ETH, while an exit
+// returns ≥ the original stake. A repayment is not a taxable inflow.
 const PRINCIPAL_THRESHOLD_GWEI = 8_000_000_000n // 8 ETH
 
-// Beacon-Chain-Genesis (1.12.2020) — Withdrawal-Epoche → Zeitstempel, ohne Extra-Call
+// Beacon Chain genesis (2020-12-01) — withdrawal epoch → timestamp, without an extra call
 const BEACON_GENESIS_UNIX = 1606824023
 const SECONDS_PER_EPOCH = 32 * 12
 
 const BEACONCHAIN_BASE = 'https://beaconcha.in/api/v1'
-// Free-Tier-Rate-Limit schonen: Withdrawals pro Sync deckeln (inkrementell via externalRef)
+// Conserve the free-tier rate limit: cap withdrawals per sync (incremental via externalRef)
 const MAX_WITHDRAWALS_PER_SYNC = 200
 
 interface RpcResponse<T> {
@@ -110,7 +110,7 @@ export const ethereumProvider: WalletProvider = {
     const wei = hexToBigInt(weiHex)
     if (wei > 0n) balances.push({ symbol: 'ETH', amount: fromBaseUnits(wei, 18) })
 
-    // balanceOf(address) je kuratiertem Token — sequenziell, schont öffentliche RPCs
+    // balanceOf(address) per curated token — sequential, easy on public RPCs
     const paddedAddress = address.slice(2).toLowerCase().padStart(64, '0')
     for (const token of KNOWN_TOKENS) {
       const result = await rpc<string>('eth_call', [
@@ -128,16 +128,16 @@ export const ethereumProvider: WalletProvider = {
     return balances
   },
 
-  // Validator-Rewards über beaconcha.in: Withdrawal-Adresse → Validatoren →
-  // Withdrawals. Partial Withdrawals = ausgezahlte Rewards (post-Shapella);
-  // Beträge ≥ 8 ETH werden als Principal-Rückzahlung übersprungen.
-  // Execution-Layer-Rewards (MEV/Tips) sind hier nicht enthalten (dokumentierte Lücke).
+  // Validator rewards via beaconcha.in: withdrawal address → validators →
+  // withdrawals. Partial withdrawals = paid-out rewards (post-Shapella);
+  // amounts ≥ 8 ETH are skipped as principal repayments.
+  // Execution-layer rewards (MEV/tips) are not included here (documented gap).
   async fetchStakingRewards(
     address: string,
     sinceHint: { lastExternalRef: string | null },
   ): Promise<RawStakingReward[]> {
-    // beaconcha.in verlangt auch für v1-Endpunkte einen (kostenlosen) API-Key —
-    // ohne Key keine Validator-Rewards, der Bestands-Sync bleibt unberührt
+    // beaconcha.in requires a (free) API key even for v1 endpoints —
+    // without a key there are no validator rewards; the balance sync is unaffected
     if (!env.BEACONCHAIN_API_KEY) return []
 
     let validators: Array<{ validatorindex: number }>
@@ -146,7 +146,7 @@ export const ethereumProvider: WalletProvider = {
         `/validator/withdrawalCredentials/${address}`,
       )
     } catch (e) {
-      // 400/404 = keine Validator-Zuordnung für diese Adresse — normales Wallet
+      // 400/404 = no validator association for this address — an ordinary wallet
       if (e instanceof ProviderError && e.code === 'PROVIDER_ERROR') return []
       throw e
     }

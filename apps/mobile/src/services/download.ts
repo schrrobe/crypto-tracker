@@ -1,5 +1,5 @@
-// CSV-Erzeugung + Export. Semikolon-getrennt mit UTF-8-BOM, damit
-// deutsches/österreichisches Excel Umlaute und Spalten korrekt erkennt.
+// CSV generation + export. Semicolon-separated with UTF-8 BOM so that
+// German/Austrian Excel recognizes umlauts and columns correctly.
 
 import { saveOrShareFile } from './file-export'
 

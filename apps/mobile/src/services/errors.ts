@@ -1,8 +1,8 @@
 import { ApiError } from './api.client'
 import { i18n, t } from '../i18n'
 
-// Lokalisiert API-Fehler über den stabilen error.code; unbekannte Codes fallen auf
-// die Server-Message zurück, alles andere auf den übergebenen Fallback-Key.
+// Localizes API errors via the stable error.code; unknown codes fall back to
+// the server message, everything else to the provided fallback key.
 export function apiErrorMessage(error: unknown, fallbackKey: string): string {
   if (error instanceof ApiError) {
     const key = `errors.${error.code}`

@@ -6,10 +6,10 @@ import { usePortfoliosStore } from './portfolios.store'
 
 export const useTransactionsStore = defineStore('transactions', () => {
   const transactions = ref<TransactionDto[]>([])
-  // aktiver Quellen-Filter — bleibt über Mutations-Reloads erhalten
+  // active source filter — persists across mutation reloads
   const filterSourceId = ref<string | null>(null)
 
-  // query angeben = Filter setzen (null hebt auf); ohne query = mit aktuellem Filter neu laden
+  // passing query = set the filter (null clears it); without query = reload with the current filter
   async function load(query?: { sourceId: string | null }): Promise<void> {
     if (query !== undefined) filterSourceId.value = query.sourceId
     const portfolios = usePortfoliosStore()

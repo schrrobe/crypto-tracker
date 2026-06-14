@@ -1,9 +1,9 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { env } from '../config/env'
 
-// AES-256-GCM für API-Keys/Secrets. Format: base64(iv):base64(authTag):base64(ciphertext)
-// Entschlüsselung passiert ausschließlich unmittelbar vor Provider-Calls (SyncService) —
-// Secrets verlassen das Backend nie und tauchen in keiner API-Response auf.
+// AES-256-GCM for API keys/secrets. Format: base64(iv):base64(authTag):base64(ciphertext)
+// Decryption happens exclusively right before provider calls (SyncService) —
+// secrets never leave the backend and never appear in any API response.
 
 const KEY = Buffer.from(env.ENCRYPTION_KEY, 'hex')
 

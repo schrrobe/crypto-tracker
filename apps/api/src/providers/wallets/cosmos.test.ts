@@ -2,18 +2,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cosmosProvider } from './cosmos'
 import { ProviderError } from '../provider.types'
 
-// Live verifizierte Adresse (Binance-Cold-Wallet)
+// Live-verified address (Binance cold wallet)
 const ADDRESS = 'cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh'
 
-// Fixtures nach echtem LCD-Response-Format (rest.cosmos.directory/cosmoshub) —
-// Beträge als String in uatom (1e6)
+// Fixtures based on the real LCD response format (rest.cosmos.directory/cosmoshub) —
+// amounts as strings in uatom (1e6)
 const BANK_FIXTURE = {
   balances: [
-    { denom: 'uatom', amount: '2500000' }, // 2.5 ATOM liquide
+    { denom: 'uatom', amount: '2500000' }, // 2.5 ATOM liquid
     {
       denom: 'ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2',
       amount: '777',
-    }, // IBC-Token → ignorieren
+    }, // IBC token → ignore
   ],
   pagination: { next_key: null, total: '2' },
 }
@@ -26,7 +26,7 @@ const DELEGATIONS_FIXTURE = {
         validator_address: 'cosmosvaloper1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u2lcnj0',
         shares: '1000000.000000000000000000',
       },
-      balance: { denom: 'uatom', amount: '1000000' }, // 1 ATOM gestakt
+      balance: { denom: 'uatom', amount: '1000000' }, // 1 ATOM staked
     },
     {
       delegation: {
@@ -34,7 +34,7 @@ const DELEGATIONS_FIXTURE = {
         validator_address: 'cosmosvaloper156gqf9837u7d4c4678yt3rl4ls9c5vuursrrzf',
         shares: '500000.000000000000000000',
       },
-      balance: { denom: 'uatom', amount: '500000' }, // 0.5 ATOM gestakt
+      balance: { denom: 'uatom', amount: '500000' }, // 0.5 ATOM staked
     },
   ],
   pagination: { next_key: null, total: '2' },
@@ -46,7 +46,7 @@ const UNBONDING_FIXTURE = {
 
 const EMPTY_UNBONDING = { unbonding_responses: [] }
 
-// Mock je nach LCD-Pfad (Bank- und Staking-Endpunkt werden nacheinander abgefragt)
+// Mock depending on the LCD path (bank and staking endpoints are queried in sequence)
 function mockLcd(handlers: Record<string, { status: number; body?: unknown }>) {
   vi.stubGlobal(
     'fetch',
@@ -72,7 +72,7 @@ describe('cosmosProvider', () => {
     ).toBe(false) // Validator
     expect(cosmosProvider.validateAddress('osmo1fl48vsnmsdzcv85q5d2q4z5ajdha8yu3rqxy9n')).toBe(
       false,
-    ) // andere Chain
+    ) // different chain
     expect(cosmosProvider.validateAddress('cosmos1zukurz')).toBe(false)
     expect(cosmosProvider.validateAddress('nicht-gueltig')).toBe(false)
   })
@@ -84,7 +84,7 @@ describe('cosmosProvider', () => {
       '/unbonding_delegations': { status: 200, body: UNBONDING_FIXTURE },
     })
     const balances = await cosmosProvider.fetchBalances(ADDRESS)
-    // 2.5 + 1 + 0.5 + 0.75 + 0.25 = 5 ATOM; IBC-Token wird ignoriert
+    // 2.5 + 1 + 0.5 + 0.75 + 0.25 = 5 ATOM; IBC token is ignored
     expect(balances).toEqual([{ symbol: 'ATOM', amount: '5' }])
   })
 

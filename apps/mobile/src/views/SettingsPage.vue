@@ -57,7 +57,7 @@
         </ion-item>
       </ion-list>
 
-      <!-- Abo / Plan -->
+      <!-- Subscription / plan -->
       <ion-list inset>
         <ion-item>
           <ion-label>
@@ -82,7 +82,7 @@
             {{ $t('paywall.manage') }}
           </ion-button>
         </ion-item>
-        <!-- Automatischer Sync (Pro) -->
+        <!-- Automatic sync (Pro) -->
         <ion-item>
           <ion-toggle
             :checked="auth.user?.autoSyncEnabled ?? false"
@@ -101,7 +101,7 @@
             @click="openPaywall"
           />
         </ion-item>
-        <!-- Dev-Schalter (nur lokal) zum Testen des Gatings ohne Stripe -->
+        <!-- Dev toggle (local only) for testing the gating without Stripe -->
         <ion-item v-if="isDev">
           <ion-label color="medium">Dev: Plan</ion-label>
           <ion-segment
@@ -116,7 +116,7 @@
         </ion-item>
       </ion-list>
 
-      <!-- Portfolio-Verwaltung: getrennte Steuersubjekte (eigenes, Eltern, …) -->
+      <!-- Portfolio management: separate tax subjects (own, parents, …) -->
       <ion-list inset>
         <ion-list-header>
           <ion-label>{{ $t('portfolios.title') }}</ion-label>

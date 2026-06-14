@@ -9,14 +9,14 @@ import {
 } from '../provider.types'
 import { safeSubFetch } from './account-snapshot'
 
-// OKX REST API v5: GET /api/v5/account/balance mit HMAC-SHA256-Signatur (Base64).
-// Benötigt einen API-Key mit ausschließlich "Read"-Berechtigung plus Passphrase.
+// OKX REST API v5: GET /api/v5/account/balance with HMAC-SHA256 signature (Base64).
+// Requires an API key with only the "Read" permission plus a passphrase.
 
 const BASE_URL = 'https://www.okx.com'
 const BALANCE_PATH = '/api/v5/account/balance'
 
 // OK-ACCESS-SIGN = Base64(HMAC-SHA256(timestamp + method + requestPath + body, secret))
-// timestamp im ISO-8601-Format (z.B. 2020-12-08T09:08:57.715Z), body bei GET leer
+// timestamp in ISO-8601 format (e.g. 2020-12-08T09:08:57.715Z), body empty for GET
 export function okxSignature(
   timestamp: string,
   method: string,
@@ -33,14 +33,14 @@ interface OkxBalanceResponse {
   data?: { details?: { ccy: string; cashBal: string }[] }[]
 }
 
-// Auth-Fehlercodes: 50103–50107 (fehlende/ungültige Auth-Header), 50105 (Passphrase falsch),
-// 50111 (ungültiger OK-ACCESS-KEY), 50113 (ungültige Signatur), 50114 (ungültige Autorisierung)
+// Auth error codes: 50103–50107 (missing/invalid auth headers), 50105 (wrong passphrase),
+// 50111 (invalid OK-ACCESS-KEY), 50113 (invalid signature), 50114 (invalid authorization)
 const AUTH_CODES = new Set(['50103', '50104', '50105', '50106', '50107', '50111', '50113', '50114'])
 
 function classifyOkxError(code: string, msg: string | undefined): ProviderError {
   const message = `OKX: ${msg ?? `Code ${code}`}`
   if (AUTH_CODES.has(code)) return new ProviderError('INVALID_API_KEY', message)
-  // 50011 = Rate-Limit erreicht
+  // 50011 = rate limit reached
   if (code === '50011') return new ProviderError('RATE_LIMITED', message)
   return new ProviderError('PROVIDER_ERROR', message)
 }
@@ -60,7 +60,7 @@ async function fetchOkxBalances(creds: ExchangeCredentials): Promise<RawBalance[
   })
 
   if (res.status === 429) throw new ProviderError('RATE_LIMITED', 'OKX Rate-Limit erreicht')
-  // OKX liefert den Fehlercode auch bei HTTP-Fehlern im Body — dort genauer klassifizieren
+  // OKX returns the error code in the body even on HTTP errors — classify more precisely there
   const json = (await res.json().catch(() => null)) as OkxBalanceResponse | null
   if (!json) {
     if (res.status === 401 || res.status === 403) {
@@ -78,8 +78,8 @@ async function fetchOkxBalances(creds: ExchangeCredentials): Promise<RawBalance[
   const balances: RawBalance[] = []
   for (const account of json.data ?? []) {
     for (const detail of account.details ?? []) {
-      // cashBal = Gesamtbestand (verfügbar + eingefroren) der Währung; negativ =
-      // Cross-/Unified-Margin-Verbindlichkeit (wie Binance netAsset behalten, nur exakt 0 verwerfen)
+      // cashBal = full balance (available + frozen) of the currency; negative =
+      // cross/unified-margin liability (kept like Binance netAsset, only discard exactly 0)
       if (Number(detail.cashBal) !== 0) {
         balances.push({ symbol: detail.ccy.toUpperCase(), amount: detail.cashBal })
       }
@@ -88,8 +88,8 @@ async function fetchOkxBalances(creds: ExchangeCredentials): Promise<RawBalance[
   return balances
 }
 
-// Signierter GET auf einen OKX-Subendpoint. Auth-Fehler hier ⇒ ENDPOINT_FORBIDDEN
-// (Key ohne Berechtigung für diesen Kontotyp), Spot-Sync läuft weiter.
+// Signed GET against an OKX sub-endpoint. Auth errors here ⇒ ENDPOINT_FORBIDDEN
+// (key without permission for this account type), spot sync continues.
 async function okxSubGet<T>(path: string, creds: ExchangeCredentials): Promise<T[]> {
   const timestamp = new Date().toISOString()
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -148,7 +148,7 @@ export function parseOkxPositions(data: OkxPosition[]): RawPosition[] {
       rawSymbol: p.instId,
       baseSymbol: (base ?? p.instId).toUpperCase(),
       side,
-      // Vorzeichen über Number, Größe als String (keine float-Präzisionsverluste)
+      // sign via Number, size as string (no float precision loss)
       size: p.pos.replace(/^-/, ''),
       entryPrice: p.avgPx,
       markPrice: p.markPx,
@@ -170,14 +170,14 @@ export const okxProvider: ExchangeProvider = {
   id: 'OKX',
 
   async validateCredentials(creds: ExchangeCredentials): Promise<void> {
-    // Balance ist ein reiner Lese-Endpoint — validiert Key, Secret und Passphrase
+    // Balance is a read-only endpoint — validates key, secret and passphrase
     await fetchOkxBalances(creds)
   },
 
   fetchBalances: fetchOkxBalances,
 
-  // Unified-Account: Spot+Margin teilen sich balance → nur explizites Earn separat;
-  // dazu offene Swap-/Futures-Positionen.
+  // Unified account: Spot+Margin share the balance → only explicit Earn is separate;
+  // plus open swap/futures positions.
   async fetchAccount(creds: ExchangeCredentials): Promise<ExchangeAccountSnapshot> {
     const warnings: string[] = []
     const balances = await fetchOkxBalances(creds)

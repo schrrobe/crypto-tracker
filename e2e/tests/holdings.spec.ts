@@ -1,16 +1,16 @@
 import { expect, test } from '@playwright/test'
 import { input, register, uniqueEmail } from './helpers'
 
-// FAKE_PRICES=true im E2E-API-Server: BTC = 50.000 EUR / 55.000 USD, SOL = 100 EUR
+// FAKE_PRICES=true in the E2E API server: BTC = 50.000 EUR / 55.000 USD, SOL = 100 EUR
 
 test('manueller Bestand: anlegen, bewerten, bearbeiten, löschen', async ({ page }) => {
   await register(page, uniqueEmail('holdings'))
 
-  // Leeres Dashboard
+  // Empty dashboard
   await expect(page.getByTestId('total-value')).toHaveText(/0,00\s€/u)
   await expect(page.getByTestId('dashboard-empty')).toBeVisible()
 
-  // BTC 0,5 anlegen
+  // Create BTC 0,5
   await page.getByRole('tab', { name: 'Bestände' }).click()
   await expect(page.getByTestId('holdings-empty')).toBeVisible()
   await page.getByTestId('add-holding').click()
@@ -24,14 +24,14 @@ test('manueller Bestand: anlegen, bewerten, bearbeiten, löschen', async ({ page
   await expect(btcItem).toContainText('0,5 BTC')
   await expect(btcItem).toContainText('25.000,00')
 
-  // Dashboard: 0,5 × 50.000 € = 25.000 €, Toggle → 27.500 $
+  // Dashboard: 0,5 × 50.000 € = 25.000 €, toggle → 27.500 $
   await page.getByRole('tab', { name: 'Dashboard' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/25\.000,00\s€/u)
   await page.getByTestId('total-value-card').click()
   await expect(page.getByTestId('total-value')).toHaveText(/27\.500,00\s\$/u)
   await page.getByTestId('total-value-card').click()
 
-  // Menge auf 1 ändern → 50.000 €
+  // Change quantity to 1 → 50.000 €
   await page.getByRole('tab', { name: 'Bestände' }).click()
   await page.getByTestId('holding-edit-BTC').click()
   await input(page, 'holding-quantity').fill('1')
@@ -41,7 +41,7 @@ test('manueller Bestand: anlegen, bewerten, bearbeiten, löschen', async ({ page
   await page.getByRole('tab', { name: 'Dashboard' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/50\.000,00\s€/u)
 
-  // Löschen → leerer Zustand
+  // Delete → empty state
   await page.getByRole('tab', { name: 'Bestände' }).click()
   await page.getByTestId('holding-delete-BTC').click()
   await page.getByRole('button', { name: 'Löschen' }).click()
@@ -61,11 +61,11 @@ test('Privatsphäre-Modus blendet Beträge aus und wieder ein', async ({ page })
   await page.getByRole('tab', { name: 'Dashboard' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/50\.000,00\s€/u)
 
-  // ausblenden → Maske
+  // hide → mask
   await page.locator('[data-testid="toggle-balances"]:visible').click()
   await expect(page.getByTestId('total-value')).toContainText('••••')
 
-  // wieder einblenden → Betrag zurück
+  // show again → amount back
   await page.locator('[data-testid="toggle-balances"]:visible').click()
   await expect(page.getByTestId('total-value')).toHaveText(/50\.000,00\s€/u)
 })
@@ -92,7 +92,7 @@ test('doppeltes Asset in derselben Quelle wird abgelehnt', async ({ page }) => {
 test('Konten-Aufteilung: Earn/Margin-Gruppen, negative Margin, Futures-Positionen', async ({ page }) => {
   await register(page, uniqueEmail('breakdown'))
 
-  // Binance-Fake liefert Multi-Konto: SPOT BTC/ETH, EARN BTC, MARGIN -300 USDT + 2 Futures
+  // Binance fake delivers multi-account: SPOT BTC/ETH, EARN BTC, MARGIN -300 USDT + 2 futures
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('add-source').click()
   await page.getByTestId('exchange-provider').click()
@@ -104,25 +104,25 @@ test('Konten-Aufteilung: Earn/Margin-Gruppen, negative Margin, Futures-Positione
   await page.getByTestId('source-sync-Binance Test').click()
   await expect(page.getByTestId('source-Binance Test')).toContainText('gerade eben')
 
-  // Bestände: Gruppen je Kontotyp + Badges
+  // Holdings: groups per account type + badges
   await page.getByRole('tab', { name: 'Bestände' }).click()
   await expect(page.getByTestId('holdings-group-SPOT')).toBeVisible()
   await expect(page.getByTestId('holdings-group-EARN')).toBeVisible()
   await expect(page.getByTestId('holdings-group-MARGIN')).toBeVisible()
   await expect(page.getByTestId('holding-badge-MARGIN')).toContainText('Margin')
 
-  // negative Margin (USDT -300 × 0,9 € = -270 €) rot
+  // negative margin (USDT -300 × 0,9 € = -270 €) red
   const marginGroup = page.getByTestId('holdings-group-MARGIN')
   await expect(marginGroup).toContainText('-270,00')
   await expect(marginGroup.locator('.amount.negative')).toBeVisible()
 
-  // Futures-Positionen: Side + uPnL
+  // Futures positions: side + uPnL
   await expect(page.getByTestId('futures-list')).toBeVisible()
   await expect(page.getByTestId('futures-side-BTC')).toContainText('Long')
   await expect(page.getByTestId('futures-side-ETH')).toContainText('Short')
   await expect(page.getByTestId('futures-pnl-BTC')).toBeVisible()
 
-  // Dashboard: Konten-Aufteilungs-Card + Futures-uPnL-Zeile
+  // Dashboard: account breakdown card + futures uPnL row
   await page.getByRole('tab', { name: 'Dashboard' }).click()
   await expect(page.getByTestId('account-breakdown-card')).toBeVisible()
   await expect(page.getByTestId('breakdown-MARGIN')).toContainText('-270,00')
@@ -149,5 +149,5 @@ test('Top-Positionen zeigen mehrere Assets nach Wert sortiert', async ({ page })
   await expect(page.getByTestId('total-value')).toHaveText(/51\.000,00\s€/u)
 
   const items = page.locator('ion-list ion-item')
-  await expect(items.first()).toContainText('BTC') // größte Position zuerst
+  await expect(items.first()).toContainText('BTC') // largest position first
 })

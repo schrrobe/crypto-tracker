@@ -55,7 +55,7 @@
 
       <AllocationDonut :positions="portfolio.summary?.byAsset ?? []" />
 
-      <!-- Gewinn/Verlust (Pro) — Free: Schloss → Paywall -->
+      <!-- Profit/loss (Pro) — Free: lock → paywall -->
       <ion-card
         v-if="topAssets.length > 0"
         data-testid="pnl-card"
@@ -92,7 +92,7 @@
         </ion-card-content>
       </ion-card>
 
-      <!-- Konten-Aufteilung (Earn/Margin/Futures) — frei -->
+      <!-- Account breakdown (Earn/Margin/Futures) — free -->
       <ion-card v-if="hasBreakdown" data-testid="account-breakdown-card">
         <ion-card-header>
           <ion-card-subtitle>{{ $t('dashboard.accountBreakdown') }}</ion-card-subtitle>
@@ -215,7 +215,7 @@ async function loadData() {
   pageError.value = false
   try {
     await portfolio.loadSummary()
-    // PnL nur für Pro laden (Free sieht die Paywall am Schloss)
+    // load PnL only for Pro (Free sees the paywall on the lock)
     if (auth.isPro) await portfolio.loadPnl().catch(() => {})
   } catch {
     pageError.value = true
@@ -232,7 +232,7 @@ const totalFormatted = computed(() => {
 
 const topAssets = computed(() => (portfolio.summary?.byAsset ?? []).slice(0, 5))
 
-// Konten-Aufteilung: SPOT ist bereits das Headline-Total → nur Nicht-SPOT zeigen
+// Account breakdown: SPOT is already the headline total → only show non-SPOT
 const breakdownRows = computed(() =>
   (portfolio.summary?.byAccountType ?? []).filter((r) => r.accountType !== 'SPOT'),
 )
@@ -261,7 +261,7 @@ async function onPullRefresh(event: RefresherCustomEvent) {
 }
 
 onIonViewWillEnter(() => {
-  // Basiswährung kann sich in den Einstellungen geändert haben
+  // the base currency may have changed in the settings
   currency.value = (auth.user?.baseCurrency as 'EUR' | 'USD') ?? 'EUR'
   loadData()
 })

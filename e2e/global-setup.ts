@@ -1,9 +1,9 @@
 import { execSync } from 'node:child_process'
 import { E2E_DATABASE_URL } from './config'
 
-// Vor jedem Testlauf: E2E-DB anlegen falls fehlend, Migrationen anwenden, Assets seeden.
-// Bewusst nicht-destruktiv — Tests erzeugen pro Lauf eigene User und sind dadurch
-// unabhängig von Altdaten. Bei Bedarf manuell zurücksetzen:
+// Before each test run: create the E2E DB if missing, apply migrations, seed assets.
+// Deliberately non-destructive — tests create their own users per run and are thereby
+// independent of stale data. Reset manually if needed:
 //   docker exec crypto-tracker-postgres dropdb -U crypto crypto_tracker_e2e
 export default function globalSetup() {
   const env = { ...process.env, DATABASE_URL: E2E_DATABASE_URL }

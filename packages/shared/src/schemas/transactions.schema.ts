@@ -3,7 +3,7 @@ import { TxType } from '../enums'
 import type { AssetDto } from './portfolio.schema'
 import { quantityString } from './portfolio.schema'
 
-// Wie quantityString, aber 0 erlaubt — für Kurs und Gebühr (z.B. gebührenfreier Kauf)
+// Like quantityString, but 0 is allowed — for price and fee (e.g. fee-free purchase)
 export const amountString = z
   .string()
   .regex(/^\d{1,20}([.,]\d{1,18})?$/, 'Ungültiger Betrag')
@@ -15,8 +15,8 @@ export const createTransactionSchema = z.object({
   assetId: z.string().uuid(),
   type: z.enum(TX_TYPES),
   quantity: quantityString,
-  // Kurs in Fiat pro Einheit zum Transaktionszeitpunkt — optional, aber ohne Kurs
-  // kann der Steuerreport die Position nur per Preis-Backfill bewerten
+  // price in fiat per unit at the transaction time — optional, but without a price
+  // the tax report can only value the position via price backfill
   pricePerUnit: amountString.optional(),
   feeAmount: amountString.optional(),
   currency: z
@@ -47,7 +47,7 @@ export const transferLinkSchema = z.object({
   counterpartId: z.string().uuid(),
 })
 export type TransferLinkInput = z.infer<typeof transferLinkSchema>
-// Swap nutzt dieselbe Eingabeform (Gegen-Transaktion)
+// Swap uses the same input shape (counterpart transaction)
 export const swapLinkSchema = transferLinkSchema
 export type SwapLinkInput = TransferLinkInput
 
@@ -55,7 +55,7 @@ export interface TransactionTransferLinkDto {
   id: string
   counterpartTxId: string
   counterpartSourceLabel: string
-  // OUT = diese Tx ist die Auszahlung, IN = die Einzahlung
+  // OUT = this tx is the withdrawal, IN = the deposit
   direction: 'OUT' | 'IN'
 }
 
@@ -64,7 +64,7 @@ export interface TransactionSwapLinkDto {
   counterpartTxId: string
   counterpartSourceLabel: string
   counterpartAssetSymbol: string
-  // OUT = diese Tx ist die SELL-Seite (Asset A), IN = die BUY-Seite (Asset B)
+  // OUT = this tx is the SELL side (asset A), IN = the BUY side (asset B)
   direction: 'OUT' | 'IN'
 }
 
@@ -72,7 +72,7 @@ export interface TransactionDto {
   id: string
   sourceId: string
   sourceLabel: string
-  // nur manuelle Transaktionen sind über die API änderbar; importierte gehören dem CSV-Import
+  // only manual transactions are editable via the API; imported ones belong to the CSV import
   editable: boolean
   asset: AssetDto
   type: TxType
@@ -81,8 +81,8 @@ export interface TransactionDto {
   feeAmount: string | null
   currency: string | null
   timestamp: string
-  // gesetzt, wenn diese WITHDRAWAL/DEPOSIT-Tx als Transfer-Paar verknüpft ist
+  // set when this WITHDRAWAL/DEPOSIT tx is linked as a transfer pair
   transferLink: TransactionTransferLinkDto | null
-  // gesetzt, wenn diese SELL/BUY-Tx als Krypto-zu-Krypto-Tausch verknüpft ist
+  // set when this SELL/BUY tx is linked as a crypto-to-crypto swap
   swapLink: TransactionSwapLinkDto | null
 }

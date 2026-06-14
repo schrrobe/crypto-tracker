@@ -2,11 +2,11 @@ import { Capacitor } from '@capacitor/core'
 import { Directory, Filesystem } from '@capacitor/filesystem'
 import { Share } from '@capacitor/share'
 
-// Datei-Export, der im Web wie nativ funktioniert:
-//  - Web: klassischer Blob-Download über einen synthetischen Anchor.
-//  - Nativ (iOS/Android): es gibt keinen Download-Dialog im WebView. Datei in
-//    den Cache schreiben und über das System-Share-Sheet anbieten (Speichern,
-//    Mail, Dateien-App …).
+// File export that works on web as well as native:
+//  - Web: classic blob download via a synthetic anchor.
+//  - Native (iOS/Android): there is no download dialog in the WebView. Write the
+//    file to the cache and offer it via the system share sheet (Save,
+//    Mail, Files app …).
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -14,7 +14,7 @@ function blobToBase64(blob: Blob): Promise<string> {
     reader.onerror = () => reject(reader.error)
     reader.onload = () => {
       const result = String(reader.result)
-      // data:<mime>;base64,<DATA> → nur den Teil nach dem Komma
+      // data:<mime>;base64,<DATA> → only the part after the comma
       resolve(result.slice(result.indexOf(',') + 1))
     }
     reader.readAsDataURL(blob)

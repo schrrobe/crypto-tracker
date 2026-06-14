@@ -3,8 +3,8 @@ import { prisma } from '../lib/prisma'
 import { enqueueAutoSync } from '../modules/sync/sync.service'
 import { createExchangeSource, registerUser } from './helpers'
 
-// enqueueAutoSync ist global (alle Pro-Nutzer). Wir prüfen gezielt die Quellen
-// unserer Testnutzer. FAKE_PROVIDERS=true → Sync läuft inline und liefert SUCCESS.
+// enqueueAutoSync is global (all Pro users). We specifically check the sources
+// of our test users. FAKE_PROVIDERS=true → sync runs inline and returns SUCCESS.
 async function runCount(userId: string): Promise<number> {
   const source = await prisma.portfolioSource.findFirst({ where: { userId } })
   if (!source) return 0
@@ -13,7 +13,7 @@ async function runCount(userId: string): Promise<number> {
 
 describe('Auto-Sync (Integration)', () => {
   it('synct Pro-Quellen, Free-Quellen nicht', async () => {
-    const pro = await registerUser('autosync-pro') // registerUser → Default PRO
+    const pro = await registerUser('autosync-pro') // registerUser → default PRO
     await createExchangeSource(pro, 'Pro Kraken')
     const free = await registerUser('autosync-free', 'FREE')
     await createExchangeSource(free, 'Free Kraken')
@@ -22,8 +22,8 @@ describe('Auto-Sync (Integration)', () => {
 
     expect(await runCount(pro.userId)).toBeGreaterThan(0)
     expect(await runCount(free.userId)).toBe(0)
-    // enqueueAutoSync ist global: synct alle im Test-DB akkumulierten Pro-Quellen
-    // inline (jede jetzt mit Multi-Konto + Futures) → großzügiges Timeout
+    // enqueueAutoSync is global: syncs all Pro sources accumulated in the test DB
+    // inline (each now with multi-account + futures) → generous timeout
   }, 30000)
 
   it('überspringt Pro-Nutzer mit autoSyncEnabled=false', async () => {

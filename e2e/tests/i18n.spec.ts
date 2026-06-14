@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test'
 import { register, uniqueEmail } from './helpers'
 
-// Die App folgt der Browsersprache (Playwright: de-DE) und erlaubt manuellen Wechsel
-// zwischen Deutsch, Englisch, Französisch, Polnisch, Tschechisch und Russisch.
+// The app follows the browser language (Playwright: de-DE) and allows a manual switch
+// between German, English, French, Polish, Czech and Russian.
 
 async function switchLanguage(page: import('@playwright/test').Page, name: string) {
-  // Vorheriges Popover muss komplett abgebaut sein (Ionic-Overlay-Animation)
+  // The previous popover must be fully torn down (Ionic overlay animation)
   await expect(page.locator('ion-popover')).toHaveCount(0)
   await page.getByTestId('language-select').click()
   const radio = page.locator('ion-popover ion-radio', { hasText: name })
@@ -17,24 +17,24 @@ async function switchLanguage(page: import('@playwright/test').Page, name: strin
 test('Sprachwechsel auf Englisch wirkt sofort und überlebt einen Reload', async ({ page }) => {
   await register(page, uniqueEmail('i18n-en'))
 
-  // Default folgt der Browsersprache de-DE
+  // Default follows the browser language de-DE
   await expect(page.getByRole('tab', { name: 'Einstellungen' })).toBeVisible()
   await page.getByRole('tab', { name: 'Einstellungen' }).click()
 
   await switchLanguage(page, 'English')
 
-  // UI sofort auf Englisch
+  // UI immediately in English
   await expect(page.getByRole('tab', { name: 'Settings' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Holdings' })).toBeVisible()
   await expect(page.getByTestId('logout-button')).toContainText('Sign out')
 
-  // Wahl ist persistiert
+  // Choice is persisted
   await page.reload()
   await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible()
   await page.getByRole('tab', { name: 'Settings' }).click()
   await expect(page.getByTestId('logout-button')).toContainText('Sign out')
 
-  // Dashboard formatiert auf Englisch (en-US: $ vor dem Betrag)
+  // Dashboard formats in English (en-US: $ before the amount)
   await page.getByRole('tab', { name: 'Dashboard' }).click()
   await expect(page.getByTestId('dashboard-empty')).toContainText('No holdings yet.')
 })

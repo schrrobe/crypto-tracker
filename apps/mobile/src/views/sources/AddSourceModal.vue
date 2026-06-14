@@ -11,7 +11,7 @@
       </ion-toolbar>
     </ion-header>
     <ion-content class="ion-padding">
-      <!-- Schritt 1: Typ -->
+      <!-- Step 1: Type -->
       <ion-segment :value="type" @ionChange="type = $event.detail.value as SourceKind">
         <ion-segment-button value="EXCHANGE" data-testid="source-type-exchange">
           <ion-label>{{ $t('sources.typeExchange') }}</ion-label>
@@ -25,7 +25,7 @@
       </ion-segment>
 
       <ion-list inset>
-        <!-- Provider-Wahl -->
+        <!-- Provider selection -->
         <ion-item v-if="type === 'EXCHANGE'">
           <ion-select
             :label="$t('sources.exchange')"
@@ -39,7 +39,7 @@
             </ion-select-option>
           </ion-select>
         </ion-item>
-        <!-- Schritt-Anleitung: Read-only-Key beim jeweiligen Anbieter erstellen -->
+        <!-- Step-by-step guide: create a read-only key at the respective provider -->
         <ion-accordion-group v-if="type === 'EXCHANGE'">
           <ion-accordion value="guide">
             <ion-item slot="header" lines="none">
@@ -82,7 +82,7 @@
           />
         </ion-item>
 
-        <!-- Exchange: read-only API-Key -->
+        <!-- Exchange: read-only API key -->
         <template v-if="type === 'EXCHANGE'">
           <ion-item>
             <ion-input
@@ -110,7 +110,7 @@
               data-testid="source-api-secret"
             />
           </ion-item>
-          <!-- OKX/KuCoin verlangen zusätzlich die API-Passphrase -->
+          <!-- OKX/KuCoin additionally require the API passphrase -->
           <ion-item v-if="needsPassphrase">
             <ion-input
               v-model="passphrase"
@@ -122,7 +122,7 @@
           </ion-item>
         </template>
 
-        <!-- Wallet: öffentliche Adresse -->
+        <!-- Wallet: public address -->
         <ion-item v-if="type === 'WALLET'">
           <ion-input
             v-model="address"
@@ -132,7 +132,7 @@
           />
         </ion-item>
 
-        <!-- Solana: Spam-Mints sind häufig — unbekannte Tokens nur auf Wunsch -->
+        <!-- Solana: spam mints are common — unknown tokens only on request -->
         <ion-item v-if="type === 'WALLET' && walletProvider === 'SOLANA'">
           <ion-toggle
             :checked="includeUnknownTokens"
@@ -148,7 +148,7 @@
         <p class="hint">{{ $t('sources.readOnlyHint') }}</p>
       </ion-text>
 
-      <!-- Abdeckungs-/Doppelzählungs-Hinweis + ggf. börsenspezifischer Staking-Hinweis -->
+      <!-- Coverage/double-counting note + optionally an exchange-specific staking note -->
       <ion-text v-if="type === 'EXCHANGE'" color="warning">
         <p class="hint" data-testid="coverage-hint">⚠ {{ $t('sources.coverageHint') }}</p>
         <p v-if="stakingNoteKey" class="hint" data-testid="staking-note">
@@ -212,7 +212,7 @@ import { useSourcesStore } from '../../stores/sources.store'
 
 type SourceKind = 'EXCHANGE' | 'WALLET' | 'MANUAL'
 
-// Direktlinks zu den API-Key-Seiten der Anbieter (nicht übersetzt)
+// Direct links to the providers' API key pages (not translated)
 const GUIDE_URLS: Record<string, string> = {
   KRAKEN: 'https://pro.kraken.com/app/settings/api',
   BITVAVO: 'https://account.bitvavo.com/user/api',
@@ -257,8 +257,8 @@ const needsPassphrase = computed(() =>
   (PASSPHRASE_REQUIRED_PROVIDERS as readonly string[]).includes(exchangeProvider.value),
 )
 
-// Börsenspezifischer Staking-/Earn-Hinweis. Nur wo die API-Abdeckung relevant
-// abweicht; der allgemeine coverageHint gilt für alle Börsen.
+// Exchange-specific staking/earn note. Only where the API coverage differs
+// significantly; the general coverageHint applies to all exchanges.
 const STAKING_NOTE_KEY: Record<string, string> = {
   BITPANDA: 'sources.stakingNoteBitpanda',
   KRAKEN: 'sources.stakingNoteKraken',

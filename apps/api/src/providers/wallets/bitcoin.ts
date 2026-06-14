@@ -2,9 +2,9 @@ import { env } from '../../config/env'
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
 
-// Bitcoin-Bestand über die mempool.space-API (kein API-Key nötig).
-// Balance = bestätigte UTXOs + unbestätigte Mempool-Bewegungen.
-// V1: einzelne Adressen; xpub/HD-Wallets sind bewusst "Später".
+// Bitcoin balance via the mempool.space API (no API key required).
+// Balance = confirmed UTXOs + unconfirmed mempool movements.
+// V1: individual addresses; xpub/HD wallets are deliberately deferred.
 
 // Legacy (1…), P2SH (3…), Bech32/Bech32m (bc1…)
 const ADDRESS_RE = /^(bc1[02-9ac-hj-np-z]{8,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/

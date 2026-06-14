@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { kucoinPassphrase, kucoinProvider, kucoinSignature } from './kucoin'
 
-// Realistische KuCoin-Accounts-Response (GET /api/v1/accounts)
+// Realistic KuCoin accounts response (GET /api/v1/accounts)
 const BALANCE_FIXTURE = {
   code: '200000',
   data: [
@@ -9,9 +9,9 @@ const BALANCE_FIXTURE = {
     { currency: 'BTC', type: 'trade', balance: '0.25', available: '0.2', holds: '0.05' },
     { currency: 'ETH', type: 'trade', balance: '3', available: '3', holds: '0' },
     { currency: 'SOL', type: 'margin', balance: '10', available: '10', holds: '0' }, // Margin → MARGIN
-    { currency: 'DOT', type: 'pool', balance: '7', available: '7', holds: '0' }, // Earn-Pool → EARN
-    { currency: 'USD', type: 'main', balance: '100', available: '100', holds: '0' }, // Fiat → übersprungen
-    { currency: 'ADA', type: 'main', balance: '0', available: '0', holds: '0' }, // Nullbestand → übersprungen
+    { currency: 'DOT', type: 'pool', balance: '7', available: '7', holds: '0' }, // Earn pool → EARN
+    { currency: 'USD', type: 'main', balance: '100', available: '100', holds: '0' }, // fiat → skipped
+    { currency: 'ADA', type: 'main', balance: '0', available: '0', holds: '0' }, // zero balance → skipped
   ],
 }
 
@@ -31,7 +31,7 @@ describe('kucoinSignature', () => {
     expect(kucoinSignature('1700000000000', 'GET', '/api/v1/accounts', '', 'kucoin-secret')).toBe(
       '/7LdZ1jkrq6rqL5xZoYgjiFGDwPB2EGLUKfZpkLhbas=',
     )
-    // jede Komponente verändert die Signatur
+    // every component changes the signature
     expect(kucoinSignature('1700000000001', 'GET', '/api/v1/accounts', '', 'kucoin-secret')).not.toBe(
       kucoinSignature('1700000000000', 'GET', '/api/v1/accounts', '', 'kucoin-secret'),
     )
@@ -48,7 +48,7 @@ describe('kucoinProvider.fetchBalances', () => {
     mockFetch(200, BALANCE_FIXTURE)
     const balances = await kucoinProvider.fetchBalances(CREDS)
 
-    // BTC: main + trade als getrennte SPOT-Einträge (SyncService summiert per Decimal)
+    // BTC: main + trade as separate SPOT entries (SyncService sums them via Decimal)
     expect(balances.filter((b) => b.symbol === 'BTC').map((b) => b.amount)).toEqual(['0.5', '0.25'])
     expect(balances.filter((b) => b.symbol === 'BTC').every((b) => b.accountType === 'SPOT')).toBe(true)
     expect(balances).toContainEqual({ symbol: 'ETH', amount: '3', accountType: 'SPOT' })
@@ -68,7 +68,7 @@ describe('kucoinProvider.fetchBalances', () => {
     expect(headers['KC-API-KEY']).toBe('test-key')
     expect(headers['KC-API-TIMESTAMP']).toMatch(/^\d+$/)
     expect(headers['KC-API-KEY-VERSION']).toBe('2')
-    // Signatur passt zum gesendeten Timestamp
+    // signature matches the sent timestamp
     expect(headers['KC-API-SIGN']).toBe(
       kucoinSignature(headers['KC-API-TIMESTAMP'] as string, 'GET', '/api/v1/accounts', '', 'kucoin-secret'),
     )

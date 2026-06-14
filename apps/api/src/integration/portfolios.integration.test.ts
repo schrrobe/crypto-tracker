@@ -31,12 +31,12 @@ describe('Portfolios (Integration)', () => {
     const defaultId = (await request(app).get(`${API}/portfolios`).set(...bearer(user))).body
       .portfolios[0].id as string
 
-    // letztes Portfolio nicht löschbar
+    // last portfolio cannot be deleted
     const last = await request(app).delete(`${API}/portfolios/${defaultId}`).set(...bearer(user))
     expect(last.status).toBe(409)
     expect(last.body.error.code).toBe('PORTFOLIO_LAST')
 
-    // nicht-leeres Portfolio nicht löschbar
+    // non-empty portfolio cannot be deleted
     const second = await createPortfolio(user, 'Eltern')
     await request(app)
       .post(`${API}/sources`)
@@ -46,7 +46,7 @@ describe('Portfolios (Integration)', () => {
     expect(notEmpty.status).toBe(409)
     expect(notEmpty.body.error.code).toBe('PORTFOLIO_NOT_EMPTY')
 
-    // Default löschen (leer) → ältestes verbleibendes wird Default
+    // delete Default (empty) → oldest remaining becomes Default
     const defaultDelete = await request(app)
       .delete(`${API}/portfolios/${defaultId}`)
       .set(...bearer(user))

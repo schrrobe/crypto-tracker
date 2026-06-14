@@ -18,18 +18,18 @@ export function verifyAccessToken(token: string): string | null {
   }
 }
 
-// Refresh-Tokens sind opak (kein JWT); in der DB liegt nur der Hash.
+// Refresh tokens are opaque (not JWTs); the DB stores only the hash.
 export function generateRefreshToken(): string {
   return randomBytes(48).toString('base64url')
 }
 
-// Keyed Hash: ein reiner DB-Leak reicht nicht, um gültige Tokens zu fälschen
+// Keyed hash: a DB leak alone is not enough to forge valid tokens
 export function hashRefreshToken(token: string): string {
   return createHash('sha256').update(`${env.JWT_REFRESH_SECRET}:${token}`).digest('hex')
 }
 
-// Passwort-Reset-Tokens: opak, kurze TTL; in der DB liegt wie beim Refresh-Token
-// nur der keyed Hash. Eigener Prefix verhindert Verwechslung der Token-Arten.
+// Password reset tokens: opaque, short TTL; as with the refresh token, the DB
+// stores only the keyed hash. A dedicated prefix prevents confusing the token types.
 export const PASSWORD_RESET_TTL_MINUTES = 30
 
 export function generatePasswordResetToken(): string {

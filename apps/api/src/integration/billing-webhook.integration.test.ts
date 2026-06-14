@@ -3,13 +3,13 @@ import { prisma } from '../lib/prisma'
 import { env } from '../config/env'
 import { registerUser } from './helpers'
 
-// Stripe-SDK mocken: constructEvent liefert ein vorbereitetes Event, der Rest
-// wird im Webhook-Pfad nicht gebraucht.
+// Mock the Stripe SDK: constructEvent returns a prepared event, the rest
+// is not needed in the webhook path.
 let fakeEvent: unknown
 vi.mock('stripe', () => ({
   default: class {
     webhooks = { constructEvent: () => fakeEvent }
-    // checkout.session.completed lädt die Subscription nach (planUntil)
+    // checkout.session.completed loads the subscription afterwards (planUntil)
     subscriptions = { retrieve: async (id: string) => ({ id, status: 'active' }) }
   },
 }))

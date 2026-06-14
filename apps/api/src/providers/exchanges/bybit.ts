@@ -9,7 +9,7 @@ import {
 } from '../provider.types'
 
 // Bybit REST API v5: GET /v5/account/wallet-balance (Unified Trading Account)
-// mit HMAC-SHA256-Signatur. Benötigt einen API-Key mit ausschließlich Lese-Berechtigung.
+// with HMAC-SHA256 signature. Requires an API key with read-only permission.
 
 const BASE_URL = 'https://api.bybit.com'
 const WALLET_PATH = '/v5/account/wallet-balance'
@@ -35,14 +35,14 @@ interface BybitWalletResponse {
   result?: { list?: { coin?: { coin: string; walletBalance: string }[] }[] }
 }
 
-// Auth-Fehlercodes: 10003 (ungültiger API-Key), 10004 (ungültige Signatur),
-// 10005 (Berechtigung fehlt)
+// Auth error codes: 10003 (invalid API key), 10004 (invalid signature),
+// 10005 (permission missing)
 const AUTH_CODES = new Set([10003, 10004, 10005])
 
 function classifyBybitError(retCode: number, retMsg: string | undefined): ProviderError {
   const message = `Bybit: ${retMsg ?? `retCode ${retCode}`}`
   if (AUTH_CODES.has(retCode)) return new ProviderError('INVALID_API_KEY', message)
-  // 10006 = API-Rate-Limit überschritten
+  // 10006 = API rate limit exceeded
   if (retCode === 10006) return new ProviderError('RATE_LIMITED', message)
   return new ProviderError('PROVIDER_ERROR', message)
 }
@@ -66,15 +66,15 @@ async function fetchBybitBalances(creds: ExchangeCredentials): Promise<RawBalanc
   }
   if (!res.ok) throw new ProviderError('PROVIDER_ERROR', `Bybit antwortet mit ${res.status}`)
 
-  // Bybit antwortet meist mit HTTP 200 — der eigentliche Status steht in retCode
+  // Bybit usually responds with HTTP 200 — the actual status is in retCode
   const json = (await res.json()) as BybitWalletResponse
   if (json.retCode !== 0) throw classifyBybitError(json.retCode, json.retMsg)
 
   const balances: RawBalance[] = []
   for (const account of json.result?.list ?? []) {
     for (const entry of account.coin ?? []) {
-      // walletBalance = Gesamtbestand des Coins im Unified-Konto; negativ =
-      // Margin-Verbindlichkeit (behalten wie Binance/OKX, nur exakt 0 verwerfen)
+      // walletBalance = total balance of the coin in the unified account; negative =
+      // margin liability (kept like Binance/OKX, only discard exactly 0)
       if (Number(entry.walletBalance) !== 0) {
         balances.push({ symbol: entry.coin.toUpperCase(), amount: entry.walletBalance })
       }
@@ -103,7 +103,7 @@ export function parseBybitPositions(list: BybitPosition[]): RawPosition[] {
   const positions: RawPosition[] = []
   for (const p of list) {
     if (Number(p.size) === 0) continue
-    // Linear-Contracts sind USDT-/USDC-besichert (z.B. BTCUSDT)
+    // Linear contracts are USDT-/USDC-collateralized (e.g. BTCUSDT)
     const quote = p.symbol.endsWith('USDC') ? 'USDC' : 'USDT'
     positions.push({
       rawSymbol: p.symbol,
@@ -121,8 +121,8 @@ export function parseBybitPositions(list: BybitPosition[]): RawPosition[] {
   return positions
 }
 
-// Linear-Positionen sind nach Settle-Coin getrennt abzufragen — sonst fehlen
-// USDC-besicherte Perpetuals komplett (parseBybitPositions kennt beide Quotes).
+// Linear positions must be queried separately per settle coin — otherwise
+// USDC-collateralized perpetuals are missing entirely (parseBybitPositions knows both quotes).
 const SETTLE_COINS = ['USDT', 'USDC'] as const
 
 async function fetchBybitPositionsFor(creds: ExchangeCredentials, settleCoin: string): Promise<RawPosition[]> {
@@ -156,14 +156,14 @@ export const bybitProvider: ExchangeProvider = {
   id: 'BYBIT',
 
   async validateCredentials(creds: ExchangeCredentials): Promise<void> {
-    // Wallet-Balance ist ein reiner Lese-Endpoint — validiert Key und Secret
+    // Wallet balance is a pure read endpoint — validates key and secret
     await fetchBybitBalances(creds)
   },
 
   fetchBalances: fetchBybitBalances,
 
-  // Unified-Account: Spot/Margin im walletBalance enthalten → zusätzlich nur
-  // offene Linear-Positionen. Fehlt das Recht ⇒ Warnung, Spot läuft weiter.
+  // Unified account: Spot/Margin already included in walletBalance → additionally
+  // only open linear positions. If the permission is missing ⇒ warning, spot continues.
   async fetchAccount(creds: ExchangeCredentials): Promise<ExchangeAccountSnapshot> {
     const warnings: string[] = []
     const balances = await fetchBybitBalances(creds)

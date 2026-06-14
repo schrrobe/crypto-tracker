@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { SourceType } from '../enums'
 
-// Steuerreport: Deutschland (§23 EStG) und Österreich (§27b EStG / Alt-/Neuvermögen)
+// Tax report: Germany (§23 EStG) and Austria (§27b EStG / Altvermögen/Neuvermögen)
 
 export const TAX_COUNTRIES = ['DE', 'AT'] as const
 export type TaxCountry = (typeof TAX_COUNTRIES)[number]
@@ -13,26 +13,26 @@ export const taxReportQuerySchema = z.object({
 })
 export type TaxReportQuery = z.infer<typeof taxReportQuerySchema>
 
-// Stabile Warnungs-Codes — das Frontend lokalisiert über tax.warnings.<code>
+// Stable warning codes — the frontend localizes via tax.warnings.<code>
 export const TaxWarningCode = {
-  // DEPOSIT ohne Kurs: Lot mit Kostenbasis 0 angesetzt (steuerlich konservativ)
+  // DEPOSIT without price: lot booked with cost basis 0 (tax-conservative)
   UNKNOWN_ACQUISITION_BASIS: 'UNKNOWN_ACQUISITION_BASIS',
-  // SELL ohne Kurs (auch nach Backfill): Erlös 0, Position unvollständig
+  // SELL without price (even after backfill): proceeds 0, position incomplete
   MISSING_DISPOSAL_PRICE: 'MISSING_DISPOSAL_PRICE',
-  // Mehr verkauft als angeschafft: ungedeckter Anteil mit Basis 0, steuerpflichtig
+  // Sold more than acquired: uncovered portion with basis 0, taxable
   SOLD_MORE_THAN_ACQUIRED: 'SOLD_MORE_THAN_ACQUIRED',
-  // WITHDRAWAL hat Lots aus der Verfolgung entfernt (kein steuerbarer Vorgang)
+  // WITHDRAWAL removed lots from tracking (not a taxable event)
   WITHDRAWAL_REMOVED_LOTS: 'WITHDRAWAL_REMOVED_LOTS',
-  // TRANSFER/OTHER-Transaktionen werden ignoriert
+  // TRANSFER/OTHER transactions are ignored
   TRANSFERS_IGNORED: 'TRANSFERS_IGNORED',
-  // Kurs in Fremdwährung (≠ EUR) verworfen — keine FX-Umrechnung in V1
+  // Price in foreign currency (≠ EUR) discarded — no FX conversion in V1
   FOREIGN_CURRENCY_PRICE_IGNORED: 'FOREIGN_CURRENCY_PRICE_IGNORED',
-  // CoinGecko-Lookup-Limit pro Lauf erreicht — erneut ausführen trifft den Cache
+  // CoinGecko lookup limit per run reached — re-running hits the cache
   PRICE_LOOKUP_LIMIT_REACHED: 'PRICE_LOOKUP_LIMIT_REACHED',
-  // Wallet-Quelle hat nur automatisch importierte Staking-Rewards —
-  // Käufe/Verkäufe dieser Quelle fehlen im Report
+  // Wallet source has only automatically imported staking rewards —
+  // buys/sells of this source are missing from the report
   WALLET_REWARDS_ONLY: 'WALLET_REWARDS_ONLY',
-  // AT: Krypto-zu-Krypto-Tausch ist steueraufgeschoben — Kostenbasis wandert mit
+  // AT: crypto-to-crypto swap is tax-deferred — cost basis carries over
   SWAP_DEFERRED: 'SWAP_DEFERRED',
 } as const
 export type TaxWarningCode = (typeof TaxWarningCode)[keyof typeof TaxWarningCode]
@@ -43,7 +43,7 @@ export type TaxPriceQuality = 'ORIGINAL' | 'BACKFILLED' | 'MISSING'
 export interface TaxDisposalDto {
   assetSymbol: string
   assetName: string
-  // null = Anschaffung unbekannt (Oversell) → wie ≤ 1 Jahr behandelt
+  // null = acquisition unknown (oversell) → treated like ≤ 1 year
   acquiredAt: string | null
   disposedAt: string
   quantity: string
@@ -53,7 +53,7 @@ export interface TaxDisposalDto {
   taxable: boolean
   regime: TaxRegime
   priceQuality: TaxPriceQuality
-  // Quelle der Veräußerung — relevant seit wallet-bezogenem FIFO (DE)
+  // source of the disposal — relevant since wallet-scoped FIFO (DE)
   sourceLabel?: string
 }
 
@@ -61,14 +61,14 @@ export interface TaxReportTotalsDto {
   totalGainEur: string
   taxFreeGainEur: string
   taxableGainEur: string
-  // Freigrenze (DE: 600/1000 je nach Jahr; AT: 440 nur Altvermögen); null wenn nicht anwendbar
+  // exemption limit (DE: 600/1000 depending on year; AT: 440 only Altvermögen); null if not applicable
   thresholdEur: string | null
-  // true = Freigrenze überschritten → voller Betrag steuerpflichtig
+  // true = exemption limit exceeded → full amount taxable
   thresholdApplied: boolean
   taxableAfterThresholdEur: string
-  // nur AT: Neuvermögen-Topf (27,5 % Sondersteuersatz), separat vom Altvermögen
+  // AT only: Neuvermögen pool (27.5 % special tax rate), separate from Altvermögen
   atNeuvermoegenGainEur?: string
-  // nur DE: Staking-Zuflüsse als sonstige Einkünfte (§22 Nr. 3 EStG, Freigrenze 256 €)
+  // DE only: staking inflows as other income (§22 Nr. 3 EStG, exemption limit 256 €)
   stakingIncomeEur?: string
   stakingThresholdEur?: string
   stakingTaxableEur?: string
@@ -93,7 +93,7 @@ export interface TaxReportDto {
   disposals: TaxDisposalDto[]
   totals: TaxReportTotalsDto
   warnings: TaxWarningDto[]
-  // Quellen mit Beständen, aber ohne Transaktionshistorie — nicht im Report enthalten
+  // sources with balances but without transaction history — not included in the report
   uncoveredSources: TaxUncoveredSourceDto[]
   generatedAt: string
 }

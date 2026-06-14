@@ -10,7 +10,7 @@ describe('Markt (Integration)', () => {
     expect(res.body.coins).toHaveLength(100)
     expect(res.body.coins[0]).toMatchObject({ rank: 1, symbol: 'C1' })
     expect(typeof res.body.coins[0].price).toBe('number')
-    // Fake enthält negative 24h-Änderungen (Verlierer-Liste im Frontend)
+    // Fake includes negative 24h changes (losers list in the frontend)
     expect(res.body.coins.some((c: { change24hPct: number | null }) => (c.change24hPct ?? 0) < 0)).toBe(true)
   })
 

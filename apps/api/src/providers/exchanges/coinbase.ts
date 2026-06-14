@@ -7,14 +7,14 @@ import {
   type RawBalance,
 } from '../provider.types'
 
-// Coinbase Advanced Trade API mit CDP-Keys: apiKey = Key-Name
-// ("organizations/{org}/apiKeys/{key}"), apiSecret = EC-Private-Key (PEM, ES256).
-// Pro Request wird ein kurzlebiges JWT signiert (2 Minuten).
+// Coinbase Advanced Trade API with CDP keys: apiKey = key name
+// ("organizations/{org}/apiKeys/{key}"), apiSecret = EC private key (PEM, ES256).
+// A short-lived JWT (2 minutes) is signed per request.
 
 const HOST = 'api.coinbase.com'
 const ACCOUNTS_PATH = '/api/v3/brokerage/accounts'
 
-// Nutzer fügen PEM oft einzeilig mit literalen \n ein
+// Users often paste the PEM on a single line with literal \n
 export function normalizePrivateKey(pem: string): string {
   return pem.replace(/\\n/g, '\n').trim()
 }
@@ -32,7 +32,7 @@ export function buildCoinbaseJwt(
       sub: keyName,
       nbf: now,
       exp: now + 120,
-      // URI ohne Query-String
+      // URI without query string
       uri: `${method} ${HOST}${path}`,
     },
     privateKeyPem,
@@ -83,7 +83,7 @@ async function fetchCoinbaseBalances(creds: ExchangeCredentials): Promise<RawBal
     const data = (await res.json()) as AccountsResponse
     for (const account of data.accounts) {
       if (account.type === 'ACCOUNT_TYPE_FIAT') continue
-      // available und hold getrennt — der SyncService summiert gleiche Symbole per Decimal
+      // available and hold kept separate — the SyncService sums identical symbols via Decimal
       for (const amount of [account.available_balance.value, account.hold.value]) {
         if (Number(amount) > 0) balances.push({ symbol: account.currency.toUpperCase(), amount })
       }

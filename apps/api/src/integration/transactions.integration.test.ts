@@ -45,14 +45,14 @@ describe('Manuelle Transaktionen', () => {
       currency: 'EUR',
       timestamp: '2024-06-15T10:00:00.000Z',
     })
-    // beide Transaktionen landen in derselben automatisch verwalteten Quelle
+    // both transactions land in the same automatically managed source
     expect(sell.sourceId).toBe(buy.sourceId)
 
     const holdings = await prisma.holding.findMany({ where: { sourceId: buy.sourceId } })
     expect(holdings).toHaveLength(1)
     expect(holdings[0]?.quantity.toString()).toBe('1.5')
 
-    // Update: Menge ändern → Bestand folgt
+    // Update: change quantity → balance follows
     const patch = await request(app)
       .patch(`${API}/transactions/${sell.id}`)
       .set(...bearer(user))
@@ -61,7 +61,7 @@ describe('Manuelle Transaktionen', () => {
     const afterPatch = await prisma.holding.findMany({ where: { sourceId: buy.sourceId } })
     expect(afterPatch[0]?.quantity.toString()).toBe('1')
 
-    // Delete: SELL weg → voller Kaufbestand
+    // Delete: SELL gone → full purchased balance
     const del = await request(app)
       .delete(`${API}/transactions/${sell.id}`)
       .set(...bearer(user))
@@ -107,7 +107,7 @@ describe('Manuelle Transaktionen', () => {
     expect(res.body.transactions).toHaveLength(1)
     expect(res.body.transactions[0].editable).toBe(false)
 
-    // importierte Transaktion ist nicht änderbar → 404
+    // imported transaction is not editable → 404
     const patch = await request(app)
       .patch(`${API}/transactions/${res.body.transactions[0].id}`)
       .set(...bearer(user))
@@ -120,7 +120,7 @@ describe('Manuelle Transaktionen', () => {
     const stranger = await registerUser('manualtx-source-fremd')
     const btcId = await findAssetId(user, 'BTC')
 
-    // manuelle Quelle + CSV-Quelle mit je einer Transaktion
+    // manual source + CSV source, each with one transaction
     const manual = await createTx(user, { assetId: btcId, type: 'BUY', quantity: '1', timestamp: '2024-01-01T00:00:00.000Z' })
     const csv = 'Datum;Typ;Coin;Menge\n2024-03-01;Kauf;ETH;2'
     const upload = await uploadCsv(user, csv, 'TRANSACTIONS')
@@ -140,7 +140,7 @@ describe('Manuelle Transaktionen', () => {
       .set(...bearer(user))
     expect(all.body.transactions).toHaveLength(2)
 
-    // fremder User mit derselben sourceId sieht nichts
+    // a foreign user with the same sourceId sees nothing
     const foreign = await request(app)
       .get(`${API}/transactions?sourceId=${manual.sourceId}`)
       .set(...bearer(stranger))
@@ -194,7 +194,7 @@ describe('Manuelle Transaktionen', () => {
     expect(res.status).toBe(409)
     expect(res.body.error.code).toBe('SOURCE_HAS_TRANSACTIONS')
 
-    // reine Manual-Quelle ohne Transaktionen bleibt direkt editierbar
+    // a pure manual source without transactions stays directly editable
     const plain = await createManualSource(user, 'Klassisch manuell')
     const ok = await request(app)
       .post(`${API}/sources/${plain.id}/holdings`)

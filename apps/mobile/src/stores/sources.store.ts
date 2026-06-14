@@ -14,7 +14,7 @@ export const useSourcesStore = defineStore('sources', () => {
     loaded.value = true
   }
 
-  // Für manuelle Bestände: vorhandene manuelle Quelle nutzen oder eine anlegen
+  // For manual holdings: use an existing manual source or create one
   async function ensureManualSource(): Promise<SourceDto> {
     if (!loaded.value) await load()
     const existing = sources.value.find((s) => s.type === 'MANUAL')
@@ -49,8 +49,8 @@ export const useSourcesStore = defineStore('sources', () => {
 
   const syncing = ref<Set<string>>(new Set())
 
-  // Queue-Modus: API antwortet sofort mit einem RUNNING-Run — bis zum Abschluss
-  // die Sync-Historie pollen (Inline-Modus liefert direkt das fertige Ergebnis)
+  // Queue mode: the API responds immediately with a RUNNING run — poll the
+  // sync history until it completes (inline mode returns the finished result directly)
   const POLL_INTERVAL_MS = 2000
   const POLL_TIMEOUT_MS = 60_000
 

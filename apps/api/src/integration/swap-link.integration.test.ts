@@ -17,7 +17,7 @@ async function createTx(user: TestUser, body: Record<string, unknown>): Promise<
 
 describe('Swap-Link (Integration)', () => {
   it('verknüpft SELL+BUY, DTO zeigt den Tausch, AT-Report schiebt auf', async () => {
-    const user = await registerUser('swap') // Default PRO (Steuerreport)
+    const user = await registerUser('swap') // Default PRO (tax report)
     const btc = await findAssetId(user, 'BTC')
     const eth = await findAssetId(user, 'ETH')
 
@@ -31,7 +31,7 @@ describe('Swap-Link (Integration)', () => {
       .send({ counterpartId: buyId })
       .expect(201)
 
-    // DTO: beide Seiten zeigen den Swap-Link mit Gegen-Asset
+    // DTO: both sides show the swap link with the counterpart asset
     const txs = (await request(app).get(`${API}/transactions`).set(...bearer(user))).body.transactions as Array<{
       id: string
       swapLink: { direction: string; counterpartAssetSymbol: string } | null
@@ -39,7 +39,7 @@ describe('Swap-Link (Integration)', () => {
     expect(txs.find((t) => t.id === sellId)?.swapLink).toMatchObject({ direction: 'OUT', counterpartAssetSymbol: 'ETH' })
     expect(txs.find((t) => t.id === buyId)?.swapLink).toMatchObject({ direction: 'IN', counterpartAssetSymbol: 'BTC' })
 
-    // AT: kein Gewinn aus dem Tausch, Hinweis SWAP_DEFERRED
+    // AT: no gain from the swap, SWAP_DEFERRED notice
     const at = (await request(app).get(`${API}/tax/report?year=2024&country=AT`).set(...bearer(user))).body
     expect(at.warnings.map((w: { code: string }) => w.code)).toContain('SWAP_DEFERRED')
     expect((at.disposals as Array<{ assetSymbol: string }>).some((d) => d.assetSymbol === 'BTC')).toBe(false)

@@ -7,13 +7,13 @@ import {
   type RawBalance,
 } from '../provider.types'
 
-// Kraken REST API: POST /0/private/Balance mit HMAC-SHA512-Signatur.
-// Benötigt einen API-Key mit ausschließlich "Query Funds"-Berechtigung (read-only).
+// Kraken REST API: POST /0/private/Balance with HMAC-SHA512 signature.
+// Requires an API key with only the "Query Funds" permission (read-only).
 
 const BASE_URL = 'https://api.kraken.com'
 const BALANCE_PATH = '/0/private/Balance'
 
-// API-Sign = HMAC-SHA512(path + SHA256(nonce + postData), base64decode(secret)), base64
+// API-Sign = HMAC-SHA512(path + SHA256(nonce + postData), base64decode(secret)), base64 encoded
 export function krakenSignature(path: string, postData: string, nonce: string, secretB64: string): string {
   const message = Buffer.concat([
     Buffer.from(path, 'utf8'),
@@ -24,8 +24,8 @@ export function krakenSignature(path: string, postData: string, nonce: string, s
   return createHmac('sha512', Buffer.from(secretB64, 'base64')).update(message).digest('base64')
 }
 
-// Kraken-Altcodes (X = Krypto-Prefix, Z = Fiat-Prefix) + Staking-Suffixe (.S/.M/.F/.B).
-// Fiat und Fee-Credits liefern null → werden übersprungen (Portfolio trackt nur Krypto in V1).
+// Kraken legacy codes (X = crypto prefix, Z = fiat prefix) + staking suffixes (.S/.M/.F/.B).
+// Fiat and fee credits return null → skipped (the portfolio only tracks crypto in V1).
 const ASSET_MAP: Record<string, string> = {
   XXBT: 'BTC',
   XBT: 'BTC',
@@ -39,7 +39,7 @@ const ASSET_MAP: Record<string, string> = {
   XDG: 'DOGE',
   XETC: 'ETC',
   XREP: 'REP',
-  ETH2: 'ETH', // gestaktes ETH
+  ETH2: 'ETH', // staked ETH
 }
 
 const SKIP = new Set([
@@ -48,8 +48,8 @@ const SKIP = new Set([
   'KFEE', // Kraken Fee Credits
 ])
 
-// Suffix bestimmt den Kontotyp: .S = Staking (Earn), .M = Margin, .F = Auto-Earn,
-// .B = Bonded (handelbar → Spot). ETH2 ist gestaktes ETH → Earn.
+// The suffix determines the account type: .S = Staking (Earn), .M = Margin, .F = Auto-Earn,
+// .B = Bonded (tradable → Spot). ETH2 is staked ETH → Earn.
 function accountTypeForKraken(code: string, base: string): HoldingAccountType {
   const suffix = code.includes('.') ? code.slice(code.lastIndexOf('.') + 1).toUpperCase() : ''
   if (suffix === 'S' || suffix === 'F') return 'EARN'
@@ -59,7 +59,7 @@ function accountTypeForKraken(code: string, base: string): HoldingAccountType {
 }
 
 export function normalizeKrakenAsset(code: string): { symbol: string; accountType: HoldingAccountType } | null {
-  // Staking-/Reward-Varianten wie "ETH2.S", "SOL.S", "XBT.M" → Basis-Asset + Kontotyp
+  // Staking/reward variants like "ETH2.S", "SOL.S", "XBT.M" → base asset + account type
   const base = code.split('.')[0] ?? code
   if (SKIP.has(base)) return null
   return { symbol: ASSET_MAP[base] ?? base.toUpperCase(), accountType: accountTypeForKraken(code, base) }
@@ -106,7 +106,7 @@ async function fetchKrakenBalances(creds: ExchangeCredentials): Promise<RawBalan
     if (Number(amount) <= 0) continue
     const mapped = normalizeKrakenAsset(code)
     if (!mapped) continue
-    // ETH (Spot) und ETH2.S (Earn) landen jetzt unter verschiedenen Kontotypen
+    // ETH (Spot) and ETH2.S (Earn) now end up under different account types
     balances.push({ symbol: mapped.symbol, amount, accountType: mapped.accountType, meta: { krakenCode: code } })
   }
   return balances
@@ -117,7 +117,7 @@ export const krakenProvider: ExchangeProvider = {
   id: 'KRAKEN',
 
   async validateCredentials(creds: ExchangeCredentials): Promise<void> {
-    // Balance ist ein reiner Lese-Endpoint — validiert Key, Secret und Berechtigung
+    // Balance is a read-only endpoint — validates key, secret and permission
     await fetchKrakenBalances(creds)
   },
 

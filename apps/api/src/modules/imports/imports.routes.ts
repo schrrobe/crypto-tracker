@@ -24,7 +24,7 @@ importsRoutes.post(
     const label = typeof req.body?.label === 'string' ? req.body.label : undefined
     const kind = req.body?.kind === 'TRANSACTIONS' ? 'TRANSACTIONS' : 'BALANCES'
     const portfolioId = typeof req.body?.portfolioId === 'string' ? req.body.portfolioId : undefined
-    // optionale Börsen-Angabe für die Doppel-Erkennung; ungültige Werte ignorieren
+    // optional exchange hint for duplicate detection; ignore invalid values
     const exchange = (EXCHANGE_PROVIDERS as readonly string[]).includes(req.body?.exchange)
       ? (req.body.exchange as (typeof EXCHANGE_PROVIDERS)[number])
       : undefined

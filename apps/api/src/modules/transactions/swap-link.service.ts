@@ -2,8 +2,8 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 
-// Wie beim Transfer: Exchange-CSVs haben oft Tagesgranularität — beide Legs
-// dürfen bis zu 24 h auseinanderliegen.
+// As with transfers: exchange CSVs often have day-level granularity — both legs
+// may be up to 24 h apart.
 const TIMESTAMP_TOLERANCE_MS = 24 * 60 * 60 * 1000
 
 async function getOwnedTx(userId: string, txId: string) {
@@ -15,8 +15,8 @@ async function getOwnedTx(userId: string, txId: string) {
   return tx
 }
 
-// Verknüpft eine SELL (Asset A) mit einer BUY (Asset B) zu einem Krypto-zu-Krypto-
-// Tausch. :id darf beide Seiten sein — die Richtung ergibt sich aus den Typen.
+// Links a SELL (Asset A) with a BUY (Asset B) into a crypto-to-crypto swap.
+// :id may be either leg — the direction follows from the types.
 export async function linkSwap(userId: string, txId: string, counterpartId: string): Promise<void> {
   const a = await getOwnedTx(userId, txId)
   const b = await getOwnedTx(userId, counterpartId)
@@ -52,8 +52,8 @@ export async function linkSwap(userId: string, txId: string, counterpartId: stri
   try {
     await prisma.swapLink.create({ data: { sellTxId: sell.id, buyTxId: buy.id } })
   } catch (error) {
-    // Race: zwei parallele Verknüpfungen derselben Transaktion laufen am obigen
-    // Check vorbei und kollidieren am Unique-Index → sauberer 409 statt 500.
+    // Race: two parallel links of the same transaction slip past the check above
+    // and collide on the unique index → clean 409 instead of 500.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       throw AppError.conflict('SWAP_LINK_ALREADY_LINKED', 'Eine der Transaktionen ist bereits verknüpft')
     }

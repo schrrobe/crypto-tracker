@@ -34,8 +34,8 @@ sourcesRoutes.post(
   }),
 )
 
-// Sync: Provider-Fehler landen im Run (status ERROR), nicht als HTTP-Fehler.
-// Queue-Modus (REDIS_URL gesetzt): 202 + RUNNING-Run, Worker führt aus, Frontend pollt.
+// Sync: provider errors land in the run (status ERROR), not as an HTTP error.
+// Queue mode (REDIS_URL set): 202 + RUNNING run, the worker executes it, the frontend polls.
 sourcesRoutes.post(
   '/sync-all',
   asyncHandler(async (req, res) => {
@@ -76,7 +76,7 @@ sourcesRoutes.delete(
   }),
 )
 
-// Manuelle Bestände innerhalb einer Quelle
+// Manual holdings within a source
 sourcesRoutes.post(
   '/:id/holdings',
   validate(upsertHoldingSchema),

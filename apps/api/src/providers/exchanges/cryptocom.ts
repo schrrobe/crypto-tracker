@@ -6,14 +6,14 @@ import {
   type RawBalance,
 } from '../provider.types'
 
-// Crypto.com Exchange API v1: POST private/user-balance mit HMAC-SHA256-Signatur.
-// Benötigt einen API-Key mit ausschließlich "Read"-Berechtigung.
+// Crypto.com Exchange API v1: POST private/user-balance with HMAC-SHA256 signature.
+// Requires an API key with only the "Read" permission.
 
 const BASE_URL = 'https://api.crypto.com/exchange/v1'
 const BALANCE_METHOD = 'private/user-balance'
 
-// Params werden für die Signatur als key+value konkateniert, Keys alphabetisch
-// sortiert; verschachtelte Objekte/Arrays rekursiv nach demselben Schema.
+// For the signature, params are concatenated as key+value with keys sorted
+// alphabetically; nested objects/arrays are handled recursively by the same scheme.
 export function cryptocomParamsString(params: unknown): string {
   if (params === null || params === undefined) return String(params)
   if (Array.isArray(params)) return params.map(cryptocomParamsString).join('')
@@ -52,10 +52,10 @@ interface CryptocomResponse {
   }
 }
 
-// 10002 = UNAUTHORIZED (Legacy), 40101 = UNAUTHORIZED (Key/Signatur falsch)
+// 10002 = UNAUTHORIZED (legacy), 40101 = UNAUTHORIZED (wrong key/signature)
 const AUTH_ERROR_CODES = new Set([10002, 40101])
 
-// Fiat-/Stable-Sammelpositionen wie "USD" werden in V1 nicht getrackt
+// Fiat/stable aggregate positions like "USD" are not tracked in V1
 const SKIP = new Set(['EUR', 'USD', 'GBP', 'CHF'])
 
 async function fetchCryptocomBalances(creds: ExchangeCredentials): Promise<RawBalance[]> {
@@ -83,7 +83,7 @@ async function fetchCryptocomBalances(creds: ExchangeCredentials): Promise<RawBa
   const json = (await res.json().catch(() => ({}))) as CryptocomResponse
   if (!res.ok || json.code !== 0) {
     const message = json.message ?? `HTTP ${res.status}`
-    // Auth-Fehler kommen sowohl als HTTP 401 als auch über den Body-Code
+    // Auth errors arrive both as HTTP 401 and via the body code
     if (res.status === 401 || res.status === 403 || (json.code !== undefined && AUTH_ERROR_CODES.has(json.code))) {
       throw new ProviderError('INVALID_API_KEY', `Crypto.com: ${message}`)
     }
@@ -95,7 +95,7 @@ async function fetchCryptocomBalances(creds: ExchangeCredentials): Promise<RawBa
     for (const position of account.position_balances ?? []) {
       const symbol = position.instrument_name.toUpperCase()
       if (SKIP.has(symbol)) continue
-      // Mehrere Konten mit gleichem Symbol summiert der SyncService per Decimal
+      // Multiple accounts with the same symbol are summed by the SyncService via Decimal
       if (Number(position.quantity) > 0) balances.push({ symbol, amount: position.quantity })
     }
   }
@@ -107,7 +107,7 @@ export const cryptocomProvider: ExchangeProvider = {
   id: 'CRYPTOCOM',
 
   async validateCredentials(creds: ExchangeCredentials): Promise<void> {
-    // user-balance ist ein reiner Lese-Endpoint — validiert Key und Secret
+    // user-balance is a read-only endpoint — validates key and secret
     await fetchCryptocomBalances(creds)
   },
 

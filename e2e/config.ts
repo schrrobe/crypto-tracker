@@ -1,5 +1,5 @@
-// Gemeinsame E2E-Konstanten — eigene Ports und eigene Datenbank,
-// damit Tests parallel zur lokalen Entwicklung laufen können.
+// Shared E2E constants — own ports and own database,
+// so tests can run in parallel with local development.
 
 export const API_PORT = 3011
 export const APP_PORT = 5174
@@ -16,7 +16,7 @@ export const API_ENV = {
   JWT_REFRESH_SECRET: 'e2e-refresh-secret-not-for-prod',
   ENCRYPTION_KEY: '1111111111111111111111111111111111111111111111111111111111111111',
   CORS_ORIGINS: `http://localhost:${APP_PORT}`,
-  // Deterministische Tests: keine echten CoinGecko-/Provider-Calls
+  // Deterministic tests: no real CoinGecko/provider calls
   FAKE_PRICES: 'true',
   FAKE_PROVIDERS: 'true',
 }

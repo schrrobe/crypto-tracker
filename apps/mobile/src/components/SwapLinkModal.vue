@@ -63,7 +63,7 @@ import { apiErrorMessage } from '../services/errors'
 import { formatQuantity, intlLocale } from '../services/format'
 import { useTransactionsStore } from '../stores/transactions.store'
 
-// Beide Legs dürfen bis 24 h auseinanderliegen (CSV-Tagesgranularität)
+// Both legs may be up to 24 h apart (CSV day granularity)
 const TIMESTAMP_TOLERANCE_MS = 24 * 60 * 60 * 1000
 
 const props = defineProps<{
@@ -82,7 +82,7 @@ watch(
   },
 )
 
-// Kandidaten: Gegentyp (SELL↔BUY), anderes Asset, unverlinkt, |Δt| ≤ 24 h
+// Candidates: opposite type (SELL↔BUY), different asset, unlinked, |Δt| ≤ 24 h
 const candidates = computed<TransactionDto[]>(() => {
   const tx = props.transaction
   if (!tx) return []

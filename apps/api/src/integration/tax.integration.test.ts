@@ -29,7 +29,7 @@ async function getReport(user: TestUser, year: number, country: string) {
 describe('Steuerreport (Integration)', () => {
   it('DE-Report: FIFO-Gewinn, Freigrenze, Summen', async () => {
     const user = await registerUser('tax-de')
-    await setPlan(user, 'PRO') // Steuerreport ist Pro-only
+    await setPlan(user, 'PRO') // tax report is Pro-only
     const btcId = await findAssetId(user, 'BTC')
 
     await createTx(user, {
@@ -62,7 +62,7 @@ describe('Steuerreport (Integration)', () => {
     expect(res.body.totals.thresholdApplied).toBe(true)
     expect(res.body.totals.taxableAfterThresholdEur).toBe('10000.00')
 
-    // anderes Jahr: keine Veräußerungen
+    // different year: no disposals
     const empty = await getReport(user, 2023, 'DE')
     expect(empty.body.disposals).toHaveLength(0)
   })
@@ -119,7 +119,7 @@ describe('Steuerreport (Integration)', () => {
     expect(res.status).toBe(200)
     expect(res.body.disposals).toHaveLength(1)
     expect(res.body.disposals[0].priceQuality).toBe('BACKFILLED')
-    // Fake-Preis steigt übers Jahr → positiver Gewinn, in den Summen enthalten
+    // fake price rises over the year → positive gain, included in the totals
     expect(Number(res.body.totals.totalGainEur)).toBeGreaterThan(0)
   })
 
@@ -175,14 +175,14 @@ describe('Steuerreport (Integration)', () => {
     const res = await getReport(user, 2024, 'DE')
     const codes = res.body.warnings.map((w: { code: string }) => w.code)
     expect(codes).toContain('FOREIGN_CURRENCY_PRICE_IGNORED')
-    // Verkaufszeile selbst hat Original-Kurs (EUR)
+    // the sell line itself has the original price (EUR)
     expect(res.body.disposals[0].priceQuality).toBe('ORIGINAL')
   })
 
   it('Quellen mit Beständen ohne Transaktionen erscheinen als uncoveredSources', async () => {
     const user = await registerUser('tax-uncovered')
     const source = await createExchangeSource(user, 'Kraken Test')
-    // Fake-Sync erzeugt Holdings ohne Transaktionen
+    // fake sync creates holdings without transactions
     const sync = await request(app)
       .post(`${API}/sources/${source.id}/sync`)
       .set(...bearer(user))
@@ -213,7 +213,7 @@ describe('Steuerreport (Integration)', () => {
     expect(de.body.totals.stakingThresholdEur).toBe('256.00')
     expect(de.body.totals.stakingTaxableEur).toBe('300.00')
 
-    // AT: kein Zufluss-Einkommen; Verkauf hätte Basis 0
+    // AT: no inflow income; a sale would have a cost basis of 0
     const at = await getReport(user, 2024, 'AT')
     expect(at.body.totals.stakingIncomeEur).toBeUndefined()
   })

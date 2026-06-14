@@ -2,14 +2,14 @@ import type { Request, Response } from 'express'
 import { env } from '../../config/env'
 import { REFRESH_TTL_DAYS } from '../../lib/jwt'
 
-// Refresh-Token-Transport: Web nutzt ein httpOnly-Cookie (für JS unlesbar),
-// native Clients (Capacitor) senden X-Client: native und nutzen weiterhin
-// Body + verschlüsseltes Secure Storage — Cross-Origin-Cookies funktionieren im
-// nativen WebView nicht zuverlässig.
+// Refresh token transport: web uses an httpOnly cookie (unreadable to JS),
+// native clients (Capacitor) send X-Client: native and continue to use
+// body + encrypted Secure Storage — cross-origin cookies do not work reliably
+// in the native WebView.
 
 const COOKIE_NAME = 'rt'
 const MAX_AGE_MS = REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000
-// Auf die Auth-Routen begrenzt; das Cookie wird nirgends sonst mitgesendet.
+// Restricted to the auth routes; the cookie is not sent anywhere else.
 const COOKIE_PATH = '/api/v1/auth'
 
 export function isNativeClient(req: Request): boolean {
@@ -19,7 +19,7 @@ export function isNativeClient(req: Request): boolean {
 function cookieOptions() {
   return {
     httpOnly: true,
-    secure: env.APP_ENV !== 'local', // local läuft über http (localhost)
+    secure: env.APP_ENV !== 'local', // local runs over http (localhost)
     sameSite: 'lax' as const,
     path: COOKIE_PATH,
   }
@@ -34,7 +34,7 @@ export function clearRefreshCookie(res: Response): void {
 }
 
 export function readRefreshToken(req: Request): string | undefined {
-  // Nativ: aus dem Body; Web: aus dem httpOnly-Cookie
+  // Native: from the body; web: from the httpOnly cookie
   if (isNativeClient(req)) {
     const fromBody = (req.body as { refreshToken?: unknown } | undefined)?.refreshToken
     return typeof fromBody === 'string' ? fromBody : undefined

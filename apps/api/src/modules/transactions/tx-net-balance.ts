@@ -1,8 +1,8 @@
 import { Prisma, type TxType } from '@prisma/client'
 
-// Verdichtet Transaktionen zu Netto-Beständen: BUY/DEPOSIT/STAKING_REWARD zählen
-// positiv, SELL/WITHDRAWAL negativ, TRANSFER/OTHER neutral. Nur positive Salden
-// werden Holdings. Gemeinsame Logik für CSV-Importe und manuelle Transaktionen.
+// Condenses transactions into net balances: BUY/DEPOSIT/STAKING_REWARD count
+// positive, SELL/WITHDRAWAL negative, TRANSFER/OTHER neutral. Only positive balances
+// become holdings. Shared logic for CSV imports and manual transactions.
 export function computeNetBalances(
   txs: Array<{ assetId: string; type: TxType; quantity: Prisma.Decimal }>,
 ): Array<{ assetId: string; quantity: Prisma.Decimal }> {

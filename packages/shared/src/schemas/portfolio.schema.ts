@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { HoldingAccountType, PositionSide, ProviderId, SourceType } from '../enums'
 
-// Mengen laufen als String durch die API — nie als float (Decimal-Präzision)
+// Quantities flow through the API as strings — never as float (Decimal precision)
 export const quantityString = z
   .string()
   .regex(/^\d{1,20}([.,]\d{1,18})?$/, 'Ungültige Menge')
@@ -18,7 +18,7 @@ export const EXCHANGE_PROVIDERS = [
   'COINBASE', 'KRAKEN', 'BITVAVO', 'BITPANDA',
   'BINANCE', 'OKX', 'BYBIT', 'KUCOIN', 'BITSTAMP', 'GATEIO', 'CRYPTOCOM',
 ] as const
-// OKX und KuCoin verlangen zwingend eine API-Passphrase
+// OKX and KuCoin require an API passphrase
 export const PASSPHRASE_REQUIRED_PROVIDERS = ['OKX', 'KUCOIN'] as const
 export const WALLET_PROVIDERS = [
   'BITCOIN', 'SOLANA', 'ETHEREUM',
@@ -31,7 +31,7 @@ export const createExchangeSourceSchema = z.object({
   provider: z.enum(EXCHANGE_PROVIDERS),
   label: z.string().trim().min(1).max(60),
   apiKey: z.string().trim().min(4).max(500),
-  // optional: Bitpanda braucht kein Secret; Coinbase-CDP-Keys sind PEM (mehrzeilig, lang)
+  // optional: Bitpanda needs no secret; Coinbase CDP keys are PEM (multi-line, long)
   apiSecret: z.string().trim().min(4).max(2000).optional(),
   passphrase: z.string().trim().max(200).optional(),
   portfolioId: z.string().uuid().optional(),
@@ -42,7 +42,7 @@ export const createWalletSourceSchema = z.object({
   provider: z.enum(WALLET_PROVIDERS),
   label: z.string().trim().min(1).max(60),
   address: z.string().trim().min(10).max(120),
-  // Dust-/Spam-Filter: unbekannte Tokens (Solana-Mints ohne Mapping) standardmäßig überspringen
+  // Dust/spam filter: skip unknown tokens (Solana mints without mapping) by default
   includeUnknownTokens: z.boolean().default(false),
   portfolioId: z.string().uuid().optional(),
 })
@@ -53,7 +53,7 @@ export const createSourceSchema = z
     createExchangeSourceSchema,
     createWalletSourceSchema,
   ])
-  // Bitpanda ist der einzige Exchange ohne Secret; OKX/KuCoin verlangen eine Passphrase
+  // Bitpanda is the only exchange without a secret; OKX/KuCoin require a passphrase
   .superRefine((value, ctx) => {
     if (value.type !== 'EXCHANGE') return
     if (value.provider !== 'BITPANDA' && !value.apiSecret) {
@@ -91,7 +91,7 @@ export interface HoldingDto {
   sourceId: string
   sourceLabel: string
   sourceType: SourceType
-  // SPOT/EARN/MARGIN/FUTURES — quantity/valueEur können bei MARGIN negativ sein
+  // SPOT/EARN/MARGIN/FUTURES — quantity/valueEur can be negative for MARGIN
   accountType: HoldingAccountType
   asset: AssetDto
   quantity: string
@@ -110,10 +110,10 @@ export interface FuturesPositionDto {
   entryPrice: string | null
   markPrice: string | null
   leverage: number | null
-  // uPnL in quoteCurrency, wie von der Börse gemeldet
+  // uPnL in quoteCurrency, as reported by the exchange
   unrealizedPnl: string | null
   quoteCurrency: string | null
-  // uPnL in EUR (über Stablecoin-Kurs); null, wenn kein Kurs vorliegt
+  // uPnL in EUR (via stablecoin price); null if no price is available
   unrealizedPnlEur: string | null
   // Notional = size × markPrice in EUR
   valueEur: string | null
@@ -136,9 +136,9 @@ export interface SourceDto {
   label: string
   lastSyncAt: string | null
   createdAt: string
-  // nur bei EXCHANGE: maskierter Key (…1234) — niemals Key/Secret selbst
+  // only for EXCHANGE: masked key (…1234) — never the key/secret itself
   keyPreview: string | null
-  // nur bei WALLET
+  // only for WALLET
   address: string | null
   chain: string | null
   includeUnknownTokens: boolean | null
@@ -156,7 +156,7 @@ export const confirmMappingSchema = z.object({
   mapping: z.object({
     symbol: z.string().min(1),
     quantity: z.string().min(1),
-    // Pflicht bei kind=TRANSACTIONS — der Service prüft das kontextabhängig
+    // required when kind=TRANSACTIONS — the service checks this contextually
     type: z.string().min(1).optional(),
     timestamp: z.string().min(1).optional(),
     price: z.string().min(1).optional(),
@@ -200,20 +200,20 @@ export interface CsvUploadResponse {
   headers: string[]
   preview: Array<Record<string, string>>
   suggestedMapping: MappingSuggestionDto
-  // erkanntes Export-Format (Spalten dann vollständig vorbelegt)
+  // detected export format (columns are then fully pre-filled)
   preset: 'KRAKEN' | 'BITPANDA' | null
-  // aktive Doppel-Erkennung: Label einer bereits per API verbundenen Quelle
-  // derselben Börse (per Preset erkannt oder beim Upload gewählt) im selben
-  // Portfolio — sonst null. Warnt vor Doppelzählung (API-Bestand + CSV-Bestand).
+  // active duplicate detection: label of a source already connected via API for
+  // the same exchange (detected via preset or chosen at upload) in the same
+  // portfolio — otherwise null. Warns about double counting (API balance + CSV balance).
   duplicateExchangeSource: string | null
-  // Provider der erkannten Doppel-Börse — für die Anzeige des Namens in der
-  // Warnung (deckt alle Exchanges, nicht nur die Preset-Börsen).
+  // provider of the detected duplicate exchange — used to display the name in the
+  // warning (covers all exchanges, not just the preset ones).
   duplicateExchangeProvider: (typeof EXCHANGE_PROVIDERS)[number] | null
 }
 
 export type HistoryRange = '24h' | '7d' | '30d' | '1y'
 
-// Unrealisierter Gewinn/Verlust (Pro) — Kostenbasis aus FIFO der Tax-Engine, EUR.
+// Unrealized profit/loss (Pro) — cost basis from the tax engine's FIFO, EUR.
 export interface PnlPositionDto {
   sourceId: string
   sourceLabel: string
@@ -235,7 +235,7 @@ export interface PortfolioPnlDto {
 }
 
 export interface PortfolioHistoryPoint {
-  t: string // ISO-Zeitstempel
+  t: string // ISO timestamp
   value: string
 }
 
@@ -243,7 +243,7 @@ export interface PortfolioHistoryDto {
   range: HistoryRange
   currency: 'EUR' | 'USD'
   points: PortfolioHistoryPoint[]
-  // Anzahl der Assets, die mangels Mapping/Top-N nicht im Verlauf stecken
+  // number of assets not included in the history due to missing mapping/Top-N
   excludedAssets: number
 }
 
@@ -258,9 +258,9 @@ export interface PortfolioSummaryDto {
   totalUsd: string
   pricesFetchedAt: string | null
   byAsset: PortfolioAssetPosition[]
-  // signierte Werte je Kontotyp (MARGIN ggf. negativ)
+  // signed values per account type (MARGIN possibly negative)
   byAccountType: AccountTypeBreakdown[]
-  // unrealisierter Futures-PnL, NICHT in totalEur enthalten
+  // unrealized futures PnL, NOT included in totalEur
   futuresUnrealizedPnlEur: string | null
   futuresUnrealizedPnlUsd: string | null
   unmappedAssets: AssetDto[]

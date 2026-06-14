@@ -177,14 +177,14 @@ async function onMapped() {
   await usePortfolioStore().loadSummary()
 }
 
-// Spam-/unbekannte Tokens (ohne Preis) sind standardmäßig eingeklappt
+// spam/unknown tokens (without a price) are collapsed by default
 const pricedHoldings = computed(() => portfolio.holdings.filter((h) => h.valueEur !== null))
 const unpricedHoldings = computed(() => portfolio.holdings.filter((h) => h.valueEur === null))
 const visibleHoldings = computed(() =>
   showUnpriced.value ? [...pricedHoldings.value, ...unpricedHoldings.value] : pricedHoldings.value,
 )
 
-// Nach Kontotyp gruppieren (feste Reihenfolge, leere Gruppen ausblenden)
+// Group by account type (fixed order, hide empty groups)
 const ACCOUNT_ORDER: HoldingAccountType[] = ['SPOT', 'EARN', 'MARGIN', 'FUTURES']
 const groupedHoldings = computed(() =>
   ACCOUNT_ORDER.map((type) => ({
@@ -196,7 +196,7 @@ const groupedHoldings = computed(() =>
 function badgeColor(type: HoldingAccountType): string {
   return { SPOT: 'medium', EARN: 'success', MARGIN: 'warning', FUTURES: 'primary' }[type]
 }
-// negative Werte (Margin-Verbindlichkeit) rot — bei Privatsphäre-Maske unterdrückt
+// negative values (margin liability) in red — suppressed under the privacy mask
 function isNegative(value: string | null): boolean {
   return !balancesHidden.value && value !== null && Number(value) < 0
 }
@@ -243,7 +243,7 @@ async function confirmDelete(holding: HoldingDto) {
 
 onIonViewWillEnter(() => {
   loadData()
-  // Onboarding-Einstieg: /tabs/holdings?add=1 öffnet direkt das Erfassen-Modal
+  // onboarding entry point: /tabs/holdings?add=1 opens the entry modal directly
   if (route.query.add === '1') {
     openAdd()
     router.replace({ query: {} })

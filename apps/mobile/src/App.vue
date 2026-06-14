@@ -21,12 +21,12 @@ const auth = useAuthStore()
 onMounted(() => {
   applyStoredTheme()
   void initNative(router)
-  // api.client meldet abgelaufene Sessions (Refresh fehlgeschlagen)
+  // api.client reports expired sessions (refresh failed)
   window.addEventListener('auth:expired', () => {
     auth.sessionExpired()
     router.replace('/login')
   })
-  // api.client meldet getroffene Pro-Gates (402) → Paywall öffnen
+  // api.client reports triggered Pro gates (402) → open the paywall
   window.addEventListener('plan:upgrade', () => openPaywall())
 })
 </script>

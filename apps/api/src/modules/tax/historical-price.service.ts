@@ -3,21 +3,21 @@ import { env } from '../../config/env'
 import { prisma } from '../../lib/prisma'
 import { fetchHistoricalPrice } from '../../coingecko/coingecko.client'
 
-// Pro Report-Lauf hart begrenzen; nicht aufgelöste Daten kommen beim nächsten
-// Lauf aus dem Cache nach. Mit Demo-Key (~30 Calls/min, 10k/Monat) deutlich
-// großzügiger als ohne Key (öffentliches Limit ist erheblich schärfer).
+// Hard cap per report run; unresolved dates are filled in from the cache on the
+// next run. With a demo key (~30 calls/min, 10k/month) considerably more
+// generous than without a key (the public limit is far stricter).
 const LOOKUP_CAP_PER_RUN = env.COINGECKO_API_KEY ? 150 : 40
 
 export interface HistoricalPriceRequest {
   assetId: string
   coingeckoId: string | null
-  // wird auf 00:00 UTC normalisiert
+  // normalized to 00:00 UTC
   date: Date
 }
 
 export interface HistoricalPriceResult {
-  // Key: priceKey(assetId, date). Wert null = kein Preis ermittelbar (Negativ-Cache).
-  // Fehlender Key = Lookup-Cap erreicht, beim nächsten Lauf erneut versuchen.
+  // Key: priceKey(assetId, date). Value null = no price obtainable (negative cache).
+  // Missing key = lookup cap reached, retry on the next run.
   prices: Map<string, Prisma.Decimal | null>
   limitReached: boolean
 }
@@ -35,7 +35,7 @@ export async function resolveHistoricalPrices(
 ): Promise<HistoricalPriceResult> {
   const prices = new Map<string, Prisma.Decimal | null>()
 
-  // Dedupe auf (Asset, Tag); unmapped Assets haben nie einen Preis
+  // Dedupe on (asset, day); unmapped assets never have a price
   const unique = new Map<string, HistoricalPriceRequest>()
   for (const req of requests) {
     const key = priceKey(req.assetId, req.date)
@@ -63,8 +63,8 @@ export async function resolveHistoricalPrices(
 
   let lookups = 0
   let limitReached = false
-  // CoinGecko-Calls bleiben seriell (Rate-Limit); die DB-Schreibvorgänge sammeln
-  // wir und schreiben sie am Ende in EINEM createMany statt N Einzel-Upserts.
+  // CoinGecko calls stay serial (rate limit); we collect the DB writes and
+  // flush them at the end in ONE createMany instead of N individual upserts.
   const fetched: { assetId: string; date: Date; priceEur: Prisma.Decimal | null }[] = []
   for (const [key, req] of unique) {
     if (lookups >= LOOKUP_CAP_PER_RUN) {
@@ -78,8 +78,8 @@ export async function resolveHistoricalPrices(
     prices.set(key, priceEur)
   }
 
-  // skipDuplicates fängt den Fall ab, dass ein paralleler Lauf denselben
-  // (Asset, Tag) bereits geschrieben hat (zuvor: upsert mit leerem update).
+  // skipDuplicates handles the case where a parallel run already wrote the same
+  // (asset, day) (previously: upsert with an empty update).
   if (fetched.length > 0) {
     await prisma.historicalAssetPrice.createMany({ data: fetched, skipDuplicates: true })
   }

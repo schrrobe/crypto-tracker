@@ -4,15 +4,15 @@ import { env } from '../../config/env'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 
-// Billing ist nur aktiv, wenn ein Stripe-Secret konfiguriert ist. Ohne Key liefern
-// die Endpunkte 503 (BILLING_DISABLED); lokal wird der Plan über den Dev-Schalter
-// (PATCH /auth/me) getestet.
+// Billing is only active when a Stripe secret is configured. Without a key the
+// endpoints return 503 (BILLING_DISABLED); locally the plan is tested via the
+// dev switch (PATCH /auth/me).
 export function billingEnabled(): boolean {
   return Boolean(env.STRIPE_SECRET_KEY)
 }
 
-// Stripe-Client bei Bedarf erzeugen (liest env zur Aufrufzeit → testbar, ohne den
-// Schlüssel beim Modul-Import gesetzt haben zu müssen).
+// Create the Stripe client on demand (reads env at call time → testable without
+// having to set the key at module import).
 function requireStripe(): Stripe {
   if (!env.STRIPE_SECRET_KEY) {
     throw new AppError('BILLING_DISABLED', 503, 'Bezahlung ist nicht konfiguriert')
@@ -57,15 +57,15 @@ export async function createPortalSession(userId: string): Promise<string> {
   return portal.url
 }
 
-// current_period_end ist in neueren Stripe-API-Versionen (basil) vom Subscription-
-// Objekt auf die einzelnen Items gewandert; beide Stellen prüfen (Fallback).
+// In newer Stripe API versions (basil), current_period_end moved from the
+// subscription object onto the individual items; check both places (fallback).
 function subscriptionPeriodEnd(sub: Stripe.Subscription): number | null {
   const item = sub.items?.data?.[0] as { current_period_end?: number } | undefined
   const top = (sub as unknown as { current_period_end?: number }).current_period_end
   return item?.current_period_end ?? top ?? null
 }
 
-// Abo bei Stripe kündigen (z.B. bei Konto-Löschung). No-op ohne konfiguriertes Billing.
+// Cancel the subscription at Stripe (e.g. on account deletion). No-op without configured billing.
 export async function cancelSubscription(subscriptionId: string): Promise<void> {
   if (!billingEnabled()) return
   const s = requireStripe()
@@ -85,15 +85,15 @@ async function applyPlanByCustomer(
     data: {
       plan,
       stripeSubscriptionId: subscriptionId ?? undefined,
-      // planUntil nur setzen, wenn ein Periodenende vorliegt — NICHT auf null
-      // zurücksetzen: checkout.session.completed liefert keins, käme dieses Event
-      // nach einem subscription.updated, würde es sonst ein gültiges Ablaufdatum löschen.
+      // Only set planUntil when a period end is present — do NOT reset it to null:
+      // checkout.session.completed provides none, and if this event arrived after a
+      // subscription.updated, it would otherwise erase a valid expiry date.
       ...(periodEndSec ? { planUntil: new Date(periodEndSec * 1000) } : {}),
     },
   })
 }
 
-// Webhook: Signatur prüfen, dann Plan anhand der Subscription setzen.
+// Webhook: verify the signature, then set the plan based on the subscription.
 export async function handleWebhookEvent(rawBody: Buffer, signature: string | undefined): Promise<void> {
   const s = requireStripe()
   if (!env.STRIPE_WEBHOOK_SECRET) throw new AppError('BILLING_DISABLED', 503, 'Kein Webhook-Secret')
@@ -109,8 +109,8 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
     if (session.customer && session.subscription) {
-      // Subscription laden, damit planUntil sofort beim Upgrade gesetzt wird
-      // (die Session selbst trägt kein Periodenende).
+      // Load the subscription so planUntil is set immediately on upgrade
+      // (the session itself carries no period end).
       const sub = await s.subscriptions.retrieve(String(session.subscription))
       await applyPlanByCustomer(String(session.customer), 'PRO', sub.id, subscriptionPeriodEnd(sub))
     } else if (session.customer) {

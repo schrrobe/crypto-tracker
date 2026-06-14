@@ -1,5 +1,5 @@
-// Dark/Light-Mode: Default folgt dem System, manueller Override wird persistiert
-// (über die Storage-Abstraktion: Web = localStorage, nativ = Preferences).
+// Dark/light mode: the default follows the system, a manual override is persisted
+// (via the storage abstraction: web = localStorage, native = Preferences).
 
 import { getStored, setStored } from './storage'
 
@@ -20,7 +20,7 @@ export function setThemePreference(pref: ThemePreference): void {
 export function applyStoredTheme(): void {
   applyTheme(getThemePreference())
 
-  // Bei "system" auf Änderungen des OS-Themes reagieren
+  // On "system", react to changes of the OS theme
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (getThemePreference() === 'system') applyTheme('system')
   })

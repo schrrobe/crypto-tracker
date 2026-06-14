@@ -71,7 +71,7 @@ async function submit() {
   loading.value = true
   try {
     await auth.forgotPassword(email.value)
-    // Antwort ist bewusst neutral — Bestätigung zeigen, egal ob Adresse existiert
+    // the response is deliberately neutral — show the confirmation regardless of whether the address exists
     sent.value = true
   } catch (e) {
     error.value = apiErrorMessage(e, 'auth.resetRequestFailed')

@@ -3,12 +3,12 @@ import { AppError } from '../lib/errors'
 
 const BASE = 'https://api.coingecko.com/api/v3'
 
-// Zentraler CoinGecko-Fetch: setzt den Demo-Key-Header, mappt Fehler auf einen
-// sauberen 502 und parst JSON defensiv. CoinGecko liefert bei Rate-Limit teils
-// 200 mit HTML/Text statt JSON — ohne diesen Guard würde res.json() eine
-// unbehandelte Exception (500) werfen.
-//   notFoundCodes: HTTP-Codes, die als „kein Treffer" gelten und null liefern
-//   (statt 502) — z.B. 401/404 beim historischen Tagespreis.
+// Central CoinGecko fetch: sets the demo-key header, maps errors to a clean 502,
+// and parses JSON defensively. On rate limits CoinGecko sometimes returns 200 with
+// HTML/text instead of JSON — without this guard res.json() would throw an
+// unhandled exception (500).
+//   notFoundCodes: HTTP codes that count as "no match" and return null
+//   (instead of 502) — e.g. 401/404 on the historical daily price.
 async function cgFetchJson<T>(url: string, notFoundCodes: number[] = []): Promise<T | null> {
   const res = await fetch(url, {
     headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
@@ -26,14 +26,14 @@ async function cgFetchJson<T>(url: string, notFoundCodes: number[] = []): Promis
 
 export type SimplePrices = Record<string, { eur?: number; usd?: number }>
 
-// Deterministische Preise für Tests/lokale Entwicklung ohne echte API
+// Deterministic prices for tests/local development without a real API
 const FAKE_PRICES: Record<string, { eur: number; usd: number }> = {
   bitcoin: { eur: 50_000, usd: 55_000 },
   ethereum: { eur: 2_000, usd: 2_200 },
   solana: { eur: 100, usd: 110 },
   tether: { eur: 0.9, usd: 1 },
   'usd-coin': { eur: 0.9, usd: 1 },
-  // für E2E-Tests des manuellen Asset-Mappings
+  // for E2E tests of the manual asset mapping
   fookoin: { eur: 2, usd: 2.2 },
 }
 
@@ -49,12 +49,12 @@ export interface CoinSearchResult {
   name: string
 }
 
-// Coin-Suche für das manuelle Asset-Mapping (proxied, damit das Frontend nie
-// direkt mit CoinGecko spricht)
+// Coin search for the manual asset mapping (proxied so the frontend never
+// talks to CoinGecko directly)
 export async function searchCoins(query: string): Promise<CoinSearchResult[]> {
   if (env.FAKE_PRICES) {
-    // Echo-Fake: jede Suche liefert genau einen Treffer mit deterministischer ID —
-    // Tests können so beliebige (eindeutige) Symbole mappen, Preis = Fake-Default
+    // Echo fake: every search returns exactly one match with a deterministic ID —
+    // this lets tests map arbitrary (unique) symbols, price = fake default
     const q = query.toLowerCase().trim()
     if (!q) return []
     return [{ id: `${q}-coin`, symbol: q, name: `${q.toUpperCase()} Coin` }]
@@ -66,15 +66,15 @@ export async function searchCoins(query: string): Promise<CoinSearchResult[]> {
   return (json?.coins ?? []).slice(0, 10).map((c) => ({ id: c.id, symbol: c.symbol, name: c.name }))
 }
 
-// [timestampMs, price] — wie von CoinGecko market_chart geliefert
+// [timestampMs, price] — as delivered by CoinGecko market_chart
 export type MarketChartPoint = [number, number]
 
 const chartCache = new Map<string, { at: number; data: MarketChartPoint[] }>()
 const CHART_CACHE_TTL_MS = 30 * 60 * 1000
 
-// Historische Preise für den Wertverlauf — on-demand statt lokaler Snapshots,
-// damit das Chart auch ohne Background-Sync sofort gefüllt ist. 30-min-Cache
-// pro Asset/Währung/Zeitraum schont das CoinGecko-Rate-Limit.
+// Historical prices for the value history — on-demand instead of local snapshots,
+// so the chart is filled immediately even without background sync. A 30-min cache
+// per asset/currency/range spares the CoinGecko rate limit.
 export async function fetchMarketChart(
   coingeckoId: string,
   currency: 'eur' | 'usd',
@@ -85,7 +85,7 @@ export async function fetchMarketChart(
   if (cached && cached.at > Date.now() - CHART_CACHE_TTL_MS) return cached.data
 
   if (env.FAKE_PRICES) {
-    // Deterministisch: linear von 90 % auf 100 % des Fake-Preises, Endpunkt = jetzt
+    // Deterministic: linear from 90 % to 100 % of the fake price, endpoint = now
     const current = (FAKE_PRICES[coingeckoId] ?? { eur: 1, usd: 1.1 })[currency]
     const points = 24
     const now = Date.now()
@@ -105,8 +105,8 @@ export async function fetchMarketChart(
     chartCache.set(cacheKey, { at: Date.now(), data })
     return data
   } catch (err) {
-    // Rate-Limit/Ausfall: letzten bekannten Stand liefern (egal wie alt), statt
-    // den ganzen Verlauf scheitern zu lassen. Ohne Cache wird der Fehler gereicht.
+    // Rate limit/outage: return the last known state (no matter how old) instead
+    // of letting the whole history fail. Without a cache the error is propagated.
     if (cached) {
       console.warn(`[coingecko] market_chart fehlgeschlagen, liefere Cache-Stand: ${String(err)}`)
       return cached.data
@@ -115,12 +115,12 @@ export async function fetchMarketChart(
   }
 }
 
-// EUR-Tagespreis (00:00 UTC) für die Steuer-Kostenbasis. null = CoinGecko hat
-// keinen Preis für dieses Datum (Free Tier: max. ~365 Tage zurück, antwortet
-// dann mit 401) — der Aufrufer cached das als Negativ-Eintrag.
+// EUR daily price (00:00 UTC) for the tax cost basis. null = CoinGecko has
+// no price for this date (free tier: max. ~365 days back, then responds
+// with 401) — the caller caches this as a negative entry.
 export async function fetchHistoricalPrice(coingeckoId: string, date: Date): Promise<number | null> {
   if (env.FAKE_PRICES) {
-    // Deterministisch datumsabhängig: 80–100 % des Fake-Preises über das Jahr
+    // Deterministic and date-dependent: 80–100 % of the fake price across the year
     const base = (FAKE_PRICES[coingeckoId] ?? { eur: 1, usd: 1.1 }).eur
     const startOfYear = Date.UTC(date.getUTCFullYear(), 0, 1)
     const dayOfYear = Math.floor((date.getTime() - startOfYear) / 86_400_000)
@@ -131,7 +131,7 @@ export async function fetchHistoricalPrice(coingeckoId: string, date: Date): Pro
   const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
   const yyyy = date.getUTCFullYear()
   const url = `${BASE}/coins/${encodeURIComponent(coingeckoId)}/history?date=${dd}-${mm}-${yyyy}&localization=false`
-  // 401: Datum außerhalb des Free-Tier-Fensters; 404: Coin unbekannt — beides „kein Preis"
+  // 401: date outside the free-tier window; 404: coin unknown — both mean "no price"
   const json = await cgFetchJson<{ market_data?: { current_price?: { eur?: number } } }>(
     url,
     [401, 404],
@@ -170,15 +170,15 @@ export interface MarketCoin {
 const marketsCache = new Map<string, { at: number; data: MarketCoin[] }>()
 const MARKETS_CACHE_TTL_MS = 60_000
 
-// Top 100 nach Market Cap inkl. 24h-Änderung — reine Anzeige-Daten (number ok,
-// keine Geld-Pipeline). 60-s-Cache pro Währung.
+// Top 100 by market cap incl. 24h change — pure display data (number is fine,
+// not the money pipeline). 60-s cache per currency.
 export async function fetchMarkets(currency: 'eur' | 'usd'): Promise<MarketCoin[]> {
   const cached = marketsCache.get(currency)
   if (cached && cached.at > Date.now() - MARKETS_CACHE_TTL_MS) return cached.data
 
   if (env.FAKE_PRICES) {
-    // Deterministisch: 100 Coins, Preis/Cap aus dem Rang ableitbar; jeder dritte
-    // Eintrag negativ (für die Verlierer-Liste)
+    // Deterministic: 100 coins, price/cap derivable from the rank; every third
+    // entry negative (for the losers list)
     const data = Array.from({ length: 100 }, (_, i) => {
       const rank = i + 1
       return {
@@ -201,9 +201,9 @@ export async function fetchMarkets(currency: 'eur' | 'usd'): Promise<MarketCoin[
     marketsCache.set(currency, { at: Date.now(), data })
     return data
   } catch (err) {
-    // CoinGecko-Free-Tier (ohne Key) rate-limited häufig (429). Statt den ganzen
-    // Markt-Tab fallen zu lassen: letzten bekannten Stand liefern, egal wie alt.
-    // Nur ohne jeden Cache wird der Fehler durchgereicht.
+    // CoinGecko free tier (without a key) is often rate-limited (429). Instead of
+    // dropping the whole market tab: return the last known state, no matter how old.
+    // Only without any cache is the error propagated.
     if (cached) {
       console.warn(`[coingecko] Markt-Abruf fehlgeschlagen, liefere Cache-Stand: ${String(err)}`)
       return cached.data

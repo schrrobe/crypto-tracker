@@ -59,7 +59,7 @@ const segments = computed(() => {
     ...(restValue > 0 ? [{ label: t('dashboard.others'), value: restValue }] : []),
   ]
 
-  // stroke-dasharray-Donut: Umfang = 100, Offset 25 startet oben (12 Uhr)
+  // stroke-dasharray donut: circumference = 100, offset 25 starts at the top (12 o'clock)
   let consumed = 0
   return entries.map((entry, index) => {
     const percent = (entry.value / total) * 100

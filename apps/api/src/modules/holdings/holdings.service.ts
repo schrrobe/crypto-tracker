@@ -41,10 +41,10 @@ function toFuturesPositionDto(
   prices: Map<string, { priceEur: Prisma.Decimal; priceUsd: Prisma.Decimal }>,
   stablePriceEur: Prisma.Decimal | null,
 ): FuturesPositionDto {
-  // Notional = size × Asset-Kurs (Basis-Asset → EUR)
+  // Notional = size × asset price (base asset → EUR)
   const price = p.assetId ? prices.get(p.assetId) : undefined
   const notionalEur = price ? p.size.mul(price.priceEur).toFixed(2) : null
-  // uPnL meldet die Börse in quoteCurrency (USDT/USDC ≈ USD) → EUR via Stablecoin-Kurs
+  // The exchange reports uPnL in quoteCurrency (USDT/USDC ≈ USD) → EUR via the stablecoin price
   const upnlEur =
     p.unrealizedPnl !== null && stablePriceEur ? p.unrealizedPnl.mul(stablePriceEur).toFixed(2) : null
   return {
@@ -77,8 +77,8 @@ export async function listHoldings(userId: string, portfolioId?: string): Promis
   return holdings.map((h) => toHoldingDto(h, prices))
 }
 
-// uPnL der Börsen ist in USDT/USDC notiert (≈ USD) — der EUR-Wert ergibt sich
-// über den Stablecoin-Kurs (tether). Null, wenn kein Kurs vorliegt.
+// Exchange uPnL is denominated in USDT/USDC (≈ USD) — the EUR value is derived
+// via the stablecoin price (tether). Null when no price is available.
 async function stablePriceEur(): Promise<Prisma.Decimal | null> {
   const usdt = await prisma.asset.findUnique({ where: { coingeckoId: 'tether' } })
   if (!usdt) return null
@@ -105,8 +105,8 @@ async function getManualSource(userId: string, sourceId: string) {
       'Bestände können nur in manuellen Quellen direkt bearbeitet werden',
     )
   }
-  // Quellen mit Transaktionen leiten ihre Bestände aus diesen ab — direkte
-  // Holding-Edits würden mit dem Recompute kollidieren
+  // Sources with transactions derive their holdings from them — direct
+  // holding edits would collide with the recompute
   const txCount = await prisma.transaction.count({ where: { sourceId } })
   if (txCount > 0) {
     throw AppError.conflict(
@@ -126,7 +126,7 @@ export async function createHolding(
   const asset = await prisma.asset.findUnique({ where: { id: data.assetId } })
   if (!asset) throw AppError.notFound('Asset nicht gefunden')
 
-  // manuelle Bestände sind immer SPOT
+  // manual holdings are always SPOT
   const existing = await prisma.holding.findUnique({
     where: { sourceId_assetId_accountType: { sourceId, assetId: data.assetId, accountType: 'SPOT' } },
   })

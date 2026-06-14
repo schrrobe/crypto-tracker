@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cardanoProvider } from './cardano'
 import { ProviderError } from '../provider.types'
 
-// Live verifizierte Adresse (Output einer aktuellen Mainnet-Transaktion)
+// Live-verified address (output of a recent mainnet transaction)
 const ADDRESS = 'addr1vy7p9anntmu8v4w9kfaua5lc9rv9059z0lfq7tx6rr4l97c9w4kcq'
 
-// Fixture nach echtem Koios-Response-Format (POST /api/v1/address_info) —
-// balance als String in Lovelace (1e6)
+// Fixture based on the real Koios response format (POST /api/v1/address_info) —
+// balance as a string in Lovelace (1e6)
 const ADDRESS_INFO_FIXTURE = [
   {
     address: ADDRESS,
@@ -41,16 +41,16 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('cardanoProvider', () => {
   it('akzeptiert Shelley-Adressen (addr1…)', () => {
-    expect(cardanoProvider.validateAddress(ADDRESS)).toBe(true) // Enterprise (58 Zeichen)
+    expect(cardanoProvider.validateAddress(ADDRESS)).toBe(true) // Enterprise (58 characters)
     expect(
       cardanoProvider.validateAddress(
-        // Base-Adresse (103 Zeichen): addr1 + 98 Zeichen
+        // Base address (103 characters): addr1 + 98 characters
         `addr1${'q'.repeat(98)}`,
       ),
     ).toBe(true)
     expect(cardanoProvider.validateAddress('addr1zukurz')).toBe(false)
     expect(cardanoProvider.validateAddress('stake1uyehkck0lajq8gr28t9uxnuvgcqrc6070x3k9r8048z8y5gh6ffgw')).toBe(false)
-    expect(cardanoProvider.validateAddress('DdzFFzCqrht...')).toBe(false) // Byron-Ära
+    expect(cardanoProvider.validateAddress('DdzFFzCqrht...')).toBe(false) // Byron era
     expect(cardanoProvider.validateAddress('nicht-gueltig')).toBe(false)
   })
 

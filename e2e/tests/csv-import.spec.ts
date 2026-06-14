@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { input, register, uniqueEmail } from './helpers'
 
-// Fake-Preise: BTC 50.000 € · ETH 2.000 € · SOL 100 €
+// Fake prices: BTC 50.000 € · ETH 2.000 € · SOL 100 €
 
 const GERMAN_CSV = Buffer.from(
   'Währung;Menge\nBTC;0,25\nETH;1.5\nFOO;abc\nSOL;10\n',
@@ -24,24 +24,24 @@ test('CSV-Import: Upload, Mapping-Vorschlag, Fehlerzeilen, Bestände', async ({ 
   await register(page, uniqueEmail('csv'))
   await uploadCsv(page, 'Mein CSV-Import')
 
-  // Mapping-Schritt: 4 Zeilen erkannt, deutsche Spaltennamen automatisch zugeordnet
+  // Mapping step: 4 rows detected, German column names mapped automatically
   await expect(page.getByTestId('csv-row-count')).toContainText('4 Zeilen')
   await expect(page.getByTestId('mapping-symbol')).toContainText('Währung')
   await expect(page.getByTestId('mapping-quantity')).toContainText('Menge')
 
   await page.getByTestId('csv-import-run').click()
 
-  // Ergebnis: 3 von 4, Fehlerzeile 4 ("abc" ist keine Zahl) nachvollziehbar
+  // Result: 3 of 4, error row 4 ("abc" is not a number) is traceable
   await expect(page.getByTestId('csv-result')).toContainText('3 von 4 Zeilen importiert')
   await expect(page.getByTestId('csv-error-rows')).toContainText('Zeile 4')
   await expect(page.getByTestId('csv-error-rows')).toContainText('keine gültige Zahl')
   await page.getByTestId('csv-done').click()
 
-  // Quelle erscheint in der Liste
+  // Source appears in the list
   await expect(page.getByTestId('source-Mein CSV-Import')).toBeVisible()
   await expect(page.getByTestId('source-Mein CSV-Import')).toContainText('CSV')
 
-  // 0,25 × 50.000 + 1,5 × 2.000 + 10 × 100 = 16.500 € (FOO hat keinen Preis)
+  // 0,25 × 50.000 + 1,5 × 2.000 + 10 × 100 = 16.500 € (FOO has no price)
   await page.getByRole('tab', { name: 'Dashboard' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/16\.500,00\s€/u)
 
@@ -69,7 +69,7 @@ test('Import-Historie zeigt den Import und löscht ihn samt Quelle', async ({ pa
   await page.getByRole('button', { name: 'Löschen' }).click()
   await expect(page.getByTestId('imports-empty')).toBeVisible()
 
-  // Quelle und Bestände sind mit dem Import verschwunden
+  // Source and holdings are gone along with the import
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await expect(page.getByTestId('sources-empty')).toBeVisible()
   await page.getByRole('tab', { name: 'Dashboard' }).click()
@@ -79,7 +79,7 @@ test('Import-Historie zeigt den Import und löscht ihn samt Quelle', async ({ pa
 test('aktive Doppel-Erkennung: Börsen-Auswahl warnt bei vorhandener API-Quelle', async ({ page }) => {
   await register(page, uniqueEmail('csvdup'))
 
-  // Kraken per API verbinden (Default-Provider im Verbinden-Modal)
+  // Connect Kraken via API (default provider in the connect modal)
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('add-source').click()
   await input(page, 'source-label').fill('Kraken API')
@@ -88,7 +88,7 @@ test('aktive Doppel-Erkennung: Börsen-Auswahl warnt bei vorhandener API-Quelle'
   await page.getByTestId('source-save').click()
   await expect(page.getByTestId('source-Kraken API')).toBeVisible()
 
-  // generische CSV importieren (kein Preset), Börse explizit auf Kraken setzen
+  // Import a generic CSV (no preset), explicitly set the exchange to Kraken
   await page.getByTestId('open-csv-import').click()
   await input(page, 'csv-label').fill('Doppel-Test')
   await page.getByTestId('csv-exchange').click()
@@ -100,7 +100,7 @@ test('aktive Doppel-Erkennung: Börsen-Auswahl warnt bei vorhandener API-Quelle'
   })
   await page.getByTestId('csv-upload').click()
 
-  // Warnung erscheint im Mapping-Schritt mit Quellennamen
+  // Warning appears in the mapping step with the source name
   await expect(page.getByTestId('csv-duplicate-warning')).toBeVisible()
   await expect(page.getByTestId('csv-duplicate-warning')).toContainText('Kraken API')
 })

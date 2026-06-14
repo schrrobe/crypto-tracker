@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bitstampProvider, bitstampSignature } from './bitstamp'
 
-// Realistische Bitstamp-Response (POST /api/v2/account_balances/)
+// Realistic Bitstamp response (POST /api/v2/account_balances/)
 const BALANCE_FIXTURE = [
-  { currency: 'eur', total: '2500.50', available: '2500.50', reserved: '0' }, // Fiat → übersprungen
+  { currency: 'eur', total: '2500.50', available: '2500.50', reserved: '0' }, // fiat → skipped
   { currency: 'btc', total: '0.75000000', available: '0.50000000', reserved: '0.25000000' },
   { currency: 'eth', total: '3.00000000', available: '3.00000000', reserved: '0' },
-  { currency: 'ada', total: '0.00000000', available: '0.00000000', reserved: '0' }, // Nullbestand → übersprungen
+  { currency: 'ada', total: '0.00000000', available: '0.00000000', reserved: '0' }, // zero balance → skipped
 ]
 
 function mockFetch(status: number, body: unknown) {
@@ -41,13 +41,13 @@ describe('bitstampSignature', () => {
   })
 
   it('lässt den Content-Type bei leerem Body aus dem Signatur-String weg', () => {
-    // Doku: "Content-Type should not be added to the string if request.body is empty"
+    // Docs: "Content-Type should not be added to the string if request.body is empty"
     const withContentType = bitstampSignature(
       { ...PARTS, contentType: 'application/x-www-form-urlencoded' },
       'bitstamp-secret',
     )
     expect(withContentType).toBe(bitstampSignature(PARTS, 'bitstamp-secret'))
-    // bei nicht-leerem Body fließt der Content-Type ein
+    // for a non-empty body the Content-Type is included
     const withBody = { ...PARTS, body: 'offset=1', contentType: 'application/x-www-form-urlencoded' }
     expect(bitstampSignature(withBody, 'bitstamp-secret')).not.toBe(
       bitstampSignature({ ...withBody, contentType: '' }, 'bitstamp-secret'),
@@ -67,7 +67,7 @@ describe('bitstampProvider.fetchBalances', () => {
     mockFetch(200, BALANCE_FIXTURE)
     const balances = await bitstampProvider.fetchBalances(CREDS)
 
-    // total enthält available + reserved
+    // total includes available + reserved
     expect(balances).toContainEqual({ symbol: 'BTC', amount: '0.75000000' })
     expect(balances).toContainEqual({ symbol: 'ETH', amount: '3.00000000' })
     expect(balances.map((b) => b.symbol)).not.toContain('EUR')
@@ -86,7 +86,7 @@ describe('bitstampProvider.fetchBalances', () => {
     expect(headers['X-Auth-Version']).toBe('v2')
     expect(headers['X-Auth-Nonce']).toMatch(/^[0-9a-f-]{36}$/)
     expect(headers['X-Auth-Timestamp']).toMatch(/^\d+$/)
-    // Signatur passt zu den gesendeten Nonce-/Timestamp-Headern
+    // signature matches the sent nonce/timestamp headers
     expect(headers['X-Auth-Signature']).toBe(
       bitstampSignature(
         {

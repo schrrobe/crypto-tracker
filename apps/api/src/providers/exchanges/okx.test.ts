@@ -6,7 +6,7 @@ describe('parseOkxPositions', () => {
     const positions = parseOkxPositions([
       { instId: 'BTC-USDT-SWAP', posSide: 'long', pos: '0.5', avgPx: '48000', markPx: '50000', lever: '5', upl: '1000', liqPx: '40000' },
       { instId: 'ETH-USDT-SWAP', posSide: 'short', pos: '2', avgPx: '3100', markPx: '3000', lever: '3', upl: '200', liqPx: '3600' },
-      { instId: 'SOL-USDT-SWAP', posSide: 'net', pos: '0', avgPx: '100' }, // geschlossen → ignoriert
+      { instId: 'SOL-USDT-SWAP', posSide: 'net', pos: '0', avgPx: '100' }, // closed → ignored
     ])
     expect(positions).toHaveLength(2)
     expect(positions[0]).toMatchObject({ baseSymbol: 'BTC', side: 'LONG', size: '0.5', quoteCurrency: 'USDT', leverage: 5 })
@@ -19,7 +19,7 @@ describe('parseOkxPositions', () => {
   })
 })
 
-// Realistische OKX-Balance-Response (GET /api/v5/account/balance)
+// Realistic OKX balance response (GET /api/v5/account/balance)
 const BALANCE_FIXTURE = {
   code: '0',
   msg: '',
@@ -28,7 +28,7 @@ const BALANCE_FIXTURE = {
       details: [
         { ccy: 'BTC', cashBal: '0.5' },
         { ccy: 'USDT', cashBal: '4850.435693622894' },
-        { ccy: 'ADA', cashBal: '0' }, // Nullbestand → übersprungen
+        { ccy: 'ADA', cashBal: '0' }, // zero balance → skipped
       ],
     },
   ],
@@ -46,10 +46,10 @@ const CREDS = { apiKey: 'test-key', apiSecret: 'geheim', passphrase: 'pass-123' 
 
 describe('okxSignature', () => {
   it('berechnet Base64(HMAC-SHA256(timestamp + method + path + body))', () => {
-    // Known-Answer-Test: vorab mit node:crypto berechnet
+    // Known-answer test: precomputed with node:crypto
     const signature = okxSignature('2020-12-08T09:08:57.715Z', 'GET', '/api/v5/account/balance', '', 'geheim')
     expect(signature).toBe('bi3DL1Zl3UKiqqWdY8dn4uv0NO9hynDFs2xCHHfhppo=')
-    // jede Komponente verändert die Signatur
+    // every component changes the signature
     expect(okxSignature('2020-12-08T09:08:57.716Z', 'GET', '/api/v5/account/balance', '', 'geheim')).not.toBe(signature)
     expect(okxSignature('2020-12-08T09:08:57.715Z', 'POST', '/api/v5/account/balance', '', 'geheim')).not.toBe(signature)
   })
@@ -75,7 +75,7 @@ describe('okxProvider.fetchBalances', () => {
     expect(headers['OK-ACCESS-KEY']).toBe('test-key')
     expect(headers['OK-ACCESS-TIMESTAMP']).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
     expect(headers['OK-ACCESS-PASSPHRASE']).toBe('pass-123')
-    // Signatur muss zum gesendeten Timestamp passen
+    // signature must match the sent timestamp
     expect(headers['OK-ACCESS-SIGN']).toBe(
       okxSignature(headers['OK-ACCESS-TIMESTAMP'] ?? '', 'GET', '/api/v5/account/balance', '', 'geheim'),
     )

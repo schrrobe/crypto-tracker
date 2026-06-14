@@ -2,8 +2,8 @@ import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 import { API, app, bearer, createExchangeSource, createManualSource, registerUser } from './helpers'
 
-// FAKE_PROVIDERS (Kraken = Spot-only-Fake): Sync liefert 0.1 BTC + 2 ETH ·
-// apiKey "SYNCFAIL…" → fetchBalances wirft. (Multi-Konto: account-types.integration)
+// FAKE_PROVIDERS (Kraken = spot-only fake): sync returns 0.1 BTC + 2 ETH ·
+// apiKey "SYNCFAIL…" → fetchBalances throws. (Multi-account: account-types.integration)
 
 describe('Sync-Flow (Integration)', () => {
   it('Sync ersetzt die Holdings der Quelle vollständig (kein Duplizieren bei Re-Sync)', async () => {
@@ -19,11 +19,11 @@ describe('Sync-Flow (Integration)', () => {
 
     const holdings = await request(app).get(`${API}/holdings`).set(...bearer(user))
     const symbols = holdings.body.holdings.map((h: { asset: { symbol: string } }) => h.asset.symbol).sort()
-    expect(symbols).toEqual(['BTC', 'ETH']) // exakt einmal, trotz zweier Syncs
+    expect(symbols).toEqual(['BTC', 'ETH']) // exactly once, despite two syncs
 
     const btc = holdings.body.holdings.find((h: { asset: { symbol: string } }) => h.asset.symbol === 'BTC')
     expect(btc.quantity).toBe('0.1')
-    // Fake-Preis BTC 50.000 € → 0.1 BTC = 5.000 €
+    // Fake price BTC 50,000 € → 0.1 BTC = 5,000 €
     expect(btc.valueEur).toBe('5000.00')
   })
 
@@ -32,14 +32,14 @@ describe('Sync-Flow (Integration)', () => {
     const source = await createExchangeSource(user, 'Wackelig', 'SYNCFAIL-key')
 
     const res = await request(app).post(`${API}/sources/${source.id}/sync`).set(...bearer(user))
-    expect(res.status).toBe(200) // Sync-Fehler sind kein HTTP-Fehler
+    expect(res.status).toBe(200) // sync errors are not HTTP errors
     expect(res.body.run.status).toBe('ERROR')
     expect(res.body.run.errorCode).toBe('PROVIDER_ERROR')
 
     const holdings = await request(app).get(`${API}/holdings`).set(...bearer(user))
     expect(holdings.body.holdings).toHaveLength(0)
 
-    // Run ist in der Historie nachvollziehbar
+    // Run is traceable in the history
     const runs = await request(app).get(`${API}/sources/${source.id}/sync-runs`).set(...bearer(user))
     expect(runs.body.runs[0].status).toBe('ERROR')
   })
@@ -61,7 +61,7 @@ describe('Sync-Flow (Integration)', () => {
     const statuses = res.body.results.map((r: { run: { status: string } }) => r.run.status).sort()
     expect(statuses).toEqual(['ERROR', 'SUCCESS'])
 
-    // die gute Quelle hat trotz Fehler der anderen synchronisiert
+    // the good source synced despite the other one's error
     const holdings = await request(app).get(`${API}/holdings`).set(...bearer(user))
     expect(holdings.body.holdings.length).toBeGreaterThan(0)
   })
@@ -80,7 +80,7 @@ describe('Sync-Flow (Integration)', () => {
   })
 })
 
-// Queue-Vorbereitung: Start und Ausführung sind getrennt (Worker ruft executeSyncRun)
+// Queue preparation: start and execution are separated (worker calls executeSyncRun)
 describe('Sync-Split: startSyncRun / executeSyncRun', () => {
   it('startSyncRun legt RUNNING-Run an, executeSyncRun schließt ab und schreibt Holdings', async () => {
     const { startSyncRun, executeSyncRun } = await import('../modules/sync/sync.service')
@@ -90,7 +90,7 @@ describe('Sync-Split: startSyncRun / executeSyncRun', () => {
     const started = await startSyncRun(user.userId, source.id)
     expect(started.status).toBe('RUNNING')
 
-    // laufender Run blockiert einen zweiten Start (409 über die Route)
+    // a running run blocks a second start (409 via the route)
     const second = await request(app).post(`${API}/sources/${source.id}/sync`).set(...bearer(user))
     expect(second.status).toBe(409)
     expect(second.body.error.code).toBe('SYNC_ALREADY_RUNNING')
@@ -98,7 +98,7 @@ describe('Sync-Split: startSyncRun / executeSyncRun', () => {
     const finished = await executeSyncRun(started.id)
     expect(finished.status).toBe('SUCCESS')
 
-    // abgeschlossener Run ist idempotent (Queue-Retry darf nicht doppelt schreiben)
+    // a completed run is idempotent (queue retry must not write twice)
     const repeated = await executeSyncRun(started.id)
     expect(repeated.status).toBe('SUCCESS')
     expect(repeated.finishedAt).toBe(finished.finishedAt)

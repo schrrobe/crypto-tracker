@@ -1,9 +1,9 @@
 import { ProviderError, type RawBalance } from '../provider.types'
 
-// Führt eine Konto-Typ-Sub-Abfrage (Earn/Margin) resilient aus: bei
-// ENDPOINT_FORBIDDEN (Key ohne Berechtigung für diesen Subendpoint) wird der
-// Kontotyp übersprungen und eine Warnung gesammelt — der Spot-Sync läuft weiter.
-// Andere ProviderError (echte Ausfälle) propagieren.
+// Runs an account-type sub-query (Earn/Margin) resiliently: on
+// ENDPOINT_FORBIDDEN (key without permission for this sub-endpoint), the
+// account type is skipped and a warning is collected — the spot sync continues.
+// Other ProviderError (real failures) propagate.
 export async function safeSubFetch(
   fn: () => Promise<RawBalance[]>,
   label: string,

@@ -12,7 +12,7 @@ import { refreshPrices } from '../../coingecko/price.service'
 export const assetsRoutes = Router()
 assetsRoutes.use(requireAuth)
 
-// Lokale Asset-Suche; CoinGecko-Suche + manuelles Mapping kommen mit Meilenstein 8
+// Local asset search; CoinGecko search + manual mapping arrive with milestone 8
 assetsRoutes.get(
   '/search',
   asyncHandler(async (req, res) => {
@@ -41,7 +41,7 @@ assetsRoutes.get(
   }),
 )
 
-// CoinGecko-Suche für das manuelle Preis-Mapping unmapped Assets
+// CoinGecko search for the manual price mapping of unmapped assets
 assetsRoutes.get(
   '/coingecko-search',
   asyncHandler(async (req, res) => {
@@ -56,8 +56,8 @@ assetsRoutes.get(
 
 const mappingSchema = z.object({ coingeckoId: z.string().trim().min(1).max(120) })
 
-// Mapping wirkt global (Assets sind nutzerübergreifend) — deshalb nur für
-// bisher unmapped Assets erlaubt; bestehende Zuordnungen bleiben unantastbar.
+// Mapping takes effect globally (assets are shared across users) — therefore only
+// allowed for previously unmapped assets; existing mappings remain untouchable.
 assetsRoutes.post(
   '/:id/mapping',
   validate(mappingSchema),

@@ -44,7 +44,7 @@ test('Logout und erneuter Login funktionieren', async ({ page }) => {
   await page.getByTestId('logout-button').click()
   await page.waitForURL('**/login')
 
-  // Geschützte Route bleibt nach Logout gesperrt
+  // Protected route stays locked after logout
   await page.goto('/tabs/dashboard')
   await expect(page).toHaveURL(/\/login/)
 
@@ -66,7 +66,7 @@ test('Passwort vergessen: Anfrage zeigt neutrale Bestätigung', async ({ page })
   await page.waitForURL('**/forgot-password')
   await input(page, 'forgot-email').fill(email)
   await page.getByTestId('forgot-submit').click()
-  // Bestätigung ist bewusst neutral (keine User-Enumeration)
+  // Confirmation is deliberately neutral (no user enumeration)
   await expect(page.getByTestId('forgot-sent')).toBeVisible()
 })
 
@@ -88,11 +88,11 @@ test('Konto löschen: entfernt Konto, Login danach unmöglich', async ({ page })
 
   await page.getByRole('tab', { name: 'Einstellungen' }).click()
   await page.getByTestId('delete-account-button').click()
-  // Bestätigungsdialog → destruktiven Button im Alert klicken
+  // Confirmation dialog → click the destructive button in the alert
   await page.locator('ion-alert').getByRole('button', { name: 'Konto löschen' }).click()
   await page.waitForURL('**/login')
 
-  // Login mit den gelöschten Daten schlägt fehl
+  // Login with the deleted credentials fails
   await input(page, 'login-email').fill(email)
   await input(page, 'login-password').fill(PASSWORD)
   await page.getByTestId('login-submit').click()

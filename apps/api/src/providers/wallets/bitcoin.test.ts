@@ -2,19 +2,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bitcoinProvider } from './bitcoin'
 import { ProviderError } from '../provider.types'
 
-// Fixture nach echtem mempool.space-Response-Format (GET /api/address/:addr)
+// Fixture based on the real mempool.space response format (GET /api/address/:addr)
 const ADDRESS_FIXTURE = {
   address: 'bc1qexample',
   chain_stats: {
     funded_txo_count: 5,
-    funded_txo_sum: 150_000_000, // 1.5 BTC eingegangen
+    funded_txo_sum: 150_000_000, // 1.5 BTC received
     spent_txo_count: 2,
-    spent_txo_sum: 30_000_000, // 0.3 BTC ausgegeben
+    spent_txo_sum: 30_000_000, // 0.3 BTC spent
     tx_count: 7,
   },
   mempool_stats: {
     funded_txo_count: 1,
-    funded_txo_sum: 5_000_000, // 0.05 BTC unbestätigt eingehend
+    funded_txo_sum: 5_000_000, // 0.05 BTC unconfirmed incoming
     spent_txo_count: 0,
     spent_txo_sum: 0,
     tx_count: 1,

@@ -3,30 +3,31 @@ import type { TxType } from '@prisma/client'
 import type { TaxRegime, TaxWarningDto } from '@crypto-tracker/shared'
 import { TaxWarningCode } from '@crypto-tracker/shared'
 
-// Reine Steuer-Engine — kein Prisma-Client, kein Express, kein I/O.
-// Rechnet ausschließlich mit Prisma.Decimal (decimal.js), nie mit float.
+// Pure tax engine — no Prisma client, no Express, no I/O.
+// Computes exclusively with Prisma.Decimal (decimal.js), never with float.
 //
-// Rechtliche Grundlagen und dokumentierte Annahmen:
-// - DE: §23 EStG (private Veräußerungsgeschäfte). FIFO pro Quelle/Wallet und
-//   Asset (walletbezogene Betrachtung nach BMF-Schreiben v. 10.05.2022).
-//   Verknüpfte Transfer-Paare (transferGroupId) ziehen die Kostenbasis samt
-//   Anschaffungsdatum in die Ziel-Quelle um; die Mengendifferenz (Netzwerk-
-//   gebühr) verlässt das System still — ihre Basis verfällt (konservativ).
-//   Unverknüpfte Auszahlungen entfernen die Basis wie bisher (Warnung).
-// - DE: Haltefrist > 1 Jahr → steuerfrei (§23 Abs. 1 Nr. 2). Exakt 1 Jahr ist
-//   noch steuerpflichtig. Freigrenze (kein Freibetrag!) 600 € bis VZ 2023,
-//   1.000 € ab VZ 2024: wird sie erreicht, ist der GESAMTE Gewinn steuerpflichtig.
-// - AT: Stichtag 1.3.2021 (§27b EStG / ÖkoStRefG). Altvermögen (Anschaffung
-//   davor): alte Spekulationsfrist 1 Jahr (§31 EStG aF), Freigrenze 440 €.
-//   Neuvermögen: 27,5 % Sondersteuersatz, keine Haltefrist, Kostenbasis =
-//   gleitender Durchschnittspreis pro Asset (KryptowährungsVO).
-// - AT: bei gemischtem Alt-/Neubestand wird Altvermögen zuerst verbraucht
-//   (Annahme; die VO erlaubt Zuordnung durch den Steuerpflichtigen).
+// Legal basis and documented assumptions:
+// - DE: §23 EStG (private disposal transactions). FIFO per source/wallet and
+//   asset (wallet-based view per the BMF letter of 10.05.2022).
+//   Linked transfer pairs (transferGroupId) move the cost basis together with
+//   the acquisition date into the target source; the quantity difference
+//   (network fee) leaves the system silently — its basis lapses (conservative).
+//   Unlinked withdrawals remove the basis as before (warning).
+// - DE: holding period > 1 year → tax-free (§23 Abs. 1 Nr. 2). Exactly 1 year is
+//   still taxable. Freigrenze (an exemption limit, not an allowance!) 600 € up to
+//   assessment period 2023, 1,000 € from 2024 on: once reached, the ENTIRE gain is taxable.
+// - AT: cutoff date 1.3.2021 (§27b EStG / ÖkoStRefG). Altvermögen (pre-cutoff
+//   holdings, acquired before): old speculation period of 1 year (§31 EStG aF),
+//   Freigrenze 440 €.
+//   Neuvermögen (post-cutoff holdings): 27.5 % special tax rate, no holding period,
+//   cost basis = moving average price per asset (KryptowährungsVO).
+// - AT: with mixed Altvermögen/Neuvermögen, Altvermögen is consumed first
+//   (assumption; the regulation lets the taxpayer choose the allocation).
 
 type Decimal = Prisma.Decimal
 const ZERO = new Prisma.Decimal(0)
 
-// Stichtag Alt-/Neuvermögen Österreich
+// Cutoff date for Altvermögen/Neuvermögen, Austria
 const AT_ALT_CUTOFF = new Date(Date.UTC(2021, 2, 1))
 
 export type EnginePriceSource = 'ORIGINAL' | 'BACKFILLED' | 'MISSING'
@@ -39,14 +40,14 @@ export interface EngineTx {
   assetName: string
   type: TxType
   quantity: Decimal
-  // EUR-Kurs pro Einheit nach Anreicherung/Backfill; null = nicht ermittelbar
+  // EUR price per unit after enrichment/backfill; null = not determinable
   priceEur: Decimal | null
   feeEur: Decimal | null
   timestamp: Date
   priceSource: EnginePriceSource
-  // gesetzt = Teil eines verknüpften Transfer-Paars (WITHDRAWAL ↔ DEPOSIT)
+  // set = part of a linked transfer pair (WITHDRAWAL ↔ DEPOSIT)
   transferGroupId: string | null
-  // gesetzt = Teil eines Krypto-zu-Krypto-Tauschs (SELL ↔ BUY) — nur AT relevant
+  // set = part of a crypto-to-crypto swap (SELL ↔ BUY) — only relevant for AT
   swapGroupId: string | null
 }
 
@@ -54,7 +55,7 @@ export interface EngineDisposal {
   sourceId: string
   assetSymbol: string
   assetName: string
-  // null = Anschaffung unbekannt (Oversell/Durchschnittspool) → konservativ behandelt
+  // null = acquisition unknown (oversell/average pool) → handled conservatively
   acquiredAt: Date | null
   disposedAt: Date
   quantity: Decimal
@@ -63,7 +64,7 @@ export interface EngineDisposal {
   gainEur: Decimal
   taxable: boolean
   regime: TaxRegime
-  // Kurs-Qualität der Veräußerung; MISSING-Zeilen fließen NICHT in die Summen
+  // price quality of the disposal; MISSING rows do NOT flow into the totals
   priceQuality: EnginePriceSource
 }
 
@@ -75,7 +76,7 @@ export interface EngineTotals {
   thresholdApplied: boolean
   taxableAfterThresholdEur: Decimal
   atNeuvermoegenGainEur?: Decimal
-  // nur DE: sonstige Einkünfte aus Staking (§22 Nr. 3 EStG) bei Zufluss
+  // DE only: other income from staking (§22 Nr. 3 EStG) at the time of inflow
   stakingIncomeEur?: Decimal
   stakingThresholdEur?: Decimal
   stakingTaxableEur?: Decimal
@@ -87,7 +88,7 @@ export interface EngineReport {
   warnings: TaxWarningDto[]
 }
 
-// Haltefrist-Vergleichsdatum; JS-Date rollt 29.02. auf 01.03. — deterministisch ok
+// Holding-period comparison date; JS Date rolls 29.02. to 01.03. — deterministic, ok
 function addOneYear(date: Date): Date {
   return new Date(
     Date.UTC(
@@ -101,12 +102,12 @@ function addOneYear(date: Date): Date {
   )
 }
 
-// > 1 Jahr gehalten? Exakt 1 Jahr zählt noch als steuerpflichtig.
+// Held > 1 year? Exactly 1 year still counts as taxable.
 function heldOverOneYear(acquiredAt: Date, disposedAt: Date): boolean {
   return disposedAt.getTime() > addOneYear(acquiredAt).getTime()
 }
 
-// Sammelt Warnungen aggregiert pro (Code, Asset)
+// Collects warnings aggregated per (code, asset)
 class WarningCollector {
   private counts = new Map<string, TaxWarningDto>()
 
@@ -123,21 +124,21 @@ class WarningCollector {
 }
 
 interface Lot {
-  // null = Anschaffung unbekannt (z.B. umgezogener Oversell-Anteil)
+  // null = acquisition unknown (e.g. a moved oversell portion)
   acquiredAt: Date | null
   remaining: Decimal
   costPerUnit: Decimal
 }
 
 interface ConsumedSlice {
-  // null = ungedeckter Anteil (mehr veräußert als angeschafft) oder Durchschnittspool
+  // null = uncovered portion (disposed more than acquired) or average pool
   acquiredAt: Date | null
   quantity: Decimal
   costBasisEur: Decimal
 }
 
-// Verbraucht FIFO aus den Lots; ungedeckte Restmenge wird als Slice mit
-// acquiredAt=null und Basis 0 zurückgegeben (steuerlich konservativ).
+// Consumes FIFO from the lots; an uncovered remaining quantity is returned as a
+// slice with acquiredAt=null and basis 0 (conservative for tax purposes).
 function consumeFifo(lots: Lot[], quantity: Decimal): ConsumedSlice[] {
   const slices: ConsumedSlice[] = []
   let open = quantity
@@ -155,8 +156,8 @@ function consumeFifo(lots: Lot[], quantity: Decimal): ConsumedSlice[] {
   return slices
 }
 
-// Anschaffungskosten eines Erwerbs: Menge × Kurs + Gebühr (Anschaffungsnebenkosten).
-// Ohne Kurs: Basis 0 + Warnung (konservativ — voller Erlös wird später Gewinn).
+// Acquisition cost of a purchase: quantity × price + fee (incidental acquisition costs).
+// Without a price: basis 0 + warning (conservative — the full proceeds later become gain).
 function acquisitionCost(tx: EngineTx, warnings: WarningCollector): Decimal {
   if (tx.priceEur === null) {
     warnings.add(TaxWarningCode.UNKNOWN_ACQUISITION_BASIS, tx.assetSymbol)
@@ -165,7 +166,7 @@ function acquisitionCost(tx: EngineTx, warnings: WarningCollector): Decimal {
   return tx.quantity.mul(tx.priceEur).add(tx.feeEur ?? ZERO)
 }
 
-// Veräußerungserlös: Menge × Kurs − Gebühr (Veräußerungskosten)
+// Disposal proceeds: quantity × price − fee (disposal costs)
 function disposalProceeds(tx: EngineTx): Decimal {
   if (tx.priceEur === null) return ZERO
   return tx.quantity.mul(tx.priceEur).sub(tx.feeEur ?? ZERO)
@@ -175,11 +176,11 @@ function inYear(date: Date, year: number): boolean {
   return date.getUTCFullYear() === year
 }
 
-// Verknüpfte Paare werden normalisiert: das „eingehende"
-// Leg (DEPOSIT bzw. BUY) darf nominell bis 24 h vor dem „ausgehenden" liegen
-// (CSV-Tagesgranularität) — sein Sortierschlüssel wird auf den Out-Zeitpunkt
-// angehoben, Tie-Break „Out zuerst". Gilt für Transfer-Paare (WITHDRAWAL↔DEPOSIT)
-// und Swap-Paare (SELL↔BUY), damit das Out-Leg garantiert vorher verarbeitet wird.
+// Linked pairs are normalized: the "incoming"
+// leg (DEPOSIT or BUY) may nominally sit up to 24 h before the "outgoing" one
+// (CSV day-level granularity) — its sort key is raised to the out timestamp,
+// tie-break "out first". Applies to transfer pairs (WITHDRAWAL↔DEPOSIT) and swap
+// pairs (SELL↔BUY), so the out leg is guaranteed to be processed first.
 function chronologicalWithTransferOrder(txs: EngineTx[]): EngineTx[] {
   const outTsByTransfer = new Map<string, number>()
   const outTsBySwap = new Map<string, number>()
@@ -203,17 +204,17 @@ function chronologicalWithTransferOrder(txs: EngineTx[]): EngineTx[] {
     }
     return own
   }
-  // Out-Legs (WITHDRAWAL/SELL) vor In-Legs (DEPOSIT/BUY) bei Gleichstand
+  // Out legs (WITHDRAWAL/SELL) before in legs (DEPOSIT/BUY) on a tie
   const legOrder = (tx: EngineTx): number =>
     tx.type === 'WITHDRAWAL' || (tx.type === 'SELL' && tx.swapGroupId !== null) ? 0 : 1
   return [...txs].sort((a, b) => sortKey(a) - sortKey(b) || legOrder(a) - legOrder(b))
 }
 
-// Übernimmt umgezogene Slices als Ziel-Lots, FIFO-getrimmt auf die Einzahlungs-
-// menge: die Differenz (Netzwerkgebühr) sind die jüngsten verbrauchten Anteile,
-// ihre Kostenbasis verfällt still (konservativ, kein Abzug). Danach wird die
-// FIFO-Ordnung im Ziel nach Anschaffungsdatum wiederhergestellt — ein altes,
-// umgezogenes Lot muss vor jüngeren Ziel-Lots verbraucht werden (null zuletzt).
+// Takes moved slices as target lots, FIFO-trimmed to the deposit quantity:
+// the difference (network fee) is the most recently consumed portions, whose
+// cost basis lapses silently (conservative, no deduction). Afterwards the
+// FIFO order in the target is restored by acquisition date — an old, moved lot
+// must be consumed before newer target lots (null last).
 function receiveTransferSlices(lots: Lot[], moved: ConsumedSlice[], quantity: Decimal): void {
   let open = quantity
   for (const slice of moved) {
@@ -230,8 +231,8 @@ function receiveTransferSlices(lots: Lot[], moved: ConsumedSlice[], quantity: De
   )
 }
 
-// Erzeugt aus den verbrauchten Slices die Veräußerungszeilen; der Erlös wird
-// mengenproportional verteilt. Keine Warnung-Logik — die liegt beim Aufrufer.
+// Builds the disposal rows from the consumed slices; the proceeds are
+// distributed proportionally to quantity. No warning logic — that is the caller's.
 function buildDisposals(
   tx: EngineTx,
   slices: ConsumedSlice[],
@@ -262,21 +263,21 @@ function sumGains(disposals: EngineDisposal[]): Decimal {
   return disposals.reduce((sum, d) => sum.add(d.gainEur), ZERO)
 }
 
-// ——————————————————————————— Deutschland ———————————————————————————
+// ——————————————————————————— Germany ———————————————————————————
 
-// Freigrenze §23 Abs. 3 EStG: 600 € bis VZ 2023, 1.000 € ab VZ 2024
+// Freigrenze §23 Abs. 3 EStG: 600 € up to assessment period 2023, 1,000 € from 2024 on
 function deThreshold(year: number): Decimal {
   return new Prisma.Decimal(year >= 2024 ? 1000 : 600)
 }
 
-// Freigrenze §22 Nr. 3 EStG für sonstige Einkünfte (Staking-Zuflüsse)
+// Freigrenze §22 Nr. 3 EStG for other income (staking inflows)
 const DE_STAKING_THRESHOLD = new Prisma.Decimal(256)
 
 export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
   const warnings = new WarningCollector()
-  // walletbezogenes FIFO: Lots je (Quelle, Asset)
+  // wallet-based FIFO: lots per (source, asset)
   const lotsByWallet = new Map<string, Lot[]>()
-  // umgezogene Slices verknüpfter Transfers, bis das Deposit-Leg sie abholt
+  // moved slices of linked transfers, until the deposit leg picks them up
   const pendingTransfers = new Map<string, ConsumedSlice[]>()
   const allDisposals: EngineDisposal[] = []
   let stakingIncome = ZERO
@@ -292,20 +293,20 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
         if (tx.type === 'DEPOSIT' && tx.transferGroupId !== null) {
           const moved = pendingTransfers.get(tx.transferGroupId)
           if (moved) {
-            // verknüpfter Transfer: Kostenbasis + Anschaffungsdatum ziehen mit um
+            // linked transfer: cost basis + acquisition date move along
             pendingTransfers.delete(tx.transferGroupId)
             receiveTransferSlices(lots, moved, tx.quantity)
             break
           }
-          // Withdrawal-Leg fehlt im Stream (defensiv) → wie unverlinkt behandeln
+          // withdrawal leg missing from the stream (defensive) → treat as unlinked
         }
         const cost = acquisitionCost(tx, warnings)
         lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
         break
       }
       case 'STAKING_REWARD': {
-        // §22 Nr. 3 EStG: Zufluss zum Marktwert = sonstige Einkünfte;
-        // Anschaffungskosten = Zuflusswert, Haltefrist läuft ab Zufluss
+        // §22 Nr. 3 EStG: inflow at market value = other income;
+        // acquisition cost = inflow value, holding period starts at inflow
         const cost = acquisitionCost(tx, warnings)
         lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
         if (inYear(tx.timestamp, year) && tx.priceEur !== null) {
@@ -321,7 +322,7 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
         }
         allDisposals.push(
           ...buildDisposals(tx, slices, 'DE_PRIVATE_SALE', (slice) =>
-            // unbekannte Anschaffung → wie ≤ 1 Jahr gehalten (steuerpflichtig)
+            // unknown acquisition → treated as held ≤ 1 year (taxable)
             slice.acquiredAt === null ? true : !heldOverOneYear(slice.acquiredAt, tx.timestamp),
           ),
         )
@@ -330,10 +331,10 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
       case 'WITHDRAWAL': {
         const slices = consumeFifo(lots, tx.quantity)
         if (tx.transferGroupId !== null) {
-          // verknüpfter Transfer: Slices warten auf das Deposit-Leg — keine Warnung
+          // linked transfer: slices wait for the deposit leg — no warning
           pendingTransfers.set(tx.transferGroupId, slices)
         } else {
-          // kein steuerbarer Vorgang, aber die Kostenbasis verlässt die Verfolgung
+          // not a taxable event, but the cost basis leaves the tracking
           warnings.add(TaxWarningCode.WITHDRAWAL_REMOVED_LOTS, tx.assetSymbol)
         }
         break
@@ -344,12 +345,12 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
         break
     }
   }
-  // verbleibende pendingTransfers (Deposit-Leg fehlt im Stream): Basis hat das
-  // System verlassen — wie unverlinktes Withdrawal, bewusst ohne weitere Aktion
+  // remaining pendingTransfers (deposit leg missing from the stream): basis has
+  // left the system — like an unlinked withdrawal, deliberately no further action
 
   const disposals = allDisposals.filter((d) => inYear(d.disposedAt, year))
-  // Zeilen ohne Veräußerungskurs sind unvollständig — sie würden die Summen
-  // als künstlicher Verlust verfälschen und bleiben deshalb außen vor
+  // rows without a disposal price are incomplete — they would distort the totals
+  // as an artificial loss and are therefore left out
   const complete = disposals.filter((d) => d.priceQuality !== 'MISSING')
 
   const totalGain = sumGains(complete)
@@ -357,10 +358,10 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
   const taxableNet = sumGains(complete.filter((d) => d.taxable))
 
   const threshold = deThreshold(year)
-  // Freigrenze: positiver Gewinn unterhalb der Grenze → 0; ab der Grenze voll steuerpflichtig.
-  // Netto-Verlust bleibt als Verlust stehen (Verlustverrechnung nur innerhalb §23).
+  // Freigrenze: positive gain below the limit → 0; at or above the limit fully taxable.
+  // A net loss remains as a loss (loss offsetting only within §23).
   const underThreshold = taxableNet.gt(0) && taxableNet.lt(threshold)
-  // Staking: eigene Freigrenze 256 € (§22 Nr. 3 Satz 2 EStG), gleiche Semantik
+  // Staking: own Freigrenze 256 € (§22 Nr. 3 Satz 2 EStG), same semantics
   const stakingUnderThreshold = stakingIncome.gt(0) && stakingIncome.lt(DE_STAKING_THRESHOLD)
 
   return {
@@ -380,26 +381,26 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
   }
 }
 
-// ——————————————————————————— Österreich ———————————————————————————
+// ——————————————————————————— Austria ———————————————————————————
 
-// Neuvermögen als gleitender Durchschnittspreis-Pool pro Asset
+// Neuvermögen (post-cutoff holdings) as a moving average price pool per asset
 interface NeuPool {
   quantity: Decimal
   totalCost: Decimal
 }
 
-// Freigrenze §31 Abs. 3 EStG aF — gilt nur für Altvermögen-Spekulationsgeschäfte
+// Freigrenze §31 Abs. 3 EStG aF — applies only to Altvermögen speculation transactions
 const AT_ALT_THRESHOLD = new Prisma.Decimal(440)
 
 export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
   const warnings = new WarningCollector()
   const altLotsByAsset = new Map<string, Lot[]>()
   const neuPoolByAsset = new Map<string, NeuPool>()
-  // gestashte Kostenbasis je Swap-Group: SELL-Leg legt ab, BUY-Leg übernimmt
+  // stashed cost basis per swap group: the SELL leg deposits, the BUY leg takes over
   const pendingSwaps = new Map<string, Decimal>()
   const allDisposals: EngineDisposal[] = []
 
-  // Swaps erfordern Out-vor-In-Reihenfolge (SELL stasht, BUY übernimmt)
+  // swaps require out-before-in order (SELL stashes, BUY takes over)
   for (const tx of chronologicalWithTransferOrder(txs)) {
     const altLots = altLotsByAsset.get(tx.assetId) ?? []
     altLotsByAsset.set(tx.assetId, altLots)
@@ -409,15 +410,15 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
     switch (tx.type) {
       case 'BUY':
       case 'DEPOSIT': {
-        // verknüpfter Transfer: bei globalen Pools genuin neutral → Leg überspringen
-        // (Vereinfachung: die Netzwerkgebühr bleibt im Pool, Bestand minimal überzeichnet)
+        // linked transfer: genuinely neutral with global pools → skip the leg
+        // (simplification: the network fee stays in the pool, holdings slightly overstated)
         if (tx.type === 'DEPOSIT' && tx.transferGroupId !== null) break
-        // Swap-BUY (Asset B): übernimmt die Kostenbasis des getauschten A (§27b),
-        // landet als Neuvermögen — unabhängig vom Tauschzeitpunkt
+        // swap BUY (asset B): takes over the cost basis of the swapped A (§27b),
+        // lands as Neuvermögen — independent of the swap timestamp
         if (tx.type === 'BUY' && tx.swapGroupId !== null) {
           const carried = pendingSwaps.get(tx.swapGroupId)
-          // Fehlt das SELL-Leg im Stream, ist die übernommene Basis unbekannt (0) —
-          // ohne Hinweis überzeichnet eine spätere Veräußerung von B den Gewinn.
+          // if the SELL leg is missing from the stream, the carried basis is unknown (0) —
+          // without a hint a later disposal of B would overstate the gain.
           if (carried === undefined) warnings.add(TaxWarningCode.UNKNOWN_ACQUISITION_BASIS, tx.assetSymbol)
           pendingSwaps.delete(tx.swapGroupId)
           neuPool.quantity = neuPool.quantity.add(tx.quantity)
@@ -426,31 +427,31 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
         }
         const cost = acquisitionCost(tx, warnings)
         if (tx.timestamp.getTime() < AT_ALT_CUTOFF.getTime()) {
-          // Altvermögen: einzelne Lots, alte Spekulationsfrist gilt
+          // Altvermögen: individual lots, the old speculation period applies
           altLots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
         } else {
-          // Neuvermögen: gleitender Durchschnittspreis (KryptowährungsVO)
+          // Neuvermögen: moving average price (KryptowährungsVO)
           neuPool.quantity = neuPool.quantity.add(tx.quantity)
           neuPool.totalCost = neuPool.totalCost.add(cost)
         }
         break
       }
       case 'STAKING_REWARD': {
-        // §27b Abs. 2 EStG: kein Zufluss-Einkommen, Anschaffungskosten 0 —
-        // Besteuerung des vollen Werts erst bei der Veräußerung
+        // §27b Abs. 2 EStG: no inflow income, acquisition cost 0 —
+        // the full value is taxed only at disposal
         if (tx.timestamp.getTime() < AT_ALT_CUTOFF.getTime()) {
           altLots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: ZERO })
         } else {
           neuPool.quantity = neuPool.quantity.add(tx.quantity)
-          // totalCost unverändert: Kosten 0
+          // totalCost unchanged: cost 0
         }
         break
       }
       case 'SELL':
       case 'WITHDRAWAL': {
-        // verknüpfter Transfer: Gegenstück zum übersprungenen Deposit-Leg
+        // linked transfer: counterpart to the skipped deposit leg
         if (tx.type === 'WITHDRAWAL' && tx.transferGroupId !== null) break
-        // Altvermögen zuerst verbrauchen (dokumentierte Annahme), dann Durchschnittspool
+        // consume Altvermögen first (documented assumption), then the average pool
         const altSlices: ConsumedSlice[] = []
         const neuSlices: ConsumedSlice[] = []
         let open = tx.quantity
@@ -471,7 +472,7 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
         }
         const oversold = open.gt(0)
         if (oversold) {
-          // ungedeckter Anteil: Anschaffung unbekannt → Neuvermögen unterstellt (konservativ)
+          // uncovered portion: acquisition unknown → assumed Neuvermögen (conservative)
           neuSlices.push({ acquiredAt: null, quantity: open, costBasisEur: ZERO })
         }
 
@@ -480,13 +481,13 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
           break
         }
 
-        // Swap-SELL (Asset A): steueraufgeschoben (§27b) — keine Veräußerung;
-        // die verbrauchte Kostenbasis wandert auf das BUY-Leg (Asset B)
+        // swap SELL (asset A): tax-deferred (§27b) — not a disposal;
+        // the consumed cost basis moves to the BUY leg (asset B)
         if (tx.swapGroupId !== null) {
           const carried = [...altSlices, ...neuSlices].reduce((sum, s) => sum.add(s.costBasisEur), ZERO)
           pendingSwaps.set(tx.swapGroupId, carried)
           warnings.add(TaxWarningCode.SWAP_DEFERRED, tx.assetSymbol)
-          // mehr getauscht als angeschafft → weitergereichte Basis ist zu niedrig
+          // swapped more than acquired → the carried-forward basis is too low
           if (oversold) warnings.add(TaxWarningCode.SOLD_MORE_THAN_ACQUIRED, tx.assetSymbol)
           break
         }
@@ -498,7 +499,7 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
           ...buildDisposals(tx, altSlices, 'AT_ALTVERMOEGEN', (slice) =>
             slice.acquiredAt === null ? true : !heldOverOneYear(slice.acquiredAt, tx.timestamp),
           ),
-          // Neuvermögen ist unabhängig von der Haltedauer immer steuerpflichtig (27,5 %)
+          // Neuvermögen is always taxable regardless of holding period (27.5 %)
           ...buildDisposals(tx, neuSlices, 'AT_NEUVERMOEGEN', () => true),
         )
         break
@@ -520,7 +521,7 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
   const taxFreeGain = sumGains(altComplete.filter((d) => !d.taxable))
   const altTaxableNet = sumGains(altComplete.filter((d) => d.taxable))
 
-  // Freigrenze 440 € nur auf Altvermögen-Spekulationsgewinne
+  // Freigrenze 440 € only on Altvermögen speculation gains
   const underThreshold = altTaxableNet.gt(0) && altTaxableNet.lt(AT_ALT_THRESHOLD)
   const altAfterThreshold = underThreshold ? ZERO : altTaxableNet
 
@@ -544,12 +545,12 @@ export interface HoldingCostBasis {
   costBasisEur: Decimal
 }
 
-// Kostenbasis der AKTUELL gehaltenen Menge je (Quelle, Asset) — für die
-// unrealisierte PnL-Anzeige. Replay aller Transaktionen mit wallet-bezogenem FIFO
-// (wie computeReportDE, ohne Jahr-/Gewinn-/Freigrenzen-Logik); am Ende die offenen
-// Lots aggregieren. Key: `${sourceId}|${assetId}`.
+// Cost basis of the CURRENTLY held quantity per (source, asset) — for the
+// unrealized PnL display. Replays all transactions with wallet-based FIFO
+// (like computeReportDE, without year/gain/Freigrenze logic); at the end the open
+// lots are aggregated. Key: `${sourceId}|${assetId}`.
 export function computeHoldingsCostBasis(txs: EngineTx[]): Map<string, HoldingCostBasis> {
-  const warnings = new WarningCollector() // verworfen — reine Kostenbasis
+  const warnings = new WarningCollector() // discarded — cost basis only
   const lotsByWallet = new Map<string, Lot[]>()
   const pendingTransfers = new Map<string, ConsumedSlice[]>()
 

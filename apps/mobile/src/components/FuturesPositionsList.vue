@@ -48,7 +48,7 @@ import { balancesHidden } from '../services/privacy'
 
 const portfolio = usePortfolioStore()
 
-// uPnL grün/rot — bei Privatsphäre-Maske keine Farbe (Vorzeichen nicht durchsickern lassen)
+// uPnL green/red — no color when the privacy mask is on (don't let the sign leak)
 function isNegative(value: string | null): boolean {
   return !balancesHidden.value && value !== null && Number(value) < 0
 }

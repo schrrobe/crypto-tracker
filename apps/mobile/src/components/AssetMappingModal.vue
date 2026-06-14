@@ -91,7 +91,7 @@ watch(
     selected.value = null
     searched.value = false
     error.value = ''
-    // Vorbefüllung mit dem Symbol des Assets
+    // Prefill with the asset's symbol
     if (props.asset) await search(props.asset.symbol)
   },
 )

@@ -20,12 +20,12 @@ export interface TestUser {
 
 export const PASSWORD = 'superSicheresPasswort1'
 
-// Default-Plan PRO: die meisten Tests prüfen Funktionalität, nicht das Gating,
-// und sollen nicht an Free-Limits (Quellen/Portfolios/Steuerreport) stoßen.
-// Gating-Tests fordern explizit 'FREE' an.
+// Default plan PRO: most tests check functionality, not the gating,
+// and should not hit free limits (sources/portfolios/tax report).
+// Gating tests explicitly request 'FREE'.
 export async function registerUser(prefix = 'user', plan: 'FREE' | 'PRO' = 'PRO'): Promise<TestUser> {
-  // X-Client: native → Refresh-Token kommt im Body (statt httpOnly-Cookie),
-  // damit die Integrationstests ihn direkt verwenden können
+  // X-Client: native → refresh token comes in the body (instead of httpOnly cookie),
+  // so the integration tests can use it directly
   const res = await request(app)
     .post(`${API}/auth/register`)
     .set('X-Client', 'native')
@@ -45,12 +45,12 @@ export function bearer(user: TestUser): [string, string] {
   return ['Authorization', `Bearer ${user.token}`]
 }
 
-// Dev-Schalter (nur APP_ENV=local): Plan zum Testen des Gatings setzen
+// Dev switch (only APP_ENV=local): set the plan to test the gating
 export async function setPlan(user: TestUser, plan: 'FREE' | 'PRO') {
   await request(app).patch(`${API}/auth/me`).set(...bearer(user)).send({ plan }).expect(200)
 }
 
-// Fake-Provider-Quelle (FAKE_PROVIDERS=true): Sync liefert 0.1 BTC + 2 ETH
+// Fake provider source (FAKE_PROVIDERS=true): sync returns 0.1 BTC + 2 ETH
 export async function createExchangeSource(
   user: TestUser,
   label: string,

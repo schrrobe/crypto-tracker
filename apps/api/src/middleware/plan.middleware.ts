@@ -3,26 +3,26 @@ import type { Plan } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { AppError } from '../lib/errors'
 
-// Karenz für Webhook-Verzögerung (Verlängerung kommt erst kurz vor/nach Ablauf an)
+// Grace period for webhook delay (the renewal only arrives shortly before/after expiry)
 const PLAN_GRACE_MS = 3 * 24 * 60 * 60 * 1000
 
-// Plan des eingeloggten Nutzers laden (für Gating in Services/Routen).
+// Load the logged-in user's plan (for gating in services/routes).
 export async function getPlan(userId: string): Promise<Plan> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { plan: true, planUntil: true },
   })
   if (!user) throw AppError.unauthorized()
-  // PRO läuft ab, wenn das per Stripe gesetzte Periodenende (+ Karenz) überschritten
-  // ist — schützt vor einem verpassten Downgrade-Webhook. Ohne planUntil
-  // (Dev-Schalter / unbekannt) bleibt der Plan bestehen (kein Fehl-Downgrade).
+  // PRO expires once the Stripe-set period end (+ grace) has passed — this guards
+  // against a missed downgrade webhook. Without planUntil (dev switch / unknown)
+  // the plan stays in place (no erroneous downgrade).
   if (user.plan === 'PRO' && user.planUntil && user.planUntil.getTime() + PLAN_GRACE_MS < Date.now()) {
     return 'FREE'
   }
   return user.plan
 }
 
-// Route-Guard: nur Pro. Voraussetzung: requireAuth lief vorher (req.userId).
+// Route guard: Pro only. Precondition: requireAuth ran before (req.userId).
 export const requirePro: RequestHandler = (req, _res, next) => {
   getPlan(req.userId)
     .then((plan) => {

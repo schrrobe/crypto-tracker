@@ -12,7 +12,7 @@ import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 const MANUAL_TX_SOURCE_LABEL = 'Manuelle Transaktionen'
 
-// Includes für DTO-Mapping: Gegenseite des Transfer-Links inkl. Quelle
+// Includes for DTO mapping: the counterpart of the transfer link incl. its source
 const TX_INCLUDE = {
   asset: true,
   source: true,
@@ -61,7 +61,7 @@ function toTransactionDto(tx: TxWithRelations): TransactionDto {
     id: tx.id,
     sourceId: tx.sourceId,
     sourceLabel: tx.source.label,
-    // importierte Transaktionen gehören dem CSV-Import — nur manuelle sind änderbar
+    // imported transactions belong to the CSV import — only manual ones are editable
     editable: tx.source.type === 'MANUAL',
     asset: {
       id: tx.asset.id,
@@ -81,9 +81,9 @@ function toTransactionDto(tx: TxWithRelations): TransactionDto {
   }
 }
 
-// Genau eine automatisch verwaltete MANUAL-Quelle pro Portfolio für manuelle
-// Transaktionen. Erkennung primär über vorhandene Transaktionen (Label ist über
-// PATCH /sources umbenennbar), sekundär über das Standard-Label, sonst neu anlegen.
+// Exactly one automatically managed MANUAL source per portfolio for manual
+// transactions. Detected primarily via existing transactions (the label can be
+// renamed via PATCH /sources), secondarily via the default label, otherwise created anew.
 async function getOrCreateManualTxSource(userId: string, portfolioId: string) {
   const withTx = await prisma.portfolioSource.findFirst({
     where: { userId, portfolioId, type: 'MANUAL', transactions: { some: {} } },
@@ -100,7 +100,7 @@ async function getOrCreateManualTxSource(userId: string, portfolioId: string) {
   })
 }
 
-// Bestände der Quelle aus den Transaktionen neu ableiten (gleiche Netto-Regel wie CSV-Import)
+// Re-derive the source's balances from its transactions (same net rule as the CSV import)
 async function recomputeHoldings(sourceId: string): Promise<void> {
   const txs = await prisma.transaction.findMany({
     where: { sourceId },
@@ -123,7 +123,7 @@ export async function listTransactions(
   const pid = await resolvePortfolioId(userId, query.portfolioId)
   const where: Prisma.TransactionWhereInput = { source: { userId, portfolioId: pid } }
   if (query.assetId) where.assetId = query.assetId
-  // Ownership steckt bereits im source.userId-Filter — fremde sourceId liefert leer
+  // Ownership is already enforced by the source.userId filter — a foreign sourceId returns empty
   if (query.sourceId) where.sourceId = query.sourceId
   if (query.year) {
     where.timestamp = {
@@ -165,7 +165,7 @@ export async function createTransaction(
   return toTransactionDto(tx)
 }
 
-// Fremde und importierte Transaktionen → 404 (Ownership-Konvention, keine Existenz preisgeben)
+// Foreign and imported transactions → 404 (ownership convention, do not reveal existence)
 async function getOwnedManualTransaction(userId: string, txId: string) {
   const tx = await prisma.transaction.findFirst({
     where: { id: txId, source: { userId } },
@@ -182,8 +182,8 @@ export async function updateTransaction(
 ): Promise<TransactionDto> {
   const existing = await getOwnedManualTransaction(userId, txId)
 
-  // Verlinkte Transfer-Seiten dürfen die Link-Invarianten (Typ/Asset/Menge/Zeit)
-  // nicht nachträglich brechen — erst entlinken, dann editieren
+  // Linked transfer legs must not retroactively break the link invariants
+  // (type/asset/quantity/time) — unlink first, then edit
   const touchesLinkInvariants =
     input.type !== undefined ||
     input.assetId !== undefined ||

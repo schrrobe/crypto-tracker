@@ -1,5 +1,5 @@
-// Anzeigenamen aller Provider (Exchanges + Chains) — geteilt zwischen
-// Quellen-Modal und CSV-Import-Wizard.
+// Display names of all providers (exchanges + chains) — shared between
+// the source modal and the CSV import wizard.
 export const PROVIDER_LABELS: Record<string, string> = {
   COINBASE: 'Coinbase',
   KRAKEN: 'Kraken',

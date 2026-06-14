@@ -73,10 +73,10 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     )
     expect(report.disposals).toHaveLength(2)
     const [old, recent] = report.disposals
-    // Lot von 2022: > 1 Jahr gehalten → steuerfrei
+    // 2022 lot: held > 1 year → tax-free
     expect(old?.taxable).toBe(false)
     expect(old?.gainEur.toString()).toBe('20000')
-    // Lot von 2024: steuerpflichtig
+    // 2024 lot: taxable
     expect(recent?.taxable).toBe(true)
     expect(recent?.gainEur.toString()).toBe('5000')
 
@@ -170,7 +170,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
       ],
       2024,
     )
-    // +500 − 200 = 300 < 1000 → Freigrenze nicht erreicht
+    // +500 − 200 = 300 < 1000 → Freigrenze not reached
     expect(report.totals.taxableGainEur.toString()).toBe('300')
     expect(report.totals.taxableAfterThresholdEur.toString()).toBe('0')
   })
@@ -240,7 +240,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
       ],
       2024,
     )
-    // das 2020er-Lot ist weg — verkauft wird das 2024er-Lot
+    // the 2020 lot is gone — the 2024 lot is the one sold
     expect(report.disposals).toHaveLength(1)
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('20000')
     expect(report.disposals[0]?.taxable).toBe(true)
@@ -256,7 +256,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
       ],
       2024,
     )
-    // TRANSFER hat den Bestand nicht verändert
+    // TRANSFER did not change the balance
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('100')
     expect(warningCodes(report)).toContain('TRANSFERS_IGNORED')
   })
@@ -268,7 +268,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     ]
     const y2025 = computeReportDE(txs, 2025)
     expect(y2025.disposals).toHaveLength(1)
-    expect(y2025.disposals[0]?.taxable).toBe(false) // > 1 Jahr
+    expect(y2025.disposals[0]?.taxable).toBe(false) // > 1 year
 
     const y2024 = computeReportDE(txs, 2024)
     expect(y2024.disposals).toHaveLength(0)
@@ -286,7 +286,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     expect(report.disposals).toHaveLength(1)
     expect(report.disposals[0]?.priceQuality).toBe('MISSING')
     expect(warningCodes(report)).toContain('MISSING_DISPOSAL_PRICE')
-    // kein künstlicher Verlust in den Summen
+    // no artificial loss in the totals
     expect(report.totals.totalGainEur.toString()).toBe('0')
     expect(report.totals.taxableGainEur.toString()).toBe('0')
   })
@@ -303,17 +303,17 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
       [
         tx({ type: 'BUY', qty: 1, price: 100, ts: '2024-01-01T00:00:00Z', source: 'A' }),
         tx({ type: 'SELL', qty: 1, price: 200, ts: '2024-03-01T00:00:00Z', source: 'B' }),
-        // Beweis: A ist unberührt — Verkauf auf A nutzt das A-Lot
+        // proof: A is untouched — a sale on A uses the A lot
         tx({ type: 'SELL', qty: 1, price: 300, ts: '2024-06-01T00:00:00Z', source: 'A' }),
       ],
       2024,
     )
     const onB = report.disposals.find((d) => d.sourceId === 'B')
     const onA = report.disposals.find((d) => d.sourceId === 'A')
-    // B hat keine Lots → Oversell mit Basis 0
+    // B has no lots → oversell with basis 0
     expect(onB?.costBasisEur.toString()).toBe('0')
     expect(onB?.acquiredAt).toBeNull()
-    // A verkauft sein eigenes Lot mit Basis 100
+    // A sells its own lot with basis 100
     expect(onA?.costBasisEur.toString()).toBe('100')
     expect(warningCodes(report)).toContain('SOLD_MORE_THAN_ACQUIRED')
   })
@@ -329,10 +329,10 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
       2024,
     )
     expect(report.disposals).toHaveLength(1)
-    // Anschaffung 2020 bleibt erhalten → > 1 Jahr → steuerfrei
+    // 2020 acquisition is preserved → > 1 year → tax-free
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('1000')
     expect(report.disposals[0]?.taxable).toBe(false)
-    // keine Transfer-bezogenen Warnungen
+    // no transfer-related warnings
     expect(warningCodes(report)).not.toContain('WITHDRAWAL_REMOVED_LOTS')
     expect(warningCodes(report)).not.toContain('UNKNOWN_ACQUISITION_BASIS')
   })
@@ -348,7 +348,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
       2023,
     )
     expect(report.disposals).toHaveLength(1)
-    // Basis anteilig: 0,995 × 1000 = 995
+    // basis pro rata: 0.995 × 1000 = 995
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('995')
     expect(report.disposals[0]?.quantity.toString()).toBe('0.995')
   })
@@ -364,7 +364,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
       ],
       2024,
     )
-    // verkauft wird das 2020er-Lot (Basis 1000), nicht das 2022er B-Lot
+    // the 2020 lot (basis 1000) is sold, not the 2022 B lot
     expect(report.disposals).toHaveLength(1)
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('1000')
     expect(report.disposals[0]?.taxable).toBe(false)
@@ -374,7 +374,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     const report = computeReportDE(
       [
         tx({ type: 'BUY', qty: 1, price: 100, ts: '2022-01-01T00:00:00Z', source: 'A' }),
-        // CSV-Tagesgranularität: Deposit 6 h „vor" dem Withdrawal
+        // CSV day-level granularity: deposit 6 h "before" the withdrawal
         tx({ type: 'DEPOSIT', qty: 1, ts: '2023-01-01T00:00:00Z', source: 'B', transferGroup: 'g1' }),
         tx({ type: 'WITHDRAWAL', qty: 1, ts: '2023-01-01T06:00:00Z', source: 'A', transferGroup: 'g1' }),
         tx({ type: 'SELL', qty: 1, price: 500, ts: '2024-06-01T00:00:00Z', source: 'B' }),
@@ -393,7 +393,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
       ],
       2024,
     )
-    // Deposit ohne Kurs → Basis 0 + Warnung, wie unverlinkt
+    // deposit without a price → basis 0 + warning, as if unlinked
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('0')
     expect(warningCodes(report)).toContain('UNKNOWN_ACQUISITION_BASIS')
   })
@@ -402,7 +402,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     const report = computeReportDE(
       [
         tx({ type: 'BUY', qty: '0.4', price: 1000, ts: '2020-01-01T00:00:00Z', source: 'A' }),
-        // Withdrawal über mehr als getrackt: 0,6 ungedeckt
+        // withdrawal for more than tracked: 0.6 uncovered
         tx({ type: 'WITHDRAWAL', qty: 1, ts: '2023-01-01T00:00:00Z', source: 'A', transferGroup: 'g1' }),
         tx({ type: 'DEPOSIT', qty: 1, ts: '2023-01-01T01:00:00Z', source: 'B', transferGroup: 'g1' }),
         tx({ type: 'SELL', qty: 1, price: 1000, ts: '2024-06-01T00:00:00Z', source: 'B' }),
@@ -412,10 +412,10 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     expect(report.disposals).toHaveLength(2)
     const covered = report.disposals.find((d) => d.acquiredAt !== null)
     const uncovered = report.disposals.find((d) => d.acquiredAt === null)
-    // gedeckter Anteil: 2020er-Basis, > 1 Jahr → steuerfrei
+    // covered portion: 2020 basis, > 1 year → tax-free
     expect(covered?.costBasisEur.toString()).toBe('400')
     expect(covered?.taxable).toBe(false)
-    // ungedeckter Anteil: Basis 0, steuerpflichtig
+    // uncovered portion: basis 0, taxable
     expect(uncovered?.costBasisEur.toString()).toBe('0')
     expect(uncovered?.taxable).toBe(true)
     expect(warningCodes(report)).toContain('SOLD_MORE_THAN_ACQUIRED')
@@ -448,7 +448,7 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     )
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('100')
     expect(report.disposals[0]?.gainEur.toString()).toBe('400')
-    // > 1 Jahr gehalten → steuerfrei; Zufluss-Einkommen zählt nicht ins Reportjahr 2024
+    // held > 1 year → tax-free; the inflow income does not count toward report year 2024
     expect(report.disposals[0]?.taxable).toBe(false)
     expect(report.totals.stakingIncomeEur?.toString()).toBe('0')
   })
@@ -473,9 +473,9 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
       [
         tx({ type: 'BUY', qty: 1, price: 100, ts: '2022-01-01T00:00:00Z' }),
         tx({ type: 'BUY', qty: 1, price: 200, ts: '2022-02-01T00:00:00Z' }),
-        // Durchschnitt 150 → Gewinn 100
+        // average 150 → gain 100
         tx({ type: 'SELL', qty: 1, price: 250, ts: '2022-03-01T00:00:00Z' }),
-        // Pool: 1 Stück zu 150; +1 zu 300 → Durchschnitt 225 → Gewinn 0
+        // pool: 1 unit at 150; +1 at 300 → average 225 → gain 0
         tx({ type: 'BUY', qty: 1, price: 300, ts: '2022-04-01T00:00:00Z' }),
         tx({ type: 'SELL', qty: 1, price: 225, ts: '2022-05-01T00:00:00Z' }),
       ],
@@ -526,7 +526,7 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
     )
     expect(report.disposals[0]?.taxable).toBe(true)
     expect(report.totals.taxableGainEur.toString()).toBe('400')
-    // 400 < 440 → Freigrenze nicht erreicht
+    // 400 < 440 → Freigrenze not reached
     expect(report.totals.thresholdApplied).toBe(false)
     expect(report.totals.taxableAfterThresholdEur.toString()).toBe('0')
   })
@@ -541,7 +541,7 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
     )
     expect(report.disposals[0]?.regime).toBe('AT_NEUVERMOEGEN')
     expect(report.disposals[0]?.taxable).toBe(true)
-    // keine Freigrenze auf Neuvermögen
+    // no Freigrenze on Neuvermögen
     expect(report.totals.taxableAfterThresholdEur.toString()).toBe('400')
     expect(report.totals.atNeuvermoegenGainEur?.toString()).toBe('400')
   })
@@ -558,11 +558,11 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
     expect(report.disposals).toHaveLength(2)
     const alt = report.disposals.find((d) => d.regime === 'AT_ALTVERMOEGEN')
     const neu = report.disposals.find((d) => d.regime === 'AT_NEUVERMOEGEN')
-    // Alt: 1 Stück, Basis 100, Erlös 300, > 1 Jahr → steuerfrei
+    // Altvermögen: 1 unit, basis 100, proceeds 300, > 1 year → tax-free
     expect(alt?.quantity.toString()).toBe('1')
     expect(alt?.gainEur.toString()).toBe('200')
     expect(alt?.taxable).toBe(false)
-    // Neu: 0,5 Stück, Basis 100 (Durchschnitt 200), Erlös 150 → Gewinn 50
+    // Neuvermögen: 0.5 unit, basis 100 (average 200), proceeds 150 → gain 50
     expect(neu?.quantity.toString()).toBe('0.5')
     expect(neu?.costBasisEur.toString()).toBe('100')
     expect(neu?.gainEur.toString()).toBe('50')
@@ -595,7 +595,7 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
       ],
       2024,
     )
-    // Altbestand wurde abgehoben — verkauft wird Neuvermögen (Basis 200)
+    // the old holding was withdrawn — what is sold is Neuvermögen (basis 200)
     expect(report.disposals).toHaveLength(1)
     expect(report.disposals[0]?.regime).toBe('AT_NEUVERMOEGEN')
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('200')
@@ -615,7 +615,7 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
     ]
     const without = computeReportAT(base, 2024)
     const withTx = computeReportAT(withTransfer, 2024)
-    // identische Ergebnisse, keine Warnungen durch den Transfer
+    // identical results, no warnings caused by the transfer
     expect(withTx.totals.taxableAfterThresholdEur.toString()).toBe(
       without.totals.taxableAfterThresholdEur.toString(),
     )
@@ -632,7 +632,7 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
       ],
       2024,
     )
-    // §27b Abs. 2: Basis 0 → voller Erlös ist Gewinn (Neuvermögen, 27,5 %)
+    // §27b Abs. 2: basis 0 → the full proceeds are gain (Neuvermögen, 27.5 %)
     expect(report.disposals[0]?.regime).toBe('AT_NEUVERMOEGEN')
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('0')
     expect(report.disposals[0]?.gainEur.toString()).toBe('500')
@@ -702,12 +702,12 @@ describe('Tax Engine — Krypto-zu-Krypto-Swap', () => {
 
   it('AT: Tausch steueraufgeschoben — keine BTC-Veräußerung, Kostenbasis wandert auf ETH', () => {
     const at = computeReportAT(swapTxs(), 2024)
-    // nur der spätere ETH-Verkauf ist eine Veräußerung; der Tausch selbst nicht
+    // only the later ETH sale is a disposal; the swap itself is not
     expect(at.disposals).toHaveLength(1)
     const eth = at.disposals[0]
     expect(eth?.assetSymbol).toBe('ETH')
     expect(eth?.regime).toBe('AT_NEUVERMOEGEN')
-    // ETH-Kostenbasis = übernommene BTC-Kostenbasis 20.000 (nicht 25.000)
+    // ETH cost basis = carried-over BTC cost basis 20,000 (not 25,000)
     expect(eth?.costBasisEur.toString()).toBe('20000')
     expect(eth?.gainEur.toString()).toBe('10000')
     expect(warningCodes(at)).toContain('SWAP_DEFERRED')

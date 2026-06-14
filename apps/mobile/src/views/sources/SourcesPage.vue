@@ -161,7 +161,7 @@ async function onImportDone() {
   await Promise.all([sourcesStore.load(), portfolio.loadSummary(), portfolio.loadHoldings()])
 }
 
-// Eigennamen bleiben, generische Labels kommen aus i18n
+// Proper names stay, generic labels come from i18n
 function providerLabelKey(provider: string): string | null {
   return (
     {
@@ -262,7 +262,7 @@ async function confirmDelete(source: SourceDto) {
 
 onIonViewWillEnter(() => {
   loadData()
-  // Onboarding-Einstiege vom Dashboard
+  // Onboarding entry points from the dashboard
   if (route.query.add === '1') modalOpen.value = true
   if (route.query.csv === '1') csvWizardOpen.value = true
   if (route.query.add || route.query.csv) router.replace({ query: {} })

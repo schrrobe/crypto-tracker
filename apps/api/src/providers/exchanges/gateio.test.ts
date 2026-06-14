@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { gateioProvider, gateioSignature } from './gateio'
 
-// Realistische Gate.io-Response (GET /api/v4/spot/accounts)
+// Realistic Gate.io response (GET /api/v4/spot/accounts)
 const BALANCE_FIXTURE = [
-  { currency: 'BTC', available: '0.5', locked: '0.25' }, // beide Teile zählen
+  { currency: 'BTC', available: '0.5', locked: '0.25' }, // both parts count
   { currency: 'ETH', available: '3', locked: '0' },
-  { currency: 'USD', available: '100', locked: '0' }, // Fiat → übersprungen
-  { currency: 'ADA', available: '0', locked: '0' }, // Nullbestand → übersprungen
+  { currency: 'USD', available: '100', locked: '0' }, // fiat → skipped
+  { currency: 'ADA', available: '0', locked: '0' }, // zero balance → skipped
 ]
 
 function mockFetch(status: number, body: unknown) {
@@ -41,7 +41,7 @@ describe('gateioProvider.fetchBalances', () => {
     mockFetch(200, BALANCE_FIXTURE)
     const balances = await gateioProvider.fetchBalances(CREDS)
 
-    // BTC: available + locked als getrennte Einträge (SyncService summiert per Decimal)
+    // BTC: available + locked as separate entries (SyncService sums them via Decimal)
     expect(balances.filter((b) => b.symbol === 'BTC').map((b) => b.amount)).toEqual(['0.5', '0.25'])
     expect(balances).toContainEqual({ symbol: 'ETH', amount: '3' })
     expect(balances.map((b) => b.symbol)).not.toContain('USD')
@@ -56,9 +56,9 @@ describe('gateioProvider.fetchBalances', () => {
     expect(url).toBe('https://api.gateio.ws/api/v4/spot/accounts')
     const headers = init.headers as Record<string, string>
     expect(headers.KEY).toBe('test-key')
-    // Sekunden, nicht Millisekunden (10 Stellen statt 13)
+    // seconds, not milliseconds (10 digits instead of 13)
     expect(headers.Timestamp).toMatch(/^\d{10}$/)
-    // Signatur passt zum gesendeten Timestamp
+    // signature matches the sent timestamp
     expect(headers.SIGN).toBe(
       gateioSignature('GET', '/api/v4/spot/accounts', '', '', headers.Timestamp as string, 'gateio-secret'),
     )
