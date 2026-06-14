@@ -8,6 +8,19 @@ Personal crypto portfolio tracker (no trading, no withdrawals): balances from ex
 
 **Language convention:** **commit messages use English Conventional Commits** (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`); **README files are English**. Code comments, `docs/` files, and server error texts remain German. The frontend localizes via stable `error.code` values (6 locales: DE/EN/FR/PL/CS/RU in `apps/mobile/src/i18n/locales/`).
 
+## RTK / Shell commands
+
+For shell and development commands, prefer RTK-wrapped commands when useful.
+
+Use:
+- `rtk git status`
+- `rtk git diff`
+- `rtk rg "..."`
+- `rtk npm test`, `rtk pnpm test`, `rtk pytest`, `rtk cargo test`
+- `rtk docker ps`, `rtk docker logs ...`, `rtk kubectl ...`
+
+Use raw commands only when exact unfiltered output is required or when RTK does not support the command.
+
 ## Commands
 
 ```bash
