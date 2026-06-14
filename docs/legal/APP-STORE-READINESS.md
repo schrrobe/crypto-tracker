@@ -15,13 +15,13 @@
   Lizenz-Nachweise nötig — Deklaration trotzdem korrekt setzen.
 - Keine irreführenden Renditeversprechen, keine „garantierten Gewinne", keine Token-Promotion.
 
-## Pflicht: In-App-Konto-Löschung  ⛔ **offen (Code-Lücke)**
+## Pflicht: In-App-Konto-Löschung  ✅ **umgesetzt**
 
-Apple **und** Google verlangen: wer ein Konto anlegen kann, muss es **in der App** löschen können
-(Google zusätzlich: Web-Link zur Löschung). **Aktuell fehlt** ein Account-Lösch-Endpunkt
-(es gibt nur Logout + Portfolio-Löschung). **To-do:** `DELETE /auth/me` (löscht User + per Cascade
-Portfolios/Quellen/Holdings/Transaktionen/Tokens) + UI in den Einstellungen + öffentliche
-Lösch-Info-Seite.
+Apple **und** Google verlangen: wer ein Konto anlegen kann, muss es **in der App** löschen können.
+Umgesetzt: `DELETE /auth/me` (löscht User + Portfolios/Quellen/Holdings/Transaktionen/Tokens in
+korrekter Reihenfolge, transaktional) + „Konto löschen" mit Bestätigung in den Einstellungen,
+danach Redirect zur Anmeldung. **Offen für Google:** zusätzlich eine öffentlich erreichbare
+Web-URL zur Konto-Löschung (Play-Anforderung) bereitstellen.
 
 ## Zahlungen (falls Pro-Abo)
 

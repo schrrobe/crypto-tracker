@@ -309,6 +309,10 @@ const de = {
     baseCurrency: 'Basiswährung',
     signedInAs: 'Angemeldet als',
     logout: 'Abmelden',
+    deleteAccount: 'Konto löschen',
+    deleteAccountTitle: 'Konto endgültig löschen?',
+    deleteAccountMessage:
+      'Dein Konto und alle Daten (Portfolios, Quellen, Bestände, Transaktionen) werden unwiderruflich gelöscht.',
   },
   onboarding: {
     importCsv: 'CSV importieren',

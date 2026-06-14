@@ -99,6 +99,9 @@
         <ion-item button :detail="false" data-testid="logout-button" @click="logout">
           <ion-label color="danger">{{ $t('settings.logout') }}</ion-label>
         </ion-item>
+        <ion-item button :detail="false" data-testid="delete-account-button" @click="confirmDeleteAccount">
+          <ion-label color="danger">{{ $t('settings.deleteAccount') }}</ion-label>
+        </ion-item>
       </ion-list>
     </ion-content>
   </ion-page>
@@ -170,6 +173,32 @@ async function logout() {
   sources.reset()
   portfolios.reset()
   router.replace('/login')
+}
+
+async function confirmDeleteAccount() {
+  const alert = await alertController.create({
+    header: t('settings.deleteAccountTitle'),
+    message: t('settings.deleteAccountMessage'),
+    buttons: [
+      { text: t('common.cancel'), role: 'cancel' },
+      {
+        text: t('settings.deleteAccount'),
+        role: 'destructive',
+        handler: () => {
+          auth
+            .deleteAccount()
+            .then(() => {
+              portfolio.reset()
+              sources.reset()
+              portfolios.reset()
+              router.replace('/login')
+            })
+            .catch((e) => (portfolioError.value = apiErrorMessage(e, 'common.loadFailed')))
+        },
+      },
+    ],
+  })
+  await alert.present()
 }
 
 async function promptCreatePortfolio() {

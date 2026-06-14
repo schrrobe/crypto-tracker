@@ -310,6 +310,10 @@ const fr: MessageSchema = {
     baseCurrency: 'Devise de base',
     signedInAs: 'Connecté en tant que',
     logout: 'Se déconnecter',
+    deleteAccount: 'Supprimer le compte',
+    deleteAccountTitle: 'Supprimer définitivement le compte ?',
+    deleteAccountMessage:
+      'Votre compte et toutes les données (portefeuilles, sources, avoirs, transactions) seront supprimés de manière irréversible.',
   },
   onboarding: {
     importCsv: 'Importer un CSV',

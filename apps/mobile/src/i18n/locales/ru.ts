@@ -310,6 +310,10 @@ const ru: MessageSchema = {
     baseCurrency: 'Базовая валюта',
     signedInAs: 'Вы вошли как',
     logout: 'Выйти',
+    deleteAccount: 'Удалить аккаунт',
+    deleteAccountTitle: 'Удалить аккаунт навсегда?',
+    deleteAccountMessage:
+      'Ваш аккаунт и все данные (портфели, источники, активы, транзакции) будут удалены безвозвратно.',
   },
   onboarding: {
     importCsv: 'Импортировать CSV',

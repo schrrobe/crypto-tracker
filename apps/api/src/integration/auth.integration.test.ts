@@ -1,6 +1,7 @@
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
-import { API, app, PASSWORD, registerUser, uniqueEmail } from './helpers'
+import { prisma } from '../lib/prisma'
+import { API, app, bearer, createExchangeSource, PASSWORD, registerUser, uniqueEmail } from './helpers'
 
 describe('Auth (Integration)', () => {
   it('Registrierung liefert User + Token-Paar, /me funktioniert', async () => {
@@ -92,5 +93,25 @@ describe('Auth (Integration)', () => {
   it('geschützte Routen ohne/mit kaputtem Token → 401', async () => {
     await request(app).get(`${API}/portfolio/summary`).expect(401)
     await request(app).get(`${API}/holdings`).set('Authorization', 'Bearer kaputt').expect(401)
+  })
+
+  it('Konto-Löschung entfernt Nutzer + Daten, Login danach unmöglich', async () => {
+    const user = await registerUser('delete-me')
+
+    // Quelle anlegen (prüft, dass Cascade über die Restrict-FK hinweg funktioniert)
+    await createExchangeSource(user, 'Kraken weg')
+
+    await request(app).delete(`${API}/auth/me`).set(...bearer(user)).expect(204)
+
+    // Access-Token gilt nicht mehr (User existiert nicht)
+    await request(app).get(`${API}/auth/me`).set(...bearer(user)).expect(401)
+    // Login mit den alten Daten schlägt fehl
+    const login = await request(app)
+      .post(`${API}/auth/login`)
+      .send({ email: user.email, password: PASSWORD })
+    expect(login.status).toBe(401)
+    // Alle Quellen des Nutzers sind weg
+    expect(await prisma.portfolioSource.count({ where: { userId: user.userId } })).toBe(0)
+    expect(await prisma.portfolio.count({ where: { userId: user.userId } })).toBe(0)
   })
 })

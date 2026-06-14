@@ -310,6 +310,10 @@ const cs: MessageSchema = {
     baseCurrency: 'Základní měna',
     signedInAs: 'Přihlášen jako',
     logout: 'Odhlásit se',
+    deleteAccount: 'Smazat účet',
+    deleteAccountTitle: 'Trvale smazat účet?',
+    deleteAccountMessage:
+      'Tvůj účet a všechna data (portfolia, zdroje, zůstatky, transakce) budou nevratně smazána.',
   },
   onboarding: {
     importCsv: 'Importovat CSV',

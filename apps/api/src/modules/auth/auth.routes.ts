@@ -118,3 +118,15 @@ authRoutes.patch(
     res.json({ user: await authService.updateMe(req.userId, req.body) })
   }),
 )
+
+// Konto-Löschung (Apple/Google verlangen In-App-Löschung). Entfernt alle Daten
+// des Nutzers; auf Web zusätzlich das Refresh-Cookie löschen.
+authRoutes.delete(
+  '/me',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await authService.deleteAccount(req.userId)
+    if (!isNativeClient(req)) clearRefreshCookie(res)
+    res.status(204).end()
+  }),
+)

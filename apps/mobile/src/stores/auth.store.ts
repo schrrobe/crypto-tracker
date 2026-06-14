@@ -65,6 +65,12 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = res.user
   }
 
+  async function deleteAccount(): Promise<void> {
+    await api.delete('/auth/me')
+    setTokens(null)
+    user.value = null
+  }
+
   async function forgotPassword(email: string): Promise<void> {
     await api.post('/auth/forgot-password', { email })
   }
@@ -88,6 +94,7 @@ export const useAuthStore = defineStore('auth', () => {
     updateBaseCurrency,
     forgotPassword,
     resetPassword,
+    deleteAccount,
     sessionExpired,
   }
 })

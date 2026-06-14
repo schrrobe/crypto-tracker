@@ -154,3 +154,15 @@ export async function updateMe(userId: string, data: { baseCurrency?: string }):
   const user = await prisma.user.update({ where: { id: userId }, data })
   return toUserDto(user)
 }
+
+// Konto endgültig löschen (Store-Pflicht). Explizite Reihenfolge in einer
+// Transaktion: Quellen zuerst (Holdings/Transaktionen/Imports/Credentials hängen
+// per Cascade dran), dann Portfolios (sonst greift der Restrict-FK
+// PortfolioSource→Portfolio), dann der User selbst (Tokens kaskadieren).
+export async function deleteAccount(userId: string): Promise<void> {
+  await prisma.$transaction([
+    prisma.portfolioSource.deleteMany({ where: { userId } }),
+    prisma.portfolio.deleteMany({ where: { userId } }),
+    prisma.user.delete({ where: { id: userId } }),
+  ])
+}

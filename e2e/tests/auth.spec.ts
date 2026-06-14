@@ -82,6 +82,23 @@ test('Reset-Seite ohne Token weist darauf hin', async ({ page }) => {
   await expect(page.getByTestId('reset-no-token')).toBeVisible()
 })
 
+test('Konto löschen: entfernt Konto, Login danach unmöglich', async ({ page }) => {
+  const email = uniqueEmail('delete')
+  await register(page, email)
+
+  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await page.getByTestId('delete-account-button').click()
+  // Bestätigungsdialog → destruktiven Button im Alert klicken
+  await page.locator('ion-alert').getByRole('button', { name: 'Konto löschen' }).click()
+  await page.waitForURL('**/login')
+
+  // Login mit den gelöschten Daten schlägt fehl
+  await input(page, 'login-email').fill(email)
+  await input(page, 'login-password').fill(PASSWORD)
+  await page.getByTestId('login-submit').click()
+  await expect(page.getByTestId('login-error')).toContainText('E-Mail oder Passwort ist falsch')
+})
+
 test('Session überlebt einen Seiten-Reload', async ({ page }) => {
   const email = uniqueEmail('reload')
   await register(page, email)
