@@ -83,5 +83,7 @@
   (Teil des Deployments); ohne läuft nur manueller Sync.
 - Laufende PnL-Anzeige (unrealisiert, Pro) ist umgesetzt (Dashboard-Card, EUR, FIFO-Kostenbasis) —
   nur für Bestände mit Transaktionshistorie; Snapshot-Quellen ohne Tx zeigen kein PnL.
-- AT-Steuerreport nutzt globale Pools (dokumentierte Vereinfachung); Crypto-zu-Crypto-Swaps/FX nicht abgebildet.
+- AT-Steuerreport nutzt globale Pools (dokumentierte Vereinfachung). Als Tausch verknüpfte Krypto-zu-Krypto-Vorgänge
+  (`SwapLink`) sind in AT steuerneutral (§27b, dokumentierte Auslegung — fachlich prüfen lassen), in DE eine Veräußerung;
+  unverknüpfte Tauschvorgänge/FX bleiben unabgebildet.
 - Exchange-Provider decken nur Spot/Hauptkonto ab (kein Earn/Margin/Futures, außer Kraken-Staking/Binance-Flexible).

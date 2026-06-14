@@ -18,6 +18,8 @@ const TX_INCLUDE = {
   source: true,
   transferOut: { include: { depositTx: { include: { source: true } } } },
   transferIn: { include: { withdrawalTx: { include: { source: true } } } },
+  swapOut: { include: { buyTx: { include: { source: true, asset: true } } } },
+  swapIn: { include: { sellTx: { include: { source: true, asset: true } } } },
 } satisfies Prisma.TransactionInclude
 
 type TxWithRelations = Prisma.TransactionGetPayload<{ include: typeof TX_INCLUDE }>
@@ -35,6 +37,23 @@ function toTransactionDto(tx: TxWithRelations): TransactionDto {
           id: tx.transferIn.id,
           counterpartTxId: tx.transferIn.withdrawalTx.id,
           counterpartSourceLabel: tx.transferIn.withdrawalTx.source.label,
+          direction: 'IN' as const,
+        }
+      : null
+  const swapLink = tx.swapOut
+    ? {
+        id: tx.swapOut.id,
+        counterpartTxId: tx.swapOut.buyTx.id,
+        counterpartSourceLabel: tx.swapOut.buyTx.source.label,
+        counterpartAssetSymbol: tx.swapOut.buyTx.asset.symbol,
+        direction: 'OUT' as const,
+      }
+    : tx.swapIn
+      ? {
+          id: tx.swapIn.id,
+          counterpartTxId: tx.swapIn.sellTx.id,
+          counterpartSourceLabel: tx.swapIn.sellTx.source.label,
+          counterpartAssetSymbol: tx.swapIn.sellTx.asset.symbol,
           direction: 'IN' as const,
         }
       : null
@@ -58,6 +77,7 @@ function toTransactionDto(tx: TxWithRelations): TransactionDto {
     currency: tx.currency,
     timestamp: tx.timestamp.toISOString(),
     transferLink,
+    swapLink,
   }
 }
 
@@ -149,7 +169,7 @@ export async function createTransaction(
 async function getOwnedManualTransaction(userId: string, txId: string) {
   const tx = await prisma.transaction.findFirst({
     where: { id: txId, source: { userId } },
-    include: { source: true, transferOut: true, transferIn: true },
+    include: { source: true, transferOut: true, transferIn: true, swapOut: true, swapIn: true },
   })
   if (!tx || tx.source.type !== 'MANUAL') throw AppError.notFound('Transaktion nicht gefunden')
   return tx
@@ -173,6 +193,12 @@ export async function updateTransaction(
     throw AppError.conflict(
       'TRANSFER_LINKED_TX_IMMUTABLE',
       'Diese Transaktion ist als Transfer verknüpft — bitte zuerst die Verknüpfung lösen',
+    )
+  }
+  if ((existing.swapOut || existing.swapIn) && touchesLinkInvariants) {
+    throw AppError.conflict(
+      'SWAP_LINKED_TX_IMMUTABLE',
+      'Diese Transaktion ist als Tausch verknüpft — bitte zuerst die Verknüpfung lösen',
     )
   }
 

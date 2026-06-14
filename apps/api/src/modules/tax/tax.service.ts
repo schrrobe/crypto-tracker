@@ -28,12 +28,18 @@ const TAX_TX_INCLUDE = {
   source: { select: { label: true } },
   transferOut: { select: { id: true } },
   transferIn: { select: { id: true } },
+  swapOut: { select: { id: true } },
+  swapIn: { select: { id: true } },
 } satisfies Prisma.TransactionInclude
 
 type TxWithAsset = Prisma.TransactionGetPayload<{ include: typeof TAX_TX_INCLUDE }>
 
 function transferGroupId(tx: TxWithAsset): string | null {
   return tx.transferOut?.id ?? tx.transferIn?.id ?? null
+}
+
+function swapGroupId(tx: TxWithAsset): string | null {
+  return tx.swapOut?.id ?? tx.swapIn?.id ?? null
 }
 
 // Engine rechnet nur in EUR. Kurs in Fremdwährung wird verworfen (keine
@@ -102,6 +108,7 @@ async function enrichTransactions(
       timestamp: p.tx.timestamp,
       priceSource,
       transferGroupId: transferGroupId(p.tx),
+      swapGroupId: swapGroupId(p.tx),
     }
   })
 

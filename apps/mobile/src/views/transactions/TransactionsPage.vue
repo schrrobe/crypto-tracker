@@ -34,6 +34,13 @@
               >
                 {{ $t('transactions.transferBadge', { source: tx.transferLink.counterpartSourceLabel }) }}
               </ion-badge>
+              <ion-badge
+                v-if="tx.swapLink"
+                color="success"
+                :data-testid="`tx-swap-badge-${tx.asset.symbol}`"
+              >
+                {{ $t('transactions.swapBadge', { asset: tx.swapLink.counterpartAssetSymbol }) }}
+              </ion-badge>
             </h3>
             <p>
               {{ formatQuantity(tx.quantity) }}
@@ -54,6 +61,20 @@
               v-if="tx.transferLink"
               :data-testid="`tx-unlink-${tx.asset.symbol}`"
               @click="confirmUnlink(tx)"
+            >
+              <ion-icon :icon="unlinkOutline" slot="icon-only" />
+            </ion-button>
+            <ion-button
+              v-if="isSwapLinkable(tx)"
+              :data-testid="`tx-swap-link-${tx.asset.symbol}`"
+              @click="openSwap(tx)"
+            >
+              <ion-icon :icon="swapHorizontalOutline" slot="icon-only" />
+            </ion-button>
+            <ion-button
+              v-if="tx.swapLink"
+              :data-testid="`tx-swap-unlink-${tx.asset.symbol}`"
+              @click="confirmUnlinkSwap(tx)"
             >
               <ion-icon :icon="unlinkOutline" slot="icon-only" />
             </ion-button>
@@ -101,6 +122,12 @@
         @close="linkModalOpen = false"
         @linked="onSaved"
       />
+      <SwapLinkModal
+        :is-open="swapModalOpen"
+        :transaction="swapTransaction"
+        @close="swapModalOpen = false"
+        @linked="onSaved"
+      />
     </ion-content>
   </ion-page>
 </template>
@@ -131,6 +158,7 @@ import {
   closeCircleOutline,
   createOutline,
   gitMergeOutline,
+  swapHorizontalOutline,
   trashOutline,
   unlinkOutline,
 } from 'ionicons/icons'
@@ -139,6 +167,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { TransactionDto } from '@crypto-tracker/shared'
 import TransactionFormModal from '../../components/TransactionFormModal.vue'
 import TransferLinkModal from '../../components/TransferLinkModal.vue'
+import SwapLinkModal from '../../components/SwapLinkModal.vue'
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
 import ErrorState from '../../components/ErrorState.vue'
 import { useTransactionsStore } from '../../stores/transactions.store'
@@ -168,15 +197,27 @@ const modalOpen = ref(false)
 const editTransaction = ref<TransactionDto | null>(null)
 const linkModalOpen = ref(false)
 const linkTransaction = ref<TransactionDto | null>(null)
+const swapModalOpen = ref(false)
+const swapTransaction = ref<TransactionDto | null>(null)
 
 // nur unverlinkte Auszahlungen/Einzahlungen sind als Transfer verknüpfbar
 function isLinkable(tx: TransactionDto): boolean {
   return !tx.transferLink && (tx.type === 'WITHDRAWAL' || tx.type === 'DEPOSIT')
 }
 
+// nur unverlinkte Käufe/Verkäufe sind als Krypto-zu-Krypto-Tausch verknüpfbar
+function isSwapLinkable(tx: TransactionDto): boolean {
+  return !tx.swapLink && (tx.type === 'BUY' || tx.type === 'SELL')
+}
+
 function openLink(tx: TransactionDto) {
   linkTransaction.value = tx
   linkModalOpen.value = true
+}
+
+function openSwap(tx: TransactionDto) {
+  swapTransaction.value = tx
+  swapModalOpen.value = true
 }
 
 async function confirmUnlink(tx: TransactionDto) {
@@ -190,6 +231,24 @@ async function confirmUnlink(tx: TransactionDto) {
         role: 'destructive',
         handler: () => {
           store.unlinkTransfer(tx.id)
+        },
+      },
+    ],
+  })
+  await alert.present()
+}
+
+async function confirmUnlinkSwap(tx: TransactionDto) {
+  const alert = await alertController.create({
+    header: t('transactions.swapUnlinkTitle'),
+    message: t('transactions.swapUnlinkMessage'),
+    buttons: [
+      { text: t('common.cancel'), role: 'cancel' },
+      {
+        text: t('transactions.unlink'),
+        role: 'destructive',
+        handler: () => {
+          store.unlinkSwap(tx.id).then(() => onSaved())
         },
       },
     ],

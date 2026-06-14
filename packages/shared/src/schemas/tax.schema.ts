@@ -32,6 +32,8 @@ export const TaxWarningCode = {
   // Wallet-Quelle hat nur automatisch importierte Staking-Rewards —
   // Käufe/Verkäufe dieser Quelle fehlen im Report
   WALLET_REWARDS_ONLY: 'WALLET_REWARDS_ONLY',
+  // AT: Krypto-zu-Krypto-Tausch ist steueraufgeschoben — Kostenbasis wandert mit
+  SWAP_DEFERRED: 'SWAP_DEFERRED',
 } as const
 export type TaxWarningCode = (typeof TaxWarningCode)[keyof typeof TaxWarningCode]
 

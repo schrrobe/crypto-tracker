@@ -3,6 +3,7 @@ import type { z } from 'zod'
 import {
   createTransactionSchema,
   listTransactionsQuerySchema,
+  swapLinkSchema,
   transferLinkSchema,
   updateTransactionSchema,
 } from '@crypto-tracker/shared'
@@ -12,6 +13,7 @@ import { asyncHandler } from '../../lib/asyncHandler'
 import { routeParam } from '../../lib/params'
 import * as transactionsService from './transactions.service'
 import * as transferLinkService from './transfer-link.service'
+import * as swapLinkService from './swap-link.service'
 
 export const transactionsRoutes = Router()
 transactionsRoutes.use(requireAuth)
@@ -65,6 +67,24 @@ transactionsRoutes.delete(
   '/:id/transfer-link',
   asyncHandler(async (req, res) => {
     await transferLinkService.unlinkTransfer(req.userId, routeParam(req, 'id'))
+    res.status(204).end()
+  }),
+)
+
+// Swap-Paare: SELL (Asset A) ↔ BUY (Asset B) verknüpfen/lösen
+transactionsRoutes.post(
+  '/:id/swap-link',
+  validate(swapLinkSchema),
+  asyncHandler(async (req, res) => {
+    await swapLinkService.linkSwap(req.userId, routeParam(req, 'id'), req.body.counterpartId)
+    res.status(201).json({ ok: true })
+  }),
+)
+
+transactionsRoutes.delete(
+  '/:id/swap-link',
+  asyncHandler(async (req, res) => {
+    await swapLinkService.unlinkSwap(req.userId, routeParam(req, 'id'))
     res.status(204).end()
   }),
 )

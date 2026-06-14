@@ -46,6 +46,8 @@ export interface EngineTx {
   priceSource: EnginePriceSource
   // gesetzt = Teil eines verknüpften Transfer-Paars (WITHDRAWAL ↔ DEPOSIT)
   transferGroupId: string | null
+  // gesetzt = Teil eines Krypto-zu-Krypto-Tauschs (SELL ↔ BUY) — nur AT relevant
+  swapGroupId: string | null
 }
 
 export interface EngineDisposal {
@@ -173,30 +175,37 @@ function inYear(date: Date, year: number): boolean {
   return date.getUTCFullYear() === year
 }
 
-function chronological(txs: EngineTx[]): EngineTx[] {
-  return [...txs].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
-}
-
-// Wie chronological, aber Transfer-Paare werden normalisiert: das Deposit-Leg
-// darf nominell bis 24 h vor dem Withdrawal-Leg liegen (CSV-Tagesgranularität) —
-// sein Sortierschlüssel wird auf den Withdrawal-Zeitpunkt angehoben, Tie-Break
-// „Withdrawal zuerst". Damit ist das Withdrawal-Leg garantiert vorher dran.
+// Verknüpfte Paare werden normalisiert: das „eingehende"
+// Leg (DEPOSIT bzw. BUY) darf nominell bis 24 h vor dem „ausgehenden" liegen
+// (CSV-Tagesgranularität) — sein Sortierschlüssel wird auf den Out-Zeitpunkt
+// angehoben, Tie-Break „Out zuerst". Gilt für Transfer-Paare (WITHDRAWAL↔DEPOSIT)
+// und Swap-Paare (SELL↔BUY), damit das Out-Leg garantiert vorher verarbeitet wird.
 function chronologicalWithTransferOrder(txs: EngineTx[]): EngineTx[] {
-  const withdrawalTsByGroup = new Map<string, number>()
+  const outTsByTransfer = new Map<string, number>()
+  const outTsBySwap = new Map<string, number>()
   for (const tx of txs) {
     if (tx.type === 'WITHDRAWAL' && tx.transferGroupId !== null) {
-      withdrawalTsByGroup.set(tx.transferGroupId, tx.timestamp.getTime())
+      outTsByTransfer.set(tx.transferGroupId, tx.timestamp.getTime())
+    }
+    if (tx.type === 'SELL' && tx.swapGroupId !== null) {
+      outTsBySwap.set(tx.swapGroupId, tx.timestamp.getTime())
     }
   }
   const sortKey = (tx: EngineTx): number => {
     const own = tx.timestamp.getTime()
     if (tx.type === 'DEPOSIT' && tx.transferGroupId !== null) {
-      const withdrawalTs = withdrawalTsByGroup.get(tx.transferGroupId)
-      if (withdrawalTs !== undefined && withdrawalTs > own) return withdrawalTs
+      const outTs = outTsByTransfer.get(tx.transferGroupId)
+      if (outTs !== undefined && outTs > own) return outTs
+    }
+    if (tx.type === 'BUY' && tx.swapGroupId !== null) {
+      const outTs = outTsBySwap.get(tx.swapGroupId)
+      if (outTs !== undefined && outTs > own) return outTs
     }
     return own
   }
-  const legOrder = (tx: EngineTx): number => (tx.type === 'WITHDRAWAL' ? 0 : 1)
+  // Out-Legs (WITHDRAWAL/SELL) vor In-Legs (DEPOSIT/BUY) bei Gleichstand
+  const legOrder = (tx: EngineTx): number =>
+    tx.type === 'WITHDRAWAL' || (tx.type === 'SELL' && tx.swapGroupId !== null) ? 0 : 1
   return [...txs].sort((a, b) => sortKey(a) - sortKey(b) || legOrder(a) - legOrder(b))
 }
 
@@ -386,9 +395,12 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
   const warnings = new WarningCollector()
   const altLotsByAsset = new Map<string, Lot[]>()
   const neuPoolByAsset = new Map<string, NeuPool>()
+  // gestashte Kostenbasis je Swap-Group: SELL-Leg legt ab, BUY-Leg übernimmt
+  const pendingSwaps = new Map<string, Decimal>()
   const allDisposals: EngineDisposal[] = []
 
-  for (const tx of chronological(txs)) {
+  // Swaps erfordern Out-vor-In-Reihenfolge (SELL stasht, BUY übernimmt)
+  for (const tx of chronologicalWithTransferOrder(txs)) {
     const altLots = altLotsByAsset.get(tx.assetId) ?? []
     altLotsByAsset.set(tx.assetId, altLots)
     const neuPool = neuPoolByAsset.get(tx.assetId) ?? { quantity: ZERO, totalCost: ZERO }
@@ -400,6 +412,15 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
         // verknüpfter Transfer: bei globalen Pools genuin neutral → Leg überspringen
         // (Vereinfachung: die Netzwerkgebühr bleibt im Pool, Bestand minimal überzeichnet)
         if (tx.type === 'DEPOSIT' && tx.transferGroupId !== null) break
+        // Swap-BUY (Asset B): übernimmt die Kostenbasis des getauschten A (§27b),
+        // landet als Neuvermögen — unabhängig vom Tauschzeitpunkt
+        if (tx.type === 'BUY' && tx.swapGroupId !== null) {
+          const carried = pendingSwaps.get(tx.swapGroupId) ?? ZERO
+          pendingSwaps.delete(tx.swapGroupId)
+          neuPool.quantity = neuPool.quantity.add(tx.quantity)
+          neuPool.totalCost = neuPool.totalCost.add(carried)
+          break
+        }
         const cost = acquisitionCost(tx, warnings)
         if (tx.timestamp.getTime() < AT_ALT_CUTOFF.getTime()) {
           // Altvermögen: einzelne Lots, alte Spekulationsfrist gilt
@@ -453,6 +474,15 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
 
         if (tx.type === 'WITHDRAWAL') {
           warnings.add(TaxWarningCode.WITHDRAWAL_REMOVED_LOTS, tx.assetSymbol)
+          break
+        }
+
+        // Swap-SELL (Asset A): steueraufgeschoben (§27b) — keine Veräußerung;
+        // die verbrauchte Kostenbasis wandert auf das BUY-Leg (Asset B)
+        if (tx.swapGroupId !== null) {
+          const carried = [...altSlices, ...neuSlices].reduce((sum, s) => sum.add(s.costBasisEur), ZERO)
+          pendingSwaps.set(tx.swapGroupId, carried)
+          warnings.add(TaxWarningCode.SWAP_DEFERRED, tx.assetSymbol)
           break
         }
 

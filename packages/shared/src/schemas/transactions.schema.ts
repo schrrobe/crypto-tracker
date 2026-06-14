@@ -47,12 +47,24 @@ export const transferLinkSchema = z.object({
   counterpartId: z.string().uuid(),
 })
 export type TransferLinkInput = z.infer<typeof transferLinkSchema>
+// Swap nutzt dieselbe Eingabeform (Gegen-Transaktion)
+export const swapLinkSchema = transferLinkSchema
+export type SwapLinkInput = TransferLinkInput
 
 export interface TransactionTransferLinkDto {
   id: string
   counterpartTxId: string
   counterpartSourceLabel: string
   // OUT = diese Tx ist die Auszahlung, IN = die Einzahlung
+  direction: 'OUT' | 'IN'
+}
+
+export interface TransactionSwapLinkDto {
+  id: string
+  counterpartTxId: string
+  counterpartSourceLabel: string
+  counterpartAssetSymbol: string
+  // OUT = diese Tx ist die SELL-Seite (Asset A), IN = die BUY-Seite (Asset B)
   direction: 'OUT' | 'IN'
 }
 
@@ -71,4 +83,6 @@ export interface TransactionDto {
   timestamp: string
   // gesetzt, wenn diese WITHDRAWAL/DEPOSIT-Tx als Transfer-Paar verknüpft ist
   transferLink: TransactionTransferLinkDto | null
+  // gesetzt, wenn diese SELL/BUY-Tx als Krypto-zu-Krypto-Tausch verknüpft ist
+  swapLink: TransactionSwapLinkDto | null
 }

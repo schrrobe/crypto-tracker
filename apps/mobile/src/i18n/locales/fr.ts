@@ -270,6 +270,13 @@ const fr: MessageSchema = {
     unlink: 'Délier',
     unlinkTitle: 'Supprimer la liaison de transfert ?',
     unlinkMessage: "Le coût d'acquisition ne sera alors plus transféré dans le rapport fiscal.",
+    swapModalTitle: 'Lier comme échange',
+    swapHint:
+      "Liez cette vente à l'achat du coin reçu (échange crypto-crypto). Dans le rapport fiscal (AT), l'échange est alors fiscalement neutre — le coût d'acquisition est reporté sur le nouvel actif ; en DE, il reste une cession imposable.",
+    swapBadge: 'Échange ↔ {asset}',
+    swapLinkFailed: "Échec de la liaison d'échange",
+    swapUnlinkTitle: "Supprimer la liaison d'échange ?",
+    swapUnlinkMessage: "En Autriche, l'échange est alors de nouveau traité comme deux opérations distinctes.",
     filteredBySource: 'Source : {source}',
   },
   tax: {
@@ -311,7 +318,7 @@ const fr: MessageSchema = {
     warningsTitle: 'Remarques',
     disclaimerTitle: 'Pas un conseil fiscal',
     disclaimer:
-      "Ce rapport est une aide au calcul sans valeur contractuelle. Hypothèses : FIFO par source/portefeuille (DE, approche par portefeuille selon le BMF-Schreiben v. 10.05.2022) — les transferts liés transmettent le coût d'acquisition, les retraits non liés le perdent ; l'Altvermögen est consommé en premier (AT) ; les échanges crypto-crypto et la conversion de devises étrangères ne sont pas pris en compte. Les revenus de rebase des jetons de liquid staking (p. ex. stETH) et les revenus MEV/de pourboires de vos propres validateurs ne sont pas saisis automatiquement. Pour la déclaration fiscale, veuillez consulter un professionnel.",
+      "Ce rapport est une aide au calcul sans valeur contractuelle. Hypothèses : FIFO par source/portefeuille (DE, approche par portefeuille selon le BMF-Schreiben v. 10.05.2022) — les transferts liés transmettent le coût d'acquisition, les retraits non liés le perdent ; l'Altvermögen est consommé en premier (AT) ; les opérations crypto-crypto liées comme échange sont fiscalement neutres en AT (§27b, le coût d'acquisition est reporté), en DE une cession — les échanges non liés et la conversion de devises étrangères ne sont pas pris en compte. Les revenus de rebase des jetons de liquid staking (p. ex. stETH) et les revenus MEV/de pourboires de vos propres validateurs ne sont pas saisis automatiquement. Pour la déclaration fiscale, veuillez consulter un professionnel.",
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: "{symbol} : acquisition sans cours — coût d'acquisition de 0 retenu ({count}×)",
       MISSING_DISPOSAL_PRICE: '{symbol} : cession sans cours déterminable — non incluse dans les totaux ({count}×)',
@@ -323,6 +330,8 @@ const fr: MessageSchema = {
       PRICE_LOOKUP_LIMIT_REACHED: "Limite de requêtes de cours atteinte — régénérez le rapport pour charger d'autres cours",
       WALLET_REWARDS_ONLY:
         '{count} source(s) de type portefeuille avec des récompenses de staking importées automatiquement — les achats/ventes de ces portefeuilles manquent dans le rapport',
+      SWAP_DEFERRED:
+        "{symbol} : échange crypto-crypto traité comme fiscalement neutre (§27b) — coût d'acquisition reporté sur l'actif reçu ({count}×)",
     },
   },
   settings: {
@@ -370,6 +379,14 @@ const fr: MessageSchema = {
       "Cette transaction est liée comme transfert — veuillez d'abord supprimer la liaison",
     TRANSFER_LINK_PORTFOLIO_MISMATCH:
       'Les deux côtés doivent appartenir au même portfolio — les portfolios sont des entités fiscales distinctes',
+    SWAP_LINK_TYPES_INVALID: 'Un échange lie exactement une vente à un achat',
+    SWAP_LINK_SAME_ASSET: 'Un échange lie deux actifs différents',
+    SWAP_LINK_TIMESTAMP_INVALID: "La vente et l'achat sont trop éloignés dans le temps",
+    SWAP_LINK_ALREADY_LINKED: "L'une des transactions est déjà liée comme échange",
+    SWAP_LINK_PORTFOLIO_MISMATCH:
+      'Les deux côtés doivent appartenir au même portfolio — les portfolios sont des entités fiscales distinctes',
+    SWAP_LINKED_TX_IMMUTABLE:
+      "Cette transaction est liée comme échange — veuillez d'abord supprimer la liaison",
     PORTFOLIO_NOT_EMPTY: "Le portfolio contient encore des sources — veuillez d'abord supprimer les sources",
     PORTFOLIO_LAST: 'Le dernier portfolio ne peut pas être supprimé',
     INVALID_RESET_TOKEN: 'Le lien est invalide ou expiré — demandez-en un nouveau',

@@ -228,6 +228,8 @@ model Transaction {
   asset        Asset           @relation(fields: [assetId], references: [id])
   transferOut  TransferLink?   @relation("TransferWithdrawal")
   transferIn   TransferLink?   @relation("TransferDeposit")
+  swapOut      SwapLink?       @relation("SwapSell")
+  swapIn       SwapLink?       @relation("SwapBuy")
 
   @@index([sourceId, timestamp])
 }
@@ -243,6 +245,18 @@ model TransferLink {
   createdAt      DateTime    @default(now())
   withdrawalTx   Transaction @relation("TransferWithdrawal", fields: [withdrawalTxId], references: [id], onDelete: Cascade)
   depositTx      Transaction @relation("TransferDeposit", fields: [depositTxId], references: [id], onDelete: Cascade)
+}
+
+// Verknüpft eine SELL (Asset A) mit einer BUY (Asset B) zu einem Krypto-zu-Krypto-
+// Tausch. Steuerlich: DE = steuerpflichtig (SELL+BUY wie gehabt), AT = steuerneutral,
+// Anschaffungskosten von A wandern auf B (§27b). Beide FKs unique → ein Link pro Tx.
+model SwapLink {
+  id        String      @id @default(uuid())
+  sellTxId  String      @unique
+  buyTxId   String      @unique
+  createdAt DateTime    @default(now())
+  sellTx    Transaction @relation("SwapSell", fields: [sellTxId], references: [id], onDelete: Cascade)
+  buyTx     Transaction @relation("SwapBuy", fields: [buyTxId], references: [id], onDelete: Cascade)
 }
 
 model CsvImport {

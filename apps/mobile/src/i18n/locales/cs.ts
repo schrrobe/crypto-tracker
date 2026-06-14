@@ -270,6 +270,13 @@ const cs: MessageSchema = {
     unlink: 'Zrušit propojení',
     unlinkTitle: 'Zrušit propojení převodu?',
     unlinkMessage: 'Pořizovací náklady se pak v daňovém reportu už nepřenesou.',
+    swapModalTitle: 'Propojit jako směnu',
+    swapHint:
+      'Propojte tento prodej s nákupem přijaté mince (směna krypto-krypto). V daňovém reportu (AT) je pak směna daňově neutrální — pořizovací náklady přejdou na nové aktivum; v DE zůstává zdanitelným prodejem.',
+    swapBadge: 'Směna ↔ {asset}',
+    swapLinkFailed: 'Propojení směny se nezdařilo',
+    swapUnlinkTitle: 'Zrušit propojení směny?',
+    swapUnlinkMessage: 'V Rakousku se směna pak opět považuje za dvě samostatné operace.',
     filteredBySource: 'Zdroj: {source}',
   },
   tax: {
@@ -311,7 +318,7 @@ const cs: MessageSchema = {
     warningsTitle: 'Upozornění',
     disclaimerTitle: 'Nejedná se o daňové poradenství',
     disclaimer:
-      'Tento report je nezávazná výpočetní pomůcka. Předpoklady: FIFO za každý zdroj/peněženku zvlášť (DE, posuzování po peněženkách podle BMF-Schreiben v. 10.05.2022) — propojené převody přenášejí pořizovací náklady, nepropojené výběry je ztrácejí; Altvermögen se spotřebovává jako první (AT); směny krypto-krypto a přepočet cizích měn nejsou zohledněny. Výnosy z rebase u liquid-staking tokenů (např. stETH) a příjmy MEV/ze spropitného vlastních validátorů nejsou automaticky zachyceny. Pro daňové přiznání si prosím vyžádejte odbornou radu.',
+      'Tento report je nezávazná výpočetní pomůcka. Předpoklady: FIFO za každý zdroj/peněženku zvlášť (DE, posuzování po peněženkách podle BMF-Schreiben v. 10.05.2022) — propojené převody přenášejí pořizovací náklady, nepropojené výběry je ztrácejí; Altvermögen se spotřebovává jako první (AT); operace krypto-krypto propojené jako směna jsou v AT daňově neutrální (§27b, pořizovací náklady přecházejí s aktivem), v DE jde o prodej — nepropojené směny a přepočet cizích měn nejsou zohledněny. Výnosy z rebase u liquid-staking tokenů (např. stETH) a příjmy MEV/ze spropitného vlastních validátorů nejsou automaticky zachyceny. Pro daňové přiznání si prosím vyžádejte odbornou radu.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: pořízení bez kurzu — použity pořizovací náklady 0 ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: prodej bez zjistitelného kurzu — nezahrnuto v součtech ({count}×)',
@@ -323,6 +330,8 @@ const cs: MessageSchema = {
       PRICE_LOOKUP_LIMIT_REACHED: 'Dosažen limit dotazů na kurzy — vytvořte report znovu, aby se načetly další kurzy',
       WALLET_REWARDS_ONLY:
         'Zdroje typu peněženka s automaticky importovanými odměnami za staking: {count} — nákupy/prodeje těchto peněženek v reportu chybí',
+      SWAP_DEFERRED:
+        '{symbol}: směna krypto-krypto posouzena jako daňově neutrální (§27b) — pořizovací náklady přeneseny na přijaté aktivum ({count}×)',
     },
   },
   settings: {
@@ -370,6 +379,14 @@ const cs: MessageSchema = {
       'Tato transakce je propojena jako převod — nejprve prosím zrušte propojení',
     TRANSFER_LINK_PORTFOLIO_MISMATCH:
       'Obě strany musí patřit do stejného portfolia — portfolia jsou oddělené daňové subjekty',
+    SWAP_LINK_TYPES_INVALID: 'Směna propojuje právě jeden prodej s jedním nákupem',
+    SWAP_LINK_SAME_ASSET: 'Směna propojuje dvě různá aktiva',
+    SWAP_LINK_TIMESTAMP_INVALID: 'Prodej a nákup jsou časově příliš vzdálené',
+    SWAP_LINK_ALREADY_LINKED: 'Jedna z transakcí je již propojena jako směna',
+    SWAP_LINK_PORTFOLIO_MISMATCH:
+      'Obě strany musí patřit do stejného portfolia — portfolia jsou oddělené daňové subjekty',
+    SWAP_LINKED_TX_IMMUTABLE:
+      'Tato transakce je propojena jako směna — nejprve prosím zrušte propojení',
     PORTFOLIO_NOT_EMPTY: 'Portfolio stále obsahuje zdroje — nejprve prosím smažte zdroje',
     PORTFOLIO_LAST: 'Poslední portfolio nelze smazat',
     INVALID_RESET_TOKEN: 'Odkaz je neplatný nebo vypršel — vyžádejte si nový',

@@ -21,6 +21,7 @@ function tx(input: {
   missing?: boolean
   source?: string
   transferGroup?: string
+  swapGroup?: string
 }): EngineTx {
   counter += 1
   const priceEur = input.price === null || input.price === undefined ? null : dec(input.price)
@@ -37,6 +38,7 @@ function tx(input: {
     timestamp: new Date(input.ts),
     priceSource: input.missing ? 'MISSING' : priceEur === null ? 'MISSING' : 'ORIGINAL',
     transferGroupId: input.transferGroup ?? null,
+    swapGroupId: input.swapGroup ?? null,
   }
 }
 
@@ -687,5 +689,36 @@ describe('Tax Engine — Kostenbasis aktueller Bestände (PnL)', () => {
 
   it('ohne Transaktionen → leere Map', () => {
     expect(computeHoldingsCostBasis([]).size).toBe(0)
+  })
+})
+
+describe('Tax Engine — Krypto-zu-Krypto-Swap', () => {
+  const swapTxs = () => [
+    tx({ type: 'BUY', qty: 1, price: 20000, ts: '2024-01-01T00:00:00Z', symbol: 'BTC' }),
+    tx({ type: 'SELL', qty: 1, price: 25000, ts: '2024-06-01T00:00:00Z', symbol: 'BTC', swapGroup: 's1' }),
+    tx({ type: 'BUY', qty: 10, price: 2500, ts: '2024-06-01T00:00:00Z', symbol: 'ETH', swapGroup: 's1' }),
+    tx({ type: 'SELL', qty: 10, price: 3000, ts: '2024-09-01T00:00:00Z', symbol: 'ETH' }),
+  ]
+
+  it('AT: Tausch steueraufgeschoben — keine BTC-Veräußerung, Kostenbasis wandert auf ETH', () => {
+    const at = computeReportAT(swapTxs(), 2024)
+    // nur der spätere ETH-Verkauf ist eine Veräußerung; der Tausch selbst nicht
+    expect(at.disposals).toHaveLength(1)
+    const eth = at.disposals[0]
+    expect(eth?.assetSymbol).toBe('ETH')
+    expect(eth?.regime).toBe('AT_NEUVERMOEGEN')
+    // ETH-Kostenbasis = übernommene BTC-Kostenbasis 20.000 (nicht 25.000)
+    expect(eth?.costBasisEur.toString()).toBe('20000')
+    expect(eth?.gainEur.toString()).toBe('10000')
+    expect(warningCodes(at)).toContain('SWAP_DEFERRED')
+  })
+
+  it('DE: Tausch ist steuerpflichtig — BTC-Veräußerung + ETH-Erwerb wie SELL/BUY', () => {
+    const de = computeReportDE(swapTxs(), 2024)
+    expect(de.disposals).toHaveLength(2)
+    const btc = de.disposals.find((d) => d.assetSymbol === 'BTC')
+    const eth = de.disposals.find((d) => d.assetSymbol === 'ETH')
+    expect(btc?.gainEur.toString()).toBe('5000') // 25000 − 20000
+    expect(eth?.gainEur.toString()).toBe('5000') // 30000 − 25000
   })
 })

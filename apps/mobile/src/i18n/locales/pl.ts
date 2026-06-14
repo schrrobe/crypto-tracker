@@ -270,6 +270,13 @@ const pl: MessageSchema = {
     unlink: 'Rozłącz',
     unlinkTitle: 'Rozłączyć powiązanie transferu?',
     unlinkMessage: 'Koszt nabycia nie będzie wtedy przenoszony w raporcie podatkowym.',
+    swapModalTitle: 'Połącz jako wymianę',
+    swapHint:
+      'Połącz tę sprzedaż z zakupem otrzymanej monety (wymiana krypto-krypto). W raporcie podatkowym (AT) wymiana jest wtedy neutralna podatkowo — koszt nabycia przechodzi na nowe aktywo; w DE pozostaje opodatkowanym zbyciem.',
+    swapBadge: 'Wymiana ↔ {asset}',
+    swapLinkFailed: 'Połączenie wymiany nie powiodło się',
+    swapUnlinkTitle: 'Rozłączyć powiązanie wymiany?',
+    swapUnlinkMessage: 'W Austrii wymiana będzie wtedy ponownie traktowana jako dwie odrębne operacje.',
     filteredBySource: 'Źródło: {source}',
   },
   tax: {
@@ -311,7 +318,7 @@ const pl: MessageSchema = {
     warningsTitle: 'Uwagi',
     disclaimerTitle: 'To nie jest doradztwo podatkowe',
     disclaimer:
-      'Ten raport to niewiążąca pomoc obliczeniowa. Założenia: FIFO osobno dla każdego źródła/portfela (DE, ujęcie portfelowe zgodnie z BMF-Schreiben v. 10.05.2022) — połączone transfery przenoszą koszt nabycia, niepołączone wypłaty go tracą; Altvermögen jest zużywane w pierwszej kolejności (AT); wymiany krypto-krypto oraz przeliczanie walut obcych nie są uwzględnione. Dochody z rebase tokenów liquid stakingu (np. stETH) oraz przychody MEV/z napiwków własnych walidatorów nie są rejestrowane automatycznie. Przy zeznaniu podatkowym skorzystaj z porady specjalisty.',
+      'Ten raport to niewiążąca pomoc obliczeniowa. Założenia: FIFO osobno dla każdego źródła/portfela (DE, ujęcie portfelowe zgodnie z BMF-Schreiben v. 10.05.2022) — połączone transfery przenoszą koszt nabycia, niepołączone wypłaty go tracą; Altvermögen jest zużywane w pierwszej kolejności (AT); operacje krypto-krypto połączone jako wymiana są w AT neutralne podatkowo (§27b, koszt nabycia przechodzi razem z aktywem), w DE stanowią zbycie — niepołączone wymiany oraz przeliczanie walut obcych nie są uwzględnione. Dochody z rebase tokenów liquid stakingu (np. stETH) oraz przychody MEV/z napiwków własnych walidatorów nie są rejestrowane automatycznie. Przy zeznaniu podatkowym skorzystaj z porady specjalisty.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: nabycie bez kursu — przyjęto koszt nabycia 0 ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: zbycie bez możliwego do ustalenia kursu — nieuwzględnione w sumach ({count}×)',
@@ -323,6 +330,8 @@ const pl: MessageSchema = {
       PRICE_LOOKUP_LIMIT_REACHED: 'Osiągnięto limit zapytań o kursy — utwórz raport ponownie, aby pobrać kolejne kursy',
       WALLET_REWARDS_ONLY:
         'Źródła typu portfel z automatycznie zaimportowanymi nagrodami za staking: {count} — kupna/sprzedaże z tych portfeli nie są ujęte w raporcie',
+      SWAP_DEFERRED:
+        '{symbol}: wymiana krypto-krypto potraktowana jako neutralna podatkowo (§27b) — koszt nabycia przeniesiony na otrzymane aktywo ({count}×)',
     },
   },
   settings: {
@@ -370,6 +379,14 @@ const pl: MessageSchema = {
       'Ta transakcja jest połączona jako transfer — najpierw rozłącz powiązanie',
     TRANSFER_LINK_PORTFOLIO_MISMATCH:
       'Obie strony muszą należeć do tego samego portfolio — portfolia są odrębnymi podmiotami podatkowymi',
+    SWAP_LINK_TYPES_INVALID: 'Wymiana łączy dokładnie jedną sprzedaż z jednym zakupem',
+    SWAP_LINK_SAME_ASSET: 'Wymiana łączy dwa różne aktywa',
+    SWAP_LINK_TIMESTAMP_INVALID: 'Sprzedaż i zakup są od siebie zbyt odległe w czasie',
+    SWAP_LINK_ALREADY_LINKED: 'Jedna z transakcji jest już połączona jako wymiana',
+    SWAP_LINK_PORTFOLIO_MISMATCH:
+      'Obie strony muszą należeć do tego samego portfolio — portfolia są odrębnymi podmiotami podatkowymi',
+    SWAP_LINKED_TX_IMMUTABLE:
+      'Ta transakcja jest połączona jako wymiana — najpierw rozłącz powiązanie',
     PORTFOLIO_NOT_EMPTY: 'Portfolio zawiera jeszcze źródła — najpierw usuń źródła',
     PORTFOLIO_LAST: 'Ostatniego portfolio nie można usunąć',
     INVALID_RESET_TOKEN: 'Link jest nieprawidłowy lub wygasł — poproś o nowy',

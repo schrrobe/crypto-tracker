@@ -270,6 +270,13 @@ const en: MessageSchema = {
     unlink: 'Unlink',
     unlinkTitle: 'Remove transfer link?',
     unlinkMessage: 'The cost basis will then no longer be carried over in the tax report.',
+    swapModalTitle: 'Link as swap',
+    swapHint:
+      'Link this sale with the purchase of the coin you received (crypto-to-crypto swap). In the tax report (AT), the swap is then tax-neutral — the cost basis moves to the new asset; in DE it remains a taxable disposal.',
+    swapBadge: 'Swap ↔ {asset}',
+    swapLinkFailed: 'Swap link failed',
+    swapUnlinkTitle: 'Remove swap link?',
+    swapUnlinkMessage: 'In Austria the swap is then treated again as two separate transactions.',
     filteredBySource: 'Source: {source}',
   },
   tax: {
@@ -311,7 +318,7 @@ const en: MessageSchema = {
     warningsTitle: 'Notes',
     disclaimerTitle: 'No tax advice',
     disclaimer:
-      'This report is a non-binding calculation aid. Assumptions: FIFO per source/wallet (DE, wallet-based view per BMF-Schreiben v. 10.05.2022) — linked transfers carry the cost basis over, unlinked withdrawals lose it; Altvermögen is consumed first (AT); crypto-to-crypto swaps and foreign currency conversion are not covered. Rebase yields from liquid staking tokens (e.g. stETH) and MEV/tip income of your own validators are not captured automatically. Please seek professional advice for your tax return.',
+      'This report is a non-binding calculation aid. Assumptions: FIFO per source/wallet (DE, wallet-based view per BMF-Schreiben v. 10.05.2022) — linked transfers carry the cost basis over, unlinked withdrawals lose it; Altvermögen is consumed first (AT); crypto-to-crypto transactions linked as a swap are tax-neutral in AT (§27b, the cost basis moves along), in DE a disposal — unlinked swaps and foreign currency conversion are not covered. Rebase yields from liquid staking tokens (e.g. stETH) and MEV/tip income of your own validators are not captured automatically. Please seek professional advice for your tax return.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: acquisition without price — cost basis of 0 assumed ({count}×)',
       MISSING_DISPOSAL_PRICE: '{symbol}: disposal without a determinable price — not included in totals ({count}×)',
@@ -323,6 +330,8 @@ const en: MessageSchema = {
       PRICE_LOOKUP_LIMIT_REACHED: 'Price lookup limit reached — generate the report again to load more prices',
       WALLET_REWARDS_ONLY:
         '{count} wallet source(s) with automatically imported staking rewards — buys/sells of these wallets are missing from the report',
+      SWAP_DEFERRED:
+        '{symbol}: crypto-to-crypto swap treated as tax-neutral (§27b) — cost basis carried over to the received asset ({count}×)',
     },
   },
   settings: {
@@ -370,6 +379,14 @@ const en: MessageSchema = {
       'This transaction is linked as a transfer — please remove the link first',
     TRANSFER_LINK_PORTFOLIO_MISMATCH:
       'Both sides must belong to the same portfolio — portfolios are separate tax entities',
+    SWAP_LINK_TYPES_INVALID: 'A swap links exactly one sale with one purchase',
+    SWAP_LINK_SAME_ASSET: 'A swap links two different assets',
+    SWAP_LINK_TIMESTAMP_INVALID: 'The sale and purchase are too far apart in time',
+    SWAP_LINK_ALREADY_LINKED: 'One of the transactions is already linked as a swap',
+    SWAP_LINK_PORTFOLIO_MISMATCH:
+      'Both sides must belong to the same portfolio — portfolios are separate tax entities',
+    SWAP_LINKED_TX_IMMUTABLE:
+      'This transaction is linked as a swap — please remove the link first',
     PORTFOLIO_NOT_EMPTY: 'The portfolio still contains sources — please delete the sources first',
     PORTFOLIO_LAST: 'The last portfolio cannot be deleted',
     INVALID_RESET_TOKEN: 'The link is invalid or expired — request a new one',
