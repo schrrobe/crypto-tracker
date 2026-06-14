@@ -7,7 +7,18 @@
 import { Capacitor } from '@capacitor/core'
 import { getStored, removeStored, setStored } from './storage'
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3010/api/v1'
+// Dev: if VITE_API_URL is unset, derive the API host from where the app is
+// served — so the same build works on localhost and over the LAN (phone uses
+// the host's IP automatically). Native builds always set VITE_API_URL.
+function resolveBaseUrl(): string {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    return `${window.location.protocol}//${window.location.hostname}:3010/api/v1`
+  }
+  return 'http://localhost:3010/api/v1'
+}
+
+const BASE_URL = resolveBaseUrl()
 const REFRESH_KEY = 'refresh-token'
 
 export const isNativePlatform = Capacitor.isNativePlatform()

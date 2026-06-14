@@ -19,9 +19,25 @@ export function createApp() {
   const app = express()
 
   app.use(helmet())
-  // credentials: true → the browser may send/receive the httpOnly refresh cookie
-  // (only with exact origins from CORS_ORIGINS, no wildcard)
-  app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }))
+  // credentials: true → the browser may send/receive the httpOnly refresh cookie.
+  // Allowed: exact origins from CORS_ORIGINS; additionally, in local mode, any
+  // private-LAN origin so the app can be tested from another device (phone) on
+  // the network without hardcoding the host IP. No wildcard in prod.
+  const PRIVATE_LAN_ORIGIN =
+    /^https?:\/\/(localhost|127\.0\.0\.1|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2})(:\d+)?$/
+  const isLocal = env.APP_ENV === 'local'
+  app.use(
+    cors({
+      origin(origin, cb) {
+        // no Origin header = curl / same-origin / native shell → allow
+        if (!origin) return cb(null, true)
+        if (env.CORS_ORIGINS.includes(origin)) return cb(null, true)
+        if (isLocal && PRIVATE_LAN_ORIGIN.test(origin)) return cb(null, true)
+        cb(new Error('Not allowed by CORS'))
+      },
+      credentials: true,
+    }),
+  )
   app.use(cookieParser())
 
   // The Stripe webhook needs the unmodified raw body for signature verification —
