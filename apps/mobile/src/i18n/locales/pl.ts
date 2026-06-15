@@ -126,6 +126,9 @@ const pl: MessageSchema = {
     },
     deleteTitle: 'Usunąć {symbol}?',
     deleteMessage: 'Aktywo zostanie usunięte ze źródła.',
+    notDeletableTitle: 'Aktywa nie można usunąć bezpośrednio',
+    notDeletableMessage:
+      'To aktywo pochodzi z „{source}" i jest obliczane automatycznie na podstawie danych źródła (synchronizacja lub import). Dlatego nie można go usunąć pojedynczo. Zamiast tego usuń całe źródło w sekcji „Źródła" — lub dodaj aktywo w źródle ręcznym, gdzie można je usunąć pojedynczo.',
     addTitle: 'Dodaj aktywo',
     editTitle: 'Edytuj aktywo',
     searchPlaceholder: 'Szukaj aktywa (np. BTC)',

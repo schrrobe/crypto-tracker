@@ -65,6 +65,15 @@
             >
               <ion-icon :icon="trashOutline" slot="icon-only" />
             </ion-button>
+            <ion-button
+              v-else
+              color="medium"
+              :data-testid="`holding-delete-info-${holding.asset.symbol}`"
+              :title="$t('holdings.notDeletableTitle')"
+              @click="showDeleteInfo(holding)"
+            >
+              <ion-icon :icon="informationCircleOutline" slot="icon-only" />
+            </ion-button>
           </ion-buttons>
         </ion-item>
       </ion-list>
@@ -138,6 +147,7 @@ import {
   createOutline,
   eyeOffOutline,
   eyeOutline,
+  informationCircleOutline,
   pricetagOutline,
   trashOutline,
 } from 'ionicons/icons'
@@ -237,6 +247,17 @@ async function confirmDelete(holding: HoldingDto) {
         },
       },
     ],
+  })
+  await alert.present()
+}
+
+// Synced / CSV-derived holdings are recomputed from their source, so they cannot
+// be deleted individually. Explain why and point to deleting the whole source.
+async function showDeleteInfo(holding: HoldingDto) {
+  const alert = await alertController.create({
+    header: t('holdings.notDeletableTitle'),
+    message: t('holdings.notDeletableMessage', { source: holding.sourceLabel }),
+    buttons: [{ text: t('common.close'), role: 'cancel' }],
   })
   await alert.present()
 }

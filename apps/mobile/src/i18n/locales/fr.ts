@@ -126,6 +126,9 @@ const fr: MessageSchema = {
     },
     deleteTitle: 'Supprimer {symbol} ?',
     deleteMessage: "L'avoir sera retiré de sa source.",
+    notDeletableTitle: "L'avoir ne peut pas être supprimé directement",
+    notDeletableMessage:
+      'Cet avoir provient de « {source} » et est calculé automatiquement à partir des données de la source (synchronisation ou import). Il ne peut donc pas être supprimé individuellement. Supprimez plutôt toute la source dans « Sources » — ou saisissez l\'avoir dans une source manuelle, où il peut être supprimé individuellement.',
     addTitle: 'Ajouter un avoir',
     editTitle: "Modifier l'avoir",
     searchPlaceholder: 'Rechercher un actif (p. ex. BTC)',

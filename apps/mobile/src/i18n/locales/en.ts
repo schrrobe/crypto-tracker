@@ -126,6 +126,9 @@ const en: MessageSchema = {
     },
     deleteTitle: 'Delete {symbol}?',
     deleteMessage: 'The holding will be removed from its source.',
+    notDeletableTitle: 'Holding cannot be deleted directly',
+    notDeletableMessage:
+      'This holding comes from "{source}" and is computed automatically from the source data (sync or import). It therefore cannot be deleted individually. Delete the whole source under "Sources" instead — or add the holding in a manual source, where it can be deleted individually.',
     addTitle: 'Add holding',
     editTitle: 'Edit holding',
     searchPlaceholder: 'Search assets (e.g. BTC)',

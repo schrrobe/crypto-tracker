@@ -125,6 +125,9 @@ const de = {
     },
     deleteTitle: '{symbol} löschen?',
     deleteMessage: 'Der Bestand wird aus der Quelle entfernt.',
+    notDeletableTitle: 'Bestand nicht direkt löschbar',
+    notDeletableMessage:
+      'Dieser Bestand stammt aus „{source}" und wird automatisch aus den Daten der Quelle (Sync oder Import) berechnet. Einzeln löschen ist daher nicht möglich. Lösche stattdessen die gesamte Quelle unter „Quellen" – oder erfasse den Bestand in einer manuellen Quelle, dort ist er einzeln löschbar.',
     addTitle: 'Bestand hinzufügen',
     editTitle: 'Bestand bearbeiten',
     searchPlaceholder: 'Asset suchen (z.B. BTC)',

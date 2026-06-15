@@ -19,7 +19,7 @@ Use:
 - `rtk npm test`, `rtk pnpm test`, `rtk pytest`, `rtk cargo test`
 - `rtk docker ps`, `rtk docker logs ...`, `rtk kubectl ...`
 
-Use raw commands only when exact unfiltered output is required or when RTK does not support the command.
+Use raw commands only when exact unfiltered output is required or when RTK does not support the command. Avoid raw large `Read`/`Glob` outputs unless exact file contents are required.
 
 ## Commands
 

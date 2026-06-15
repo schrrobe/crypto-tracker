@@ -126,6 +126,9 @@ const cs: MessageSchema = {
     },
     deleteTitle: 'Smazat {symbol}?',
     deleteMessage: 'Aktivum bude odebráno ze zdroje.',
+    notDeletableTitle: 'Aktivum nelze smazat přímo',
+    notDeletableMessage:
+      'Toto aktivum pochází z „{source}" a počítá se automaticky z dat zdroje (synchronizace nebo import). Nelze ho proto smazat jednotlivě. Místo toho smažte celý zdroj v sekci „Zdroje" — nebo aktivum zadejte v ručním zdroji, kde ho lze smazat jednotlivě.',
     addTitle: 'Přidat aktivum',
     editTitle: 'Upravit aktivum',
     searchPlaceholder: 'Hledat aktivum (např. BTC)',
