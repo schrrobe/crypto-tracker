@@ -116,6 +116,11 @@ const cs: MessageSchema = {
       unlimitedSources: 'Neomezený počet zdrojů',
     },
   },
+  update: {
+    title: 'Vyžadována aktualizace',
+    message: 'Je vyžadována novější verze aplikace. Pokračujte aktualizací.',
+    button: 'Aktualizovat',
+  },
   holdings: {
     empty: 'Zatím nebyla zaznamenána žádná aktiva.',
     accountType: {

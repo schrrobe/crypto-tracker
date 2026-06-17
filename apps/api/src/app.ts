@@ -14,6 +14,7 @@ import { taxRoutes } from './modules/tax/tax.routes'
 import { portfoliosRoutes } from './modules/portfolios/portfolios.routes'
 import { marketRoutes } from './modules/market/market.routes'
 import { billingRoutes, billingWebhookHandler } from './modules/billing/billing.routes'
+import { appConfigRoutes } from './modules/app-config/app-config.routes'
 
 export function createApp() {
   const app = express()
@@ -52,6 +53,9 @@ export function createApp() {
   api.get('/health', (_req, res) => {
     res.json({ status: 'ok', env: env.APP_ENV })
   })
+
+  // Public: native clients read this before login to gate on minimum version.
+  api.use('/app', appConfigRoutes)
 
   api.use('/auth', authRoutes)
   api.use('/sources', sourcesRoutes)

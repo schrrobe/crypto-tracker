@@ -116,6 +116,11 @@ const en: MessageSchema = {
       unlimitedSources: 'Unlimited sources',
     },
   },
+  update: {
+    title: 'Update required',
+    message: 'A newer version of the app is required. Please update to continue.',
+    button: 'Update now',
+  },
   holdings: {
     empty: 'No holdings recorded yet.',
     accountType: {

@@ -115,6 +115,11 @@ const de = {
       unlimitedSources: 'Unbegrenzte Quellen',
     },
   },
+  update: {
+    title: 'Update erforderlich',
+    message: 'Eine neuere Version der App ist erforderlich. Bitte aktualisiere, um fortzufahren.',
+    button: 'Jetzt aktualisieren',
+  },
   holdings: {
     empty: 'Noch keine Bestände erfasst.',
     accountType: {

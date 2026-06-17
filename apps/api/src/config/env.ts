@@ -44,6 +44,12 @@ const envSchema = z.object({
   STRIPE_CANCEL_URL: z.string().url().optional(),
   // Interval of the automatic sync (Pro) in the worker; ≥ 60 spares provider limits
   AUTO_SYNC_EVERY_MINUTES: z.coerce.number().int().positive().default(60),
+  // Force-update gate: minimum native client version per platform (e.g. "1.0.0").
+  // Unset → gate inactive. Older clients are blocked with a link to the store URL.
+  MIN_CLIENT_VERSION_ANDROID: z.string().optional(),
+  MIN_CLIENT_VERSION_IOS: z.string().optional(),
+  APP_STORE_URL_IOS: z.string().url().optional(),
+  APP_STORE_URL_ANDROID: z.string().url().optional(),
   // Only for tests/local development: deterministic prices and providers instead of real APIs
   FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   FAKE_PROVIDERS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),

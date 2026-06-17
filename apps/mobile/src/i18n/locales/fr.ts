@@ -116,6 +116,11 @@ const fr: MessageSchema = {
       unlimitedSources: 'Sources illimitées',
     },
   },
+  update: {
+    title: 'Mise à jour requise',
+    message: 'Une version plus récente de l’application est requise. Veuillez mettre à jour pour continuer.',
+    button: 'Mettre à jour',
+  },
   holdings: {
     empty: 'Aucun avoir enregistré.',
     accountType: {

@@ -116,6 +116,11 @@ const pl: MessageSchema = {
       unlimitedSources: 'Nieograniczona liczba źródeł',
     },
   },
+  update: {
+    title: 'Wymagana aktualizacja',
+    message: 'Wymagana jest nowsza wersja aplikacji. Zaktualizuj, aby kontynuować.',
+    button: 'Zaktualizuj teraz',
+  },
   holdings: {
     empty: 'Nie dodano jeszcze żadnych aktywów.',
     accountType: {
