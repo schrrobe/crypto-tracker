@@ -1,5 +1,6 @@
 import request from 'supertest'
 import { createApp } from '../app'
+import { prisma } from '../lib/prisma'
 
 export const app = createApp()
 export const API = '/api/v1'
@@ -43,6 +44,11 @@ export async function registerUser(prefix = 'user', plan: 'FREE' | 'PRO' = 'PRO'
 
 export function bearer(user: TestUser): [string, string] {
   return ['Authorization', `Bearer ${user.token}`]
+}
+
+// Promote a test user to admin (for /admin/* endpoints, which require isAdmin).
+export async function makeAdmin(user: TestUser): Promise<void> {
+  await prisma.user.update({ where: { id: user.userId }, data: { isAdmin: true } })
 }
 
 // Dev switch (only APP_ENV=local): set the plan to test the gating

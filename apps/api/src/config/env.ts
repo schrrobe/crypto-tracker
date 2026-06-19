@@ -50,6 +50,8 @@ const envSchema = z.object({
   MIN_CLIENT_VERSION_IOS: z.string().optional(),
   APP_STORE_URL_IOS: z.string().url().optional(),
   APP_STORE_URL_ANDROID: z.string().url().optional(),
+  // Referral payout admin endpoints. Unset → admin module disabled (404).
+  ADMIN_API_TOKEN: z.string().min(16).optional(),
   // Only for tests/local development: deterministic prices and providers instead of real APIs
   FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   FAKE_PROVIDERS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),

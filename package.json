@@ -6,8 +6,10 @@
   },
   "scripts": {
     "dev": "concurrently -n api,app -c blue,green \"pnpm dev:api\" \"pnpm dev:app\"",
+    "dev:all": "concurrently -n api,app,admin -c blue,green,magenta \"pnpm dev:api\" \"pnpm dev:app\" \"pnpm dev:admin\"",
     "dev:api": "pnpm --filter @crypto-tracker/api dev",
     "dev:app": "pnpm --filter @crypto-tracker/mobile dev",
+    "dev:admin": "pnpm --filter @crypto-tracker/admin dev",
     "db:up": "docker compose up -d postgres",
     "queue:up": "docker compose up -d redis",
     "db:down": "docker compose down",

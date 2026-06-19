@@ -13,12 +13,14 @@ import {
 import { sendMail } from '../../lib/mailer'
 import { env } from '../../config/env'
 import { cancelSubscription } from '../billing/billing.service'
+import { generateUniqueReferralCode, resolveReferrerId } from '../referral/referral.service'
 
 export interface UserDto {
   id: string
   email: string
   baseCurrency: string
   plan: 'FREE' | 'PRO'
+  isAdmin: boolean
   autoSyncEnabled: boolean
   createdAt: string
 }
@@ -34,6 +36,7 @@ function toUserDto(user: {
   email: string
   baseCurrency: string
   plan: 'FREE' | 'PRO'
+  isAdmin: boolean
   autoSyncEnabled: boolean
   createdAt: Date
 }): UserDto {
@@ -42,6 +45,7 @@ function toUserDto(user: {
     email: user.email,
     baseCurrency: user.baseCurrency,
     plan: user.plan,
+    isAdmin: user.isAdmin,
     autoSyncEnabled: user.autoSyncEnabled,
     createdAt: user.createdAt.toISOString(),
   }
@@ -59,16 +63,24 @@ async function issueTokens(userId: string): Promise<{ accessToken: string; refre
   return { accessToken: signAccessToken(userId), refreshToken }
 }
 
-export async function register(email: string, password: string): Promise<AuthResult> {
+export async function register(
+  email: string,
+  password: string,
+  referralCode?: string,
+): Promise<AuthResult> {
   const normalizedEmail = email.toLowerCase().trim()
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } })
   if (existing) {
     throw AppError.conflict('EMAIL_TAKEN', 'Diese E-Mail-Adresse ist bereits registriert')
   }
+  // Attribute the invite (unknown codes are silently ignored) and mint an own code.
+  const referredById = await resolveReferrerId(referralCode)
   const user = await prisma.user.create({
     data: {
       email: normalizedEmail,
       passwordHash: await argon2.hash(password),
+      referralCode: await generateUniqueReferralCode(),
+      referredById,
       // Default portfolio eagerly — scoped endpoints without a portfolioId land here
       portfolios: { create: { label: 'Mein Portfolio', isDefault: true } },
     },

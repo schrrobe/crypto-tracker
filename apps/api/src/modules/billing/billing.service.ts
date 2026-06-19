@@ -3,6 +3,7 @@ import type { Plan } from '@prisma/client'
 import { env } from '../../config/env'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
+import { recordCommissionForInvoice } from '../referral/referral.service'
 
 // Billing is only active when a Stripe secret is configured. Without a key the
 // endpoints return 503 (BILLING_DISABLED); locally the plan is tested via the
@@ -122,5 +123,24 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
     const sub = event.data.object as Stripe.Subscription
     const active = sub.status === 'active' || sub.status === 'trialing'
     await applyPlanByCustomer(String(sub.customer), active ? 'PRO' : 'FREE', sub.id, subscriptionPeriodEnd(sub))
+    return
+  }
+  // Recurring referral commission: each paid invoice of an invited user credits
+  // their referrer 20% (idempotent per invoice id).
+  if (event.type === 'invoice.paid') {
+    const invoice = event.data.object as Stripe.Invoice
+    if (!invoice.customer || !invoice.id || invoice.amount_paid <= 0) return
+    const payer = await prisma.user.findUnique({
+      where: { stripeCustomerId: String(invoice.customer) },
+      select: { id: true, referredById: true },
+    })
+    if (!payer?.referredById) return
+    await recordCommissionForInvoice({
+      referredUserId: payer.id,
+      referrerId: payer.referredById,
+      stripeInvoiceId: invoice.id,
+      amountPaidCents: invoice.amount_paid,
+      currency: invoice.currency,
+    })
   }
 }

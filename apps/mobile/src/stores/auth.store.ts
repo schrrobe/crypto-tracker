@@ -45,8 +45,8 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = res.user
   }
 
-  async function register(email: string, password: string): Promise<void> {
-    applyAuth(await api.post<AuthResponse>('/auth/register', { email, password }))
+  async function register(email: string, password: string, referralCode?: string): Promise<void> {
+    applyAuth(await api.post<AuthResponse>('/auth/register', { email, password, referralCode }))
   }
 
   async function login(email: string, password: string): Promise<void> {

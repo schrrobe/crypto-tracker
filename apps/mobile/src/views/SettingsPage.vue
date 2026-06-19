@@ -55,6 +55,10 @@
           <ion-icon v-if="!auth.isPro" :icon="lockClosedOutline" slot="end" color="medium" />
           <ion-badge v-else slot="end" color="success">Pro</ion-badge>
         </ion-item>
+        <ion-item button data-testid="open-referral" @click="openReferral">
+          <ion-label>{{ $t('referral.settingsEntry') }}</ion-label>
+          <ion-icon :icon="giftOutline" slot="end" color="medium" />
+        </ion-item>
       </ion-list>
 
       <!-- Subscription / plan -->
@@ -194,7 +198,7 @@ import {
 import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { createOutline, lockClosedOutline, trashOutline } from 'ionicons/icons'
+import { createOutline, giftOutline, lockClosedOutline, trashOutline } from 'ionicons/icons'
 import type { PortfolioDto } from '@crypto-tracker/shared'
 import {
   getThemePreference,
@@ -220,6 +224,10 @@ const isDev = import.meta.env.DEV
 function openTaxReport() {
   if (auth.isPro) router.push('/tabs/settings/tax-report')
   else openPaywall()
+}
+
+function openReferral() {
+  router.push('/tabs/settings/referral')
 }
 
 async function managePlan() {

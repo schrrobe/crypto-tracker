@@ -61,13 +61,16 @@ import {
   IonText,
 } from '@ionic/vue'
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.store'
 import { apiErrorMessage } from '../../services/errors'
 import { t } from '../../i18n'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+// Referral code from an invite link (/register?ref=CODE); undefined if absent.
+const referralCode = typeof route.query.ref === 'string' ? route.query.ref : undefined
 
 const email = ref('')
 const password = ref('')
@@ -82,7 +85,7 @@ async function submit() {
   }
   loading.value = true
   try {
-    await auth.register(email.value, password.value)
+    await auth.register(email.value, password.value, referralCode)
     router.replace('/tabs/dashboard')
   } catch (e) {
     error.value = apiErrorMessage(e, 'auth.registerFailed')

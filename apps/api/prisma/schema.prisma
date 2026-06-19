@@ -97,15 +97,60 @@ model User {
   passwordHash  String
   baseCurrency  String            @default("EUR")
   plan          Plan              @default(FREE)
+  isAdmin       Boolean           @default(false)
   autoSyncEnabled Boolean         @default(true)
   stripeCustomerId     String?    @unique
   stripeSubscriptionId String?
   planUntil            DateTime?
   createdAt     DateTime          @default(now())
+  // Referral program: own shareable code + who invited this user (self-relation).
+  referralCode  String?           @unique
+  referredById  String?
+  referredBy    User?             @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals     User[]            @relation("Referrals")
+  // Payout bank details: IBAN encrypted at rest (like ExchangeCredential), BIC/holder plaintext.
+  encryptedIban String?
+  ibanPreview   String?
+  bankBic       String?
+  bankHolder    String?
   sources       PortfolioSource[]
   portfolios    Portfolio[]
   refreshTokens RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+  commissionsEarned ReferralCommission[] @relation("Earned")
+  payouts       Payout[]
+}
+
+// Earnings ledger: 20% of each Pro invoice paid by an invited user.
+// payoutId == null → still owed; set → bundled into a Payout (paid out).
+model ReferralCommission {
+  id              String   @id @default(uuid())
+  referrerId      String
+  referredUserId  String
+  stripeInvoiceId String   @unique
+  amountCents     Int
+  currency        String
+  payoutId        String?
+  voidedAt        DateTime?
+  createdAt       DateTime @default(now())
+  referrer        User     @relation("Earned", fields: [referrerId], references: [id], onDelete: Cascade)
+  payout          Payout?  @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+
+  @@index([referrerId])
+  @@index([payoutId])
+}
+
+// One manual bank-transfer payout bundling a referrer's owed commissions.
+model Payout {
+  id          String               @id @default(uuid())
+  referrerId  String
+  amountCents Int
+  currency    String
+  createdAt   DateTime             @default(now())
+  referrer    User                 @relation(fields: [referrerId], references: [id], onDelete: Cascade)
+  commissions ReferralCommission[]
+
+  @@index([referrerId])
 }
 
 model RefreshToken {

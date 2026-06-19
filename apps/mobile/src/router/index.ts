@@ -31,6 +31,7 @@ const routes: Array<RouteRecordRaw> = [
       { path: 'sources/transactions', component: () => import('../views/transactions/TransactionsPage.vue') },
       { path: 'settings', component: () => import('../views/SettingsPage.vue') },
       { path: 'settings/tax-report', component: () => import('../views/tax/TaxReportPage.vue') },
+      { path: 'settings/referral', component: () => import('../views/settings/ReferralPage.vue') },
     ],
   },
 ]

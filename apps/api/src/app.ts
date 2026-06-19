@@ -15,6 +15,8 @@ import { portfoliosRoutes } from './modules/portfolios/portfolios.routes'
 import { marketRoutes } from './modules/market/market.routes'
 import { billingRoutes, billingWebhookHandler } from './modules/billing/billing.routes'
 import { appConfigRoutes } from './modules/app-config/app-config.routes'
+import { referralRoutes } from './modules/referral/referral.routes'
+import { adminRoutes } from './modules/admin/admin.routes'
 
 export function createApp() {
   const app = express()
@@ -69,6 +71,8 @@ export function createApp() {
   api.use('/portfolios', portfoliosRoutes)
   api.use('/market', marketRoutes)
   api.use('/billing', billingRoutes)
+  api.use('/referral', referralRoutes)
+  api.use('/admin', adminRoutes)
 
   app.use((_req, res) => {
     res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route nicht gefunden' } })

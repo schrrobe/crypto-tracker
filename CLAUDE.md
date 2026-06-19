@@ -40,11 +40,12 @@ Single test file: `pnpm --filter @crypto-tracker/api exec vitest run src/provide
 
 ## Architecture
 
-pnpm monorepo, four workspaces:
+pnpm monorepo, five workspaces:
 
 - **`apps/api`** — Express + Prisma + Zod, ESM (`type: module`). `src/modules/<feature>/` holds `*.routes.ts` + `*.service.ts`; routes only validate (Zod via `validate.middleware`) and delegate, services hold logic. Errors: throw `AppError` (`src/lib/errors.ts`) with a stable code; `error.middleware` shapes the response.
 - **`apps/mobile`** — Ionic Vue + Pinia + vue-i18n. `services/api.client.ts` wraps fetch with 401 → refresh-token → retry; Pinia stores per domain mirror the API modules.
-- **`packages/shared`** — Zod schemas, DTO types, enums consumed by both (exported as raw TS, no build step).
+- **`apps/admin`** — Standalone admin panel (Vue 3 + Vite + TS + **Tailwind v4** + Chart.js, **no Ionic**), dev port **5175**. Auth via the `User.isAdmin` role through `/auth/login`; `requireAdmin` (`auth.middleware`) gates `/admin/*` and returns **404** for non-admins. Grant admin: `pnpm --filter @crypto-tracker/api admin:grant <email>`. Run all three apps with `pnpm dev:all`.
+- **`packages/shared`** — Zod schemas, DTO types, enums consumed by all apps (exported as raw TS, no build step).
 - **`e2e`** — Playwright; `global-setup.ts` starts isolated API/app instances (config in `e2e/config.ts`).
 
 **Core abstraction — `PortfolioSource`:** every connection, import, or manual bucket is a source; every `Holding` belongs to exactly one source so provenance stays visible. Sync, imports, and portfolio aggregation all hang off this model.

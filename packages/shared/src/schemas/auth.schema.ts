@@ -3,6 +3,8 @@ import { z } from 'zod'
 export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(10, 'Passwort muss mindestens 10 Zeichen haben').max(128),
+  // Optional referral code from an invite link (?ref=…). Invalid codes are ignored.
+  referralCode: z.string().trim().min(1).max(32).optional(),
 })
 export type RegisterInput = z.infer<typeof registerSchema>
 

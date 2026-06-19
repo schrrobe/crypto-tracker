@@ -23,7 +23,7 @@ export default tseslint.config(
     languageOptions: { parserOptions: { parser: tseslint.parser } },
   },
   {
-    files: ['apps/mobile/**'],
+    files: ['apps/mobile/**', 'apps/admin/**'],
     languageOptions: { globals: globals.browser },
   },
   {

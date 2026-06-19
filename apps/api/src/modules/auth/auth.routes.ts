@@ -48,8 +48,8 @@ authRoutes.post(
   '/register',
   validate(registerSchema),
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body
-    sendAuth(req, res, await authService.register(email, password), 201)
+    const { email, password, referralCode } = req.body
+    sendAuth(req, res, await authService.register(email, password, referralCode), 201)
   }),
 )
 
