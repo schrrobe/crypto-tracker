@@ -98,6 +98,7 @@ model User {
   baseCurrency  String            @default("EUR")
   plan          Plan              @default(FREE)
   isAdmin       Boolean           @default(false)
+  suspendedAt   DateTime?
   autoSyncEnabled Boolean         @default(true)
   stripeCustomerId     String?    @unique
   stripeSubscriptionId String?

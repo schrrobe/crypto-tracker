@@ -10,6 +10,7 @@
       <KpiCard label="Aktive Abos" :value="o.activeSubscriptions" />
       <KpiCard label="MRR (Proxy)" :value="money(o.mrrProxyCents)" />
       <KpiCard label="Offene Payouts" :value="money(o.referral.owedCents)" :sub="`${o.referral.activeReferrers} Referrer`" />
+      <KpiCard v-if="churn" label="Abgelaufene Pro" :value="churn.expiredPro" :sub="`${churn.expiringSoon7d} laufen bald ab`" />
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -28,13 +29,14 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { Line, Doughnut } from 'vue-chartjs'
-import type { AdminOverviewDto, AdminGrowthPointDto } from '@crypto-tracker/shared'
+import type { AdminOverviewDto, AdminGrowthPointDto, AdminChurnDto } from '@crypto-tracker/shared'
 import { adminApi } from '../services/admin'
 import { money } from '../format'
 import KpiCard from '../components/KpiCard.vue'
 
 const o = ref<AdminOverviewDto | null>(null)
 const growth = ref<AdminGrowthPointDto[]>([])
+const churn = ref<AdminChurnDto | null>(null)
 const error = ref('')
 const lineOpts = { responsive: true, plugins: { legend: { display: false } } }
 
@@ -59,6 +61,7 @@ onMounted(async () => {
   try {
     o.value = await adminApi.overview()
     growth.value = (await adminApi.growth(30)).points
+    churn.value = await adminApi.churn()
   } catch {
     error.value = 'Daten konnten nicht geladen werden.'
   }

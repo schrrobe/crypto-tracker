@@ -33,3 +33,4 @@ adminStatsRoutes.get(
 )
 
 adminStatsRoutes.get('/price-cache', asyncHandler(async (_req, res) => res.json(await admin.getPriceCacheStats())))
+adminStatsRoutes.get('/churn', asyncHandler(async (_req, res) => res.json(await admin.getChurnStats())))

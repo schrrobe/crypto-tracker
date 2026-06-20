@@ -37,6 +37,7 @@
             <td class="px-4 py-2">
               {{ u.email }}
               <span v-if="u.isAdmin" class="ml-1 text-xs bg-amber-100 text-amber-700 rounded px-1">admin</span>
+              <span v-if="u.suspendedAt" class="ml-1 text-xs bg-red-100 text-red-700 rounded px-1">gesperrt</span>
             </td>
             <td class="px-4 py-2">
               <span :class="u.plan === 'PRO' ? 'text-emerald-600 font-medium' : 'text-slate-500'">{{ u.plan }}</span>

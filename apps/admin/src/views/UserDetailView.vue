@@ -1,7 +1,11 @@
 <template>
   <div v-if="u">
     <RouterLink to="/users" class="text-sm text-slate-500">← Nutzer</RouterLink>
-    <h1 class="text-2xl font-semibold mt-2 mb-4">{{ u.email }}</h1>
+    <h1 class="text-2xl font-semibold mt-2 mb-4">
+      {{ u.email }}
+      <span v-if="u.isAdmin" class="align-middle ml-2 text-xs bg-amber-100 text-amber-700 rounded px-1.5 py-0.5">admin</span>
+      <span v-if="u.suspendedAt" class="align-middle ml-2 text-xs bg-red-100 text-red-700 rounded px-1.5 py-0.5">gesperrt</span>
+    </h1>
 
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
       <KpiCard label="Plan" :value="u.plan" :sub="u.planUntil ? 'bis ' + date(u.planUntil) : ''" />
@@ -28,6 +32,25 @@
       </div>
 
       <button class="rounded border border-slate-300 px-3 py-2 text-sm" @click="revoke">Sessions widerrufen</button>
+
+      <button
+        v-if="!u.suspendedAt"
+        class="rounded border border-amber-300 text-amber-700 px-3 py-2 text-sm block"
+        @click="toggleSuspend(true)"
+      >
+        Konto sperren
+      </button>
+      <button
+        v-else
+        class="rounded border border-emerald-300 text-emerald-700 px-3 py-2 text-sm block"
+        @click="toggleSuspend(false)"
+      >
+        Sperre aufheben
+      </button>
+
+      <button class="rounded border border-slate-300 px-3 py-2 text-sm block" @click="toggleAdmin">
+        {{ u.isAdmin ? 'Admin-Rechte entziehen' : 'Zum Admin machen' }}
+      </button>
 
       <button class="rounded border border-red-300 text-red-600 px-3 py-2 text-sm block" @click="remove">
         Konto löschen
@@ -137,6 +160,27 @@ async function revoke() {
     const { revoked } = await adminApi.revokeSessions(id)
     msg.value = `${revoked} Sessions widerrufen.`
     await load()
+  } catch (e) {
+    flash(e)
+  }
+}
+async function toggleSuspend(suspend: boolean) {
+  err.value = msg.value = ''
+  try {
+    if (suspend) await adminApi.suspend(id)
+    else await adminApi.unsuspend(id)
+    msg.value = suspend ? 'Konto gesperrt.' : 'Sperre aufgehoben.'
+    await load()
+  } catch (e) {
+    flash(e)
+  }
+}
+async function toggleAdmin() {
+  err.value = msg.value = ''
+  try {
+    await adminApi.setAdmin(id, !u.value!.isAdmin)
+    await load()
+    msg.value = 'Admin-Rolle aktualisiert.'
   } catch (e) {
     flash(e)
   }

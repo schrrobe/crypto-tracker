@@ -66,6 +66,7 @@ export interface AdminUserListItemDto {
   plan: 'FREE' | 'PRO'
   planUntil: string | null
   isAdmin: boolean
+  suspendedAt: string | null
   sourcesCount: number
   referredByEmail: string | null
   createdAt: string
@@ -121,6 +122,15 @@ export interface AdminAuditListDto {
   page: number
   pageSize: number
 }
+
+export interface AdminChurnDto {
+  activePro: number
+  expiredPro: number
+  expiringSoon7d: number
+  lapsed: { email: string; planUntil: string | null }[]
+}
+
+export const adminSetAdminSchema = z.object({ isAdmin: z.boolean() })
 
 export const adminAuditQuerySchema = z.object({
   action: z.string().optional(),

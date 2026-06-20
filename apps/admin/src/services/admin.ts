@@ -1,6 +1,7 @@
 import type {
   AdminAssetsDto,
   AdminAuditListDto,
+  AdminChurnDto,
   AdminCommissionDto,
   AdminGrowthPointDto,
   AdminImportsDto,
@@ -49,6 +50,7 @@ export const adminApi = {
       `/admin/stats/transactions?days=${days}`,
     ),
   priceCache: () => api.get<AdminPriceCacheDto>('/admin/stats/price-cache'),
+  churn: () => api.get<AdminChurnDto>('/admin/stats/churn'),
 
   users: (params: { search?: string; plan?: string; page?: number; pageSize?: number }) => {
     const q = new URLSearchParams()
@@ -65,6 +67,9 @@ export const adminApi = {
   updatePlan: (id: string, input: AdminUpdatePlanInput) => api.patch<void>(`/admin/users/${id}/plan`, input),
   deleteUser: (id: string) => api.delete<void>(`/admin/users/${id}`),
   revokeSessions: (id: string) => api.post<{ revoked: number }>(`/admin/users/${id}/revoke-sessions`),
+  suspend: (id: string) => api.post<void>(`/admin/users/${id}/suspend`),
+  unsuspend: (id: string) => api.post<void>(`/admin/users/${id}/unsuspend`),
+  setAdmin: (id: string, isAdmin: boolean) => api.patch<void>(`/admin/users/${id}/admin`, { isAdmin }),
 
   pendingPayouts: () => api.get<{ payouts: PendingPayout[] }>('/admin/referral/payouts'),
   payoutHistory: () => api.get<{ payouts: PayoutHistoryItem[] }>('/admin/referral/payouts/history'),

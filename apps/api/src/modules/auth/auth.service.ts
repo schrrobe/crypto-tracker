@@ -95,6 +95,7 @@ export async function login(email: string, password: string): Promise<AuthResult
   if (!user) throw invalid
   const ok = await argon2.verify(user.passwordHash, password)
   if (!ok) throw invalid
+  if (user.suspendedAt) throw new AppError('ACCOUNT_SUSPENDED', 403, 'Dieses Konto ist gesperrt')
   return { user: toUserDto(user), ...(await issueTokens(user.id)) }
 }
 
@@ -106,6 +107,10 @@ export async function refresh(refreshToken: string): Promise<AuthResult> {
   })
   if (!stored || stored.expiresAt < new Date()) {
     throw AppError.unauthorized('Sitzung abgelaufen, bitte neu anmelden')
+  }
+  if (stored.user.suspendedAt) {
+    await prisma.refreshToken.delete({ where: { id: stored.id } })
+    throw new AppError('ACCOUNT_SUSPENDED', 403, 'Dieses Konto ist gesperrt')
   }
   // Simple rotation: the old token is invalidated, a new one is issued
   await prisma.refreshToken.delete({ where: { id: stored.id } })

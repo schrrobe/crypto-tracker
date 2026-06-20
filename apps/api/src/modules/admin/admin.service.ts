@@ -12,7 +12,7 @@ import type {
   AdminUserListDto,
   AdminUpdatePlanInput,
 } from '@crypto-tracker/shared'
-import type { AdminSourceDto } from '@crypto-tracker/shared'
+import type { AdminChurnDto, AdminSourceDto } from '@crypto-tracker/shared'
 import { getReferralOverview } from '../referral/referral.service'
 import { deleteAccount } from '../auth/auth.service'
 import { requestSync } from '../sync/sync.service'
@@ -211,6 +211,7 @@ export async function listUsers(query: {
         plan: true,
         planUntil: true,
         isAdmin: true,
+        suspendedAt: true,
         createdAt: true,
         referredBy: { select: { email: true } },
         _count: { select: { sources: true } },
@@ -227,6 +228,7 @@ export async function listUsers(query: {
       plan: u.plan,
       planUntil: u.planUntil?.toISOString() ?? null,
       isAdmin: u.isAdmin,
+      suspendedAt: u.suspendedAt?.toISOString() ?? null,
       sourcesCount: u._count.sources,
       referredByEmail: u.referredBy?.email ?? null,
       createdAt: u.createdAt.toISOString(),
@@ -243,6 +245,7 @@ export async function getUserDetail(id: string): Promise<AdminUserDetailDto> {
       plan: true,
       planUntil: true,
       isAdmin: true,
+      suspendedAt: true,
       createdAt: true,
       referredBy: { select: { email: true } },
       _count: { select: { sources: true, portfolios: true } },
@@ -260,6 +263,7 @@ export async function getUserDetail(id: string): Promise<AdminUserDetailDto> {
     plan: u.plan,
     planUntil: u.planUntil?.toISOString() ?? null,
     isAdmin: u.isAdmin,
+    suspendedAt: u.suspendedAt?.toISOString() ?? null,
     sourcesCount: u._count.sources,
     referredByEmail: u.referredBy?.email ?? null,
     createdAt: u.createdAt.toISOString(),
@@ -305,6 +309,65 @@ export async function deleteUser(actor: AuditActor, id: string): Promise<void> {
     targetId: id,
     metadata: { email: target.email },
   })
+}
+
+export async function setSuspended(actor: AuditActor, id: string, suspended: boolean): Promise<void> {
+  const target = await prisma.user.findUnique({ where: { id }, select: { email: true } })
+  if (!target) throw AppError.notFound('User nicht gefunden')
+  await prisma.user.update({ where: { id }, data: { suspendedAt: suspended ? new Date() : null } })
+  if (suspended) {
+    // Force logout: drop refresh tokens so existing sessions die at access-token expiry.
+    await prisma.refreshToken.deleteMany({ where: { userId: id } })
+  }
+  await recordAudit({
+    actor,
+    action: suspended ? AuditAction.USER_SUSPENDED : AuditAction.USER_UNSUSPENDED,
+    targetType: 'USER',
+    targetId: id,
+    metadata: { email: target.email },
+  })
+}
+
+export async function setAdmin(actor: AuditActor, id: string, isAdmin: boolean): Promise<void> {
+  if (!isAdmin && actor.id === id) {
+    throw AppError.badRequest('CANNOT_DEMOTE_SELF', 'Admin kann sich nicht selbst die Rechte entziehen')
+  }
+  const target = await prisma.user.findUnique({ where: { id }, select: { isAdmin: true, email: true } })
+  if (!target) throw AppError.notFound('User nicht gefunden')
+  if (!isAdmin && target.isAdmin) {
+    const admins = await prisma.user.count({ where: { isAdmin: true } })
+    if (admins <= 1) throw AppError.badRequest('CANNOT_DEMOTE_LAST_ADMIN', 'Letzter Admin kann nicht degradiert werden')
+  }
+  await prisma.user.update({ where: { id }, data: { isAdmin } })
+  await recordAudit({
+    actor,
+    action: AuditAction.ADMIN_ROLE_CHANGED,
+    targetType: 'USER',
+    targetId: id,
+    metadata: { from: target.isAdmin, to: isAdmin },
+  })
+}
+
+export async function getChurnStats(): Promise<AdminChurnDto> {
+  const now = new Date()
+  const in7d = new Date(Date.now() + 7 * DAY_MS)
+  const [activePro, expiredPro, expiringSoon7d, lapsedRows] = await Promise.all([
+    prisma.user.count({ where: { plan: 'PRO', OR: [{ planUntil: null }, { planUntil: { gt: now } }] } }),
+    prisma.user.count({ where: { plan: 'PRO', planUntil: { lt: now } } }),
+    prisma.user.count({ where: { plan: 'PRO', planUntil: { gte: now, lte: in7d } } }),
+    prisma.user.findMany({
+      where: { plan: 'PRO', planUntil: { lt: now } },
+      select: { email: true, planUntil: true },
+      orderBy: { planUntil: 'desc' },
+      take: 100,
+    }),
+  ])
+  return {
+    activePro,
+    expiredPro,
+    expiringSoon7d,
+    lapsed: lapsedRows.map((r) => ({ email: r.email, planUntil: r.planUntil?.toISOString() ?? null })),
+  }
 }
 
 export async function revokeSessions(actor: AuditActor, id: string): Promise<number> {

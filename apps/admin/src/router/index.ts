@@ -14,6 +14,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/transactions', name: 'transactions', component: () => import('../views/TransactionsView.vue') },
   { path: '/price-cache', name: 'price-cache', component: () => import('../views/PriceCacheView.vue') },
   { path: '/audit', name: 'audit', component: () => import('../views/AuditLogView.vue') },
+  { path: '/churn', name: 'churn', component: () => import('../views/ChurnView.vue') },
 ]
 
 export const router = createRouter({ history: createWebHistory(), routes })

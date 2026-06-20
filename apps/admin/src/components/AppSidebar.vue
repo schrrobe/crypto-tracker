@@ -33,6 +33,7 @@ const links = [
   { to: '/', label: 'Dashboard' },
   { to: '/users', label: 'Users' },
   { to: '/referrals', label: 'Referrals' },
+  { to: '/churn', label: 'Churn' },
   { to: '/sync-health', label: 'Sync-Health' },
   { to: '/sources', label: 'Sources' },
   { to: '/imports', label: 'CSV-Imports' },

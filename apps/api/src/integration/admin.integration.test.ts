@@ -130,4 +130,91 @@ describe('Admin (Integration)', () => {
     const missing = await request(app).post(`${API}/admin/sources/nonexistent-id/sync`).set(...bearer(admin))
     expect(missing.status).toBe(404)
   })
+
+  it('Suspend: blockt Login + Refresh, widerruft Sessions, Audit; unsuspend hebt auf', async () => {
+    const admin = await registerUser('susp-admin', 'FREE')
+    await makeAdmin(admin)
+    const target = await registerUser('susp-target', 'FREE')
+
+    await request(app).post(`${API}/admin/users/${target.userId}/suspend`).set(...bearer(admin)).expect(204)
+
+    // Sessions revoked
+    expect(await prisma.refreshToken.count({ where: { userId: target.userId } })).toBe(0)
+    // suspendedAt set
+    const dbUser = await prisma.user.findUnique({ where: { id: target.userId } })
+    expect(dbUser?.suspendedAt).not.toBeNull()
+
+    // Login blocked
+    const login = await request(app)
+      .post(`${API}/auth/login`)
+      .set('X-Client', 'native')
+      .send({ email: target.email, password: 'superSicheresPasswort1' })
+    expect(login.status).toBe(403)
+    expect(login.body.error.code).toBe('ACCOUNT_SUSPENDED')
+
+    // Refresh blocked (token was revoked anyway → 401 or 403; assert not 200)
+    const refresh = await request(app)
+      .post(`${API}/auth/refresh`)
+      .set('X-Client', 'native')
+      .send({ refreshToken: target.refreshToken })
+    expect(refresh.status).not.toBe(200)
+
+    // Audit
+    const audit = await request(app).get(`${API}/admin/audit?targetId=${target.userId}`).set(...bearer(admin))
+    expect(audit.body.audit.some((a: { action: string }) => a.action === 'USER_SUSPENDED')).toBe(true)
+
+    // Unsuspend → login works again
+    await request(app).post(`${API}/admin/users/${target.userId}/unsuspend`).set(...bearer(admin)).expect(204)
+    const login2 = await request(app)
+      .post(`${API}/auth/login`)
+      .set('X-Client', 'native')
+      .send({ email: target.email, password: 'superSicheresPasswort1' })
+    expect(login2.status).toBe(200)
+  })
+
+  it('setAdmin: promotet/degradiert + Audit; Selbst + letzter Admin geschützt', async () => {
+    const admin = await registerUser('role-admin', 'FREE')
+    await makeAdmin(admin)
+    const target = await registerUser('role-target', 'FREE')
+
+    await request(app)
+      .patch(`${API}/admin/users/${target.userId}/admin`)
+      .set(...bearer(admin))
+      .send({ isAdmin: true })
+      .expect(204)
+    expect((await prisma.user.findUnique({ where: { id: target.userId } }))?.isAdmin).toBe(true)
+
+    // Self-demotion blocked
+    const self = await request(app)
+      .patch(`${API}/admin/users/${admin.userId}/admin`)
+      .set(...bearer(admin))
+      .send({ isAdmin: false })
+    expect(self.status).toBe(400)
+    expect(self.body.error.code).toBe('CANNOT_DEMOTE_SELF')
+
+    // Demote the now-promoted target back (works, >1 admin)
+    await request(app)
+      .patch(`${API}/admin/users/${target.userId}/admin`)
+      .set(...bearer(admin))
+      .send({ isAdmin: false })
+      .expect(204)
+
+    const audit = await request(app).get(`${API}/admin/audit?action=ADMIN_ROLE_CHANGED`).set(...bearer(admin))
+    expect(audit.body.audit.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('Churn: zählt abgelaufene und bald ablaufende Pro', async () => {
+    const admin = await registerUser('churn-admin', 'FREE')
+    await makeAdmin(admin)
+    const expired = await registerUser('churn-expired', 'PRO')
+    await prisma.user.update({
+      where: { id: expired.userId },
+      data: { planUntil: new Date(Date.now() - 86400000) },
+    })
+
+    const res = await request(app).get(`${API}/admin/stats/churn`).set(...bearer(admin))
+    expect(res.status).toBe(200)
+    expect(res.body.expiredPro).toBeGreaterThanOrEqual(1)
+    expect(res.body.lapsed.some((l: { email: string }) => l.email === expired.email)).toBe(true)
+  })
 })

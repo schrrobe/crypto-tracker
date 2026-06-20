@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { adminUpdatePlanSchema, adminUsersQuerySchema } from '@crypto-tracker/shared'
+import { adminSetAdminSchema, adminUpdatePlanSchema, adminUsersQuerySchema } from '@crypto-tracker/shared'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
 import { AppError } from '../../lib/errors'
@@ -51,6 +51,37 @@ adminUsersRoutes.delete(
     const { id } = req.params
     if (!id) throw AppError.notFound()
     await admin.deleteUser(req.adminUser, id)
+    res.status(204).end()
+  }),
+)
+
+adminUsersRoutes.post(
+  '/:id/suspend',
+  asyncHandler(async (req, res) => {
+    const { id } = req.params
+    if (!id) throw AppError.notFound()
+    await admin.setSuspended(req.adminUser, id, true)
+    res.status(204).end()
+  }),
+)
+
+adminUsersRoutes.post(
+  '/:id/unsuspend',
+  asyncHandler(async (req, res) => {
+    const { id } = req.params
+    if (!id) throw AppError.notFound()
+    await admin.setSuspended(req.adminUser, id, false)
+    res.status(204).end()
+  }),
+)
+
+adminUsersRoutes.patch(
+  '/:id/admin',
+  validate(adminSetAdminSchema),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params
+    if (!id) throw AppError.notFound()
+    await admin.setAdmin(req.adminUser, id, req.body.isAdmin)
     res.status(204).end()
   }),
 )
