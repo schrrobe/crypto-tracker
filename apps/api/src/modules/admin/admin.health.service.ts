@@ -9,19 +9,28 @@ const TIMEOUT_MS = 5000
 
 type CheckName = AdminHealthCheckDto['name']
 
-// Run a probe with timing + timeout. Resolves to a check result, never throws.
+// Run a probe with timing + a hard timeout. The AbortSignal is passed for
+// cooperative cancellation (fetch), but we ALSO race a rejecting timer so
+// checks whose underlying call ignores the signal (SMTP verify, redis connect)
+// still resolve 'down' within the budget instead of hanging getHealth.
 async function probe(name: CheckName, fn: (signal: AbortSignal) => Promise<void>): Promise<AdminHealthCheckDto> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new Error(`Timeout nach ${TIMEOUT_MS}ms`))
+    }, TIMEOUT_MS)
+  })
   const start = Date.now()
   try {
-    await fn(controller.signal)
+    await Promise.race([fn(controller.signal), timeout])
     return { name, state: 'ok', latencyMs: Date.now() - start, detail: null }
   } catch (e) {
     const detail = e instanceof Error ? e.message.slice(0, 200) : 'unbekannter Fehler'
     return { name, state: 'down', latencyMs: Date.now() - start, detail }
   } finally {
-    clearTimeout(timer)
+    if (timer) clearTimeout(timer)
   }
 }
 

@@ -18,6 +18,10 @@ const transporter =
         port: env.SMTP_PORT,
         secure: env.SMTP_PORT === 465,
         auth: env.SMTP_USER && env.SMTP_PASSWORD ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD } : undefined,
+        // Bound connection attempts so a dead SMTP host fails fast (health check / sends).
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 10000,
       })
     : null
 

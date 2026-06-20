@@ -13,8 +13,8 @@
       <KpiCard label="Holdings" :value="u.holdingsCount" />
       <KpiCard label="Aktive Sessions" :value="u.activeSessions" />
       <KpiCard label="Eingeladen" :value="u.invitedCount" />
-      <KpiCard label="Einnahmen offen" :value="money(u.earnings.owedCents, u.earnings.currency)" />
-      <KpiCard label="Ausgezahlt" :value="money(u.earnings.paidCents, u.earnings.currency)" />
+      <KpiCard label="Einnahmen offen" :value="earnings(u.earnings, 'owedCents')" />
+      <KpiCard label="Ausgezahlt" :value="earnings(u.earnings, 'paidCents')" />
       <KpiCard label="Eingeladen von" :value="u.referredByEmail ?? '–'" />
     </div>
 
@@ -97,7 +97,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import type { AdminUserDetailDto, AdminSourceDto } from '@crypto-tracker/shared'
 import { adminApi } from '../services/admin'
 import { ApiError } from '../services/api.client'
-import { money, date } from '../format'
+import { earnings, date } from '../format'
 import KpiCard from '../components/KpiCard.vue'
 
 const route = useRoute()

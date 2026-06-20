@@ -16,7 +16,7 @@ describe('Admin (Integration)', () => {
     const ok = await request(app).get(`${API}/admin/stats/overview`).set(...bearer(user))
     expect(ok.status).toBe(200)
     expect(typeof ok.body.totalUsers).toBe('number')
-    expect(ok.body.referral).toHaveProperty('owedCents')
+    expect(ok.body.referral).toHaveProperty('byCurrency')
   })
 
   it('Users-Liste filtert nach Plan und paginiert', async () => {
@@ -267,7 +267,8 @@ describe('Admin (Integration)', () => {
     const expired = await registerUser('churn-expired', 'PRO')
     await prisma.user.update({
       where: { id: expired.userId },
-      data: { planUntil: new Date(Date.now() - 86400000) },
+      // Past the 3-day grace window so it counts as truly lapsed (matches getPlan).
+      data: { planUntil: new Date(Date.now() - 5 * 86400000) },
     })
 
     const res = await request(app).get(`${API}/admin/stats/churn`).set(...bearer(admin))

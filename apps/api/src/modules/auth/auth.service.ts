@@ -221,6 +221,10 @@ export async function deleteAccount(userId: string): Promise<void> {
     }
   }
   await prisma.$transaction([
+    // referredUserId has no FK (so commission audit survives referrer deletion),
+    // so commissions earned *for inviting this user* must be removed explicitly —
+    // otherwise they orphan and keep inflating admin owed/paid totals.
+    prisma.referralCommission.deleteMany({ where: { referredUserId: userId } }),
     prisma.portfolioSource.deleteMany({ where: { userId } }),
     prisma.portfolio.deleteMany({ where: { userId } }),
     prisma.user.delete({ where: { id: userId } }),

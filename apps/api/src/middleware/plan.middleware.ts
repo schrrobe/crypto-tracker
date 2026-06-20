@@ -4,7 +4,13 @@ import { prisma } from '../lib/prisma'
 import { AppError } from '../lib/errors'
 
 // Grace period for webhook delay (the renewal only arrives shortly before/after expiry)
-const PLAN_GRACE_MS = 3 * 24 * 60 * 60 * 1000
+export const PLAN_GRACE_MS = 3 * 24 * 60 * 60 * 1000
+
+// A PRO subscription still counts as active until planUntil + grace has passed.
+// Shared so admin stats (churn/MRR) match the gating logic in getPlan().
+export function activeProCutoff(now = Date.now()): Date {
+  return new Date(now - PLAN_GRACE_MS)
+}
 
 // Load the logged-in user's plan (for gating in services/routes).
 export async function getPlan(userId: string): Promise<Plan> {

@@ -12,11 +12,13 @@ import type {
   AdminUserListDto,
   AdminUpdatePlanInput,
 } from '@crypto-tracker/shared'
+import { Prisma } from '@prisma/client'
 import type { AdminAttentionDto, AdminChurnDto, AdminSourceDto } from '@crypto-tracker/shared'
-import { getReferralOverview, listPendingPayouts } from '../referral/referral.service'
+import { earningsByCurrency, listPendingPayouts } from '../referral/referral.service'
 import { deleteAccount } from '../auth/auth.service'
 import { requestSync } from '../sync/sync.service'
 import { toSyncRunDto } from '../sync/syncRun.mapper'
+import { activeProCutoff } from '../../middleware/plan.middleware'
 import { AuditAction, recordAudit, type AuditActor } from './audit.service'
 
 // Pro price proxy for MRR (no live Stripe revenue query). Adjust if pricing changes.
@@ -47,18 +49,25 @@ export async function getOverview(): Promise<AdminOverviewDto> {
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { plan: 'PRO' } }),
-    prisma.user.count({ where: { plan: 'PRO', planUntil: { gt: now } } }),
+    // Active subscription = PRO within the grace window (matches getPlan gating).
+    prisma.user.count({ where: { plan: 'PRO', OR: [{ planUntil: null }, { planUntil: { gte: activeProCutoff() } }] } }),
     prisma.user.count({ where: { createdAt: { gte: daysAgo(7) } } }),
     prisma.user.count({ where: { createdAt: { gte: daysAgo(30) } } }),
     prisma.user.count({ where: { createdAt: { gte: daysAgo(14), lt: daysAgo(7) } } }),
     prisma.user.count({ where: { createdAt: { gte: daysAgo(60), lt: daysAgo(30) } } }),
     prisma.refreshToken.count({ where: { expiresAt: { gt: now } } }),
-    prisma.referralCommission.aggregate({ _sum: { amountCents: true }, where: { payoutId: null, voidedAt: null } }),
-    prisma.referralCommission.aggregate({ _sum: { amountCents: true }, where: { payoutId: { not: null }, voidedAt: null } }),
+    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { voidedAt: null } }),
+    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { payoutId: { not: null }, voidedAt: null } }),
     prisma.referralCommission.findMany({ where: { voidedAt: null }, select: { referrerId: true }, distinct: ['referrerId'] }),
     prisma.user.count({ where: { referredById: { not: null } } }),
   ])
   const freeUsers = totalUsers - proUsers
+  const paidByCurrency = new Map(paid.map((r) => [r.currency, r._sum.amountCents ?? 0]))
+  const referralByCurrency = owed.map((r) => {
+    const total = r._sum.amountCents ?? 0
+    const paidCents = paidByCurrency.get(r.currency) ?? 0
+    return { currency: r.currency, owedCents: total - paidCents, paidCents }
+  })
   return {
     totalUsers,
     proUsers,
@@ -72,8 +81,7 @@ export async function getOverview(): Promise<AdminOverviewDto> {
     activeSubscriptions,
     mrrProxyCents: activeSubscriptions * PRO_PRICE_CENTS,
     referral: {
-      owedCents: owed._sum.amountCents ?? 0,
-      paidCents: paid._sum.amountCents ?? 0,
+      byCurrency: referralByCurrency,
       activeReferrers: referrers.length,
       invitedUsers: invited,
     },
@@ -304,10 +312,13 @@ export async function getUserDetail(id: string): Promise<AdminUserDetailDto> {
     },
   })
   if (!u) throw AppError.notFound('User nicht gefunden')
-  const [holdingsCount, activeSessions, overview] = await Promise.all([
+  // Compute earnings directly (no getReferralOverview — that one writes a
+  // referralCode on read and loads full invited/commission lists).
+  const [holdingsCount, activeSessions, invitedCount, earnings] = await Promise.all([
     prisma.holding.count({ where: { source: { userId: id } } }),
     prisma.refreshToken.count({ where: { userId: id, expiresAt: { gt: new Date() } } }),
-    getReferralOverview(id),
+    prisma.user.count({ where: { referredById: id } }),
+    earningsByCurrency(id),
   ])
   return {
     id: u.id,
@@ -321,9 +332,9 @@ export async function getUserDetail(id: string): Promise<AdminUserDetailDto> {
     createdAt: u.createdAt.toISOString(),
     portfoliosCount: u._count.portfolios,
     holdingsCount,
-    invitedCount: overview.invitedCount,
+    invitedCount,
     activeSessions,
-    earnings: overview.earnings,
+    earnings,
   }
 }
 
@@ -406,6 +417,8 @@ export async function getAttention(): Promise<AdminAttentionDto> {
   const [sourcesErrRows, failedImports, stalePriceCache, pending, expiringSoonPro, suspendedUsers] =
     await Promise.all([
       // Sources whose most recent SyncRun errored (current broken state).
+      // DISTINCT ON is backed by @@index([sourceId, startedAt]) (loose index scan
+      // → one probe per source), so cost scales with #sources, not total runs.
       prisma.$queryRaw<{ c: number }[]>`
         SELECT count(*)::int AS c FROM (
           SELECT DISTINCT ON (r."sourceId") r.status
@@ -430,12 +443,15 @@ export async function getAttention(): Promise<AdminAttentionDto> {
 export async function getChurnStats(): Promise<AdminChurnDto> {
   const now = new Date()
   const in7d = new Date(Date.now() + 7 * DAY_MS)
+  // active/expired use the same grace cutoff as getPlan(); expiringSoon uses the
+  // real planUntil window (upcoming end date, independent of grace).
+  const cutoff = activeProCutoff()
   const [activePro, expiredPro, expiringSoon7d, lapsedRows] = await Promise.all([
-    prisma.user.count({ where: { plan: 'PRO', OR: [{ planUntil: null }, { planUntil: { gt: now } }] } }),
-    prisma.user.count({ where: { plan: 'PRO', planUntil: { lt: now } } }),
+    prisma.user.count({ where: { plan: 'PRO', OR: [{ planUntil: null }, { planUntil: { gte: cutoff } }] } }),
+    prisma.user.count({ where: { plan: 'PRO', planUntil: { lt: cutoff } } }),
     prisma.user.count({ where: { plan: 'PRO', planUntil: { gte: now, lte: in7d } } }),
     prisma.user.findMany({
-      where: { plan: 'PRO', planUntil: { lt: now } },
+      where: { plan: 'PRO', planUntil: { lt: cutoff } },
       select: { email: true, planUntil: true },
       orderBy: { planUntil: 'desc' },
       take: 100,
@@ -489,7 +505,15 @@ export async function voidCommission(actor: AuditActor, id: string): Promise<voi
   })
   if (!c) throw AppError.notFound('Kommission nicht gefunden')
   if (c.payoutId) throw AppError.badRequest('ALREADY_PAID', 'Bereits ausgezahlte Kommission kann nicht storniert werden')
-  await prisma.referralCommission.update({ where: { id }, data: { voidedAt: new Date() } })
+  // Atomic conditional update — closes the race against settlePayout: only voids
+  // while still unpaid+unvoided. count===0 → another tx paid/voided it meanwhile.
+  const { count } = await prisma.referralCommission.updateMany({
+    where: { id, payoutId: null, voidedAt: null },
+    data: { voidedAt: new Date() },
+  })
+  if (count === 0) {
+    throw AppError.badRequest('ALREADY_PAID', 'Kommission wurde zwischenzeitlich ausgezahlt oder storniert')
+  }
   await recordAudit({
     actor,
     action: AuditAction.COMMISSION_VOIDED,
@@ -522,24 +546,39 @@ export async function adminListUserSources(userId: string): Promise<AdminSourceD
     orderBy: { createdAt: 'asc' },
     select: { id: true, label: true, type: true, provider: true, lastSyncAt: true },
   })
-  const withRuns = await Promise.all(
-    sources.map(async (s) => {
-      const runs = await prisma.syncRun.findMany({
-        where: { sourceId: s.id },
-        orderBy: { startedAt: 'desc' },
-        take: 5,
-      })
-      return {
-        id: s.id,
-        label: s.label,
-        type: s.type,
-        provider: s.provider,
-        lastSyncAt: s.lastSyncAt?.toISOString() ?? null,
-        recentRuns: runs.map(toSyncRunDto),
-      }
-    }),
-  )
-  return withRuns
+  if (sources.length === 0) return []
+  // Single query for the latest 5 runs per source (window function) — avoids N+1.
+  const ids = sources.map((s) => s.id)
+  const runRows = await prisma.$queryRaw<
+    {
+      id: string
+      sourceId: string
+      status: 'RUNNING' | 'SUCCESS' | 'ERROR'
+      startedAt: Date
+      finishedAt: Date | null
+      errorCode: string | null
+      errorMessage: string | null
+    }[]
+  >`
+    SELECT id, "sourceId", status, "startedAt", "finishedAt", "errorCode", "errorMessage"
+    FROM (
+      SELECT *, ROW_NUMBER() OVER (PARTITION BY "sourceId" ORDER BY "startedAt" DESC) AS rn
+      FROM "SyncRun" WHERE "sourceId" IN (${Prisma.join(ids)})
+    ) t WHERE rn <= 5`
+  const runsBySource = new Map<string, typeof runRows>()
+  for (const r of runRows) {
+    const list = runsBySource.get(r.sourceId) ?? []
+    list.push(r)
+    runsBySource.set(r.sourceId, list)
+  }
+  return sources.map((s) => ({
+    id: s.id,
+    label: s.label,
+    type: s.type,
+    provider: s.provider,
+    lastSyncAt: s.lastSyncAt?.toISOString() ?? null,
+    recentRuns: (runsBySource.get(s.id) ?? []).map(toSyncRunDto),
+  }))
 }
 
 export async function adminTriggerSync(

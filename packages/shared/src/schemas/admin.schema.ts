@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { ReferralEarningsDto } from './referral.schema'
 
 // --- Stats ------------------------------------------------------------------
 
@@ -16,8 +17,7 @@ export interface AdminOverviewDto {
   activeSubscriptions: number
   mrrProxyCents: number
   referral: {
-    owedCents: number
-    paidCents: number
+    byCurrency: ReferralEarningsDto[]
     activeReferrers: number
     invitedUsers: number
   }
@@ -88,7 +88,7 @@ export interface AdminUserDetailDto extends AdminUserListItemDto {
   holdingsCount: number
   invitedCount: number
   activeSessions: number
-  earnings: { owedCents: number; paidCents: number; currency: string }
+  earnings: ReferralEarningsDto[]
 }
 
 export interface AdminCommissionDto {

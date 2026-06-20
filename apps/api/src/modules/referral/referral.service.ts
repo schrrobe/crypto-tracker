@@ -7,6 +7,7 @@ import type {
   BankDetailsInput,
   ReferralBankDto,
   ReferralDto,
+  ReferralEarningsDto,
 } from '@crypto-tracker/shared'
 
 // Unambiguous alphabet (no 0/O/1/I) for human-shareable codes.
@@ -95,19 +96,13 @@ export async function getReferralOverview(userId: string): Promise<ReferralDto> 
     orderBy: { createdAt: 'desc' },
   })
 
-  const commissions = await prisma.referralCommission.findMany({
-    where: { referrerId: userId, voidedAt: null },
-    select: { amountCents: true, currency: true, payoutId: true },
-  })
-  const currency = commissions[0]?.currency ?? user.baseCurrency
-  const owedCents = sumCents(commissions.filter((c) => c.payoutId === null))
-  const paidCents = sumCents(commissions.filter((c) => c.payoutId !== null))
+  const earnings = await earningsByCurrency(userId)
 
   return {
     code: user.referralCode!,
     link: `${env.APP_PUBLIC_URL}/register?ref=${user.referralCode}`,
     invitedCount: invited.length,
-    earnings: { owedCents, paidCents, currency },
+    earnings,
     invited: invited.map((i) => ({
       emailMasked: maskEmail(i.email),
       joinedAt: i.createdAt.toISOString(),
@@ -116,8 +111,25 @@ export async function getReferralOverview(userId: string): Promise<ReferralDto> 
   }
 }
 
-function sumCents(rows: { amountCents: number }[]): number {
-  return rows.reduce((acc, r) => acc + r.amountCents, 0)
+// Owed (payoutId null) and paid (payoutId set) totals, grouped by currency.
+// Voided commissions are excluded. Returns one entry per currency.
+export async function earningsByCurrency(referrerId: string): Promise<ReferralEarningsDto[]> {
+  const rows = await prisma.referralCommission.groupBy({
+    by: ['currency'],
+    where: { referrerId, voidedAt: null },
+    _sum: { amountCents: true },
+  })
+  const paidRows = await prisma.referralCommission.groupBy({
+    by: ['currency'],
+    where: { referrerId, voidedAt: null, payoutId: { not: null } },
+    _sum: { amountCents: true },
+  })
+  const paidByCurrency = new Map(paidRows.map((r) => [r.currency, r._sum.amountCents ?? 0]))
+  return rows.map((r) => {
+    const total = r._sum.amountCents ?? 0
+    const paidCents = paidByCurrency.get(r.currency) ?? 0
+    return { currency: r.currency, owedCents: total - paidCents, paidCents }
+  })
 }
 
 export async function getBankDetails(userId: string): Promise<ReferralBankDto | null> {

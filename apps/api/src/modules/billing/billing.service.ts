@@ -130,6 +130,9 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
   if (event.type === 'invoice.paid') {
     const invoice = event.data.object as Stripe.Invoice
     if (!invoice.customer || !invoice.id || invoice.amount_paid <= 0) return
+    // Only reward genuine subscription charges — skip prorations, manual one-off
+    // invoices, etc. (Stripe emits invoice.paid for those too).
+    if (invoice.billing_reason !== 'subscription_create' && invoice.billing_reason !== 'subscription_cycle') return
     const payer = await prisma.user.findUnique({
       where: { stripeCustomerId: String(invoice.customer) },
       select: { id: true, referredById: true },

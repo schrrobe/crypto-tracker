@@ -27,11 +27,11 @@
       <ion-list inset v-if="r">
         <ion-item>
           <ion-label>{{ $t('referral.earningsOwed') }}</ion-label>
-          <ion-note slot="end" data-testid="referral-owed">{{ money(r.earnings.owedCents, r.earnings.currency) }}</ion-note>
+          <ion-note slot="end" data-testid="referral-owed">{{ earningsText(r.earnings, 'owedCents') }}</ion-note>
         </ion-item>
         <ion-item>
           <ion-label>{{ $t('referral.earningsPaid') }}</ion-label>
-          <ion-note slot="end">{{ money(r.earnings.paidCents, r.earnings.currency) }}</ion-note>
+          <ion-note slot="end">{{ earningsText(r.earnings, 'paidCents') }}</ion-note>
         </ion-item>
       </ion-list>
 
@@ -132,6 +132,15 @@ onMounted(async () => {
 
 function money(cents: number, currency: string): string {
   return `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`
+}
+
+// Earnings are per-currency; join into one label ("10.00 EUR · 2.00 USD").
+function earningsText(
+  list: { currency: string; owedCents: number; paidCents: number }[],
+  field: 'owedCents' | 'paidCents',
+): string {
+  if (!list.length) return '0.00'
+  return list.map((e) => money(e[field], e.currency)).join(' · ')
 }
 
 async function share() {

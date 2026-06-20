@@ -22,6 +22,8 @@ export interface InvitedAccountDto {
   isPro: boolean
 }
 
+// Earnings are tracked per currency — commissions in different currencies must
+// never be summed together (each Stripe invoice keeps its own currency).
 export interface ReferralEarningsDto {
   owedCents: number
   paidCents: number
@@ -32,7 +34,7 @@ export interface ReferralDto {
   code: string
   link: string
   invitedCount: number
-  earnings: ReferralEarningsDto
+  earnings: ReferralEarningsDto[]
   invited: InvitedAccountDto[]
 }
 

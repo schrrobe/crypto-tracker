@@ -22,10 +22,15 @@ async function registerWithCode(prefix: string, referralCode?: string) {
   return res.body.user.id as string
 }
 
-async function fireInvoicePaid(customer: string, invoiceId: string, amountCents: number) {
+async function fireInvoicePaid(
+  customer: string,
+  invoiceId: string,
+  amountCents: number,
+  billingReason = 'subscription_cycle',
+) {
   fakeEvent = {
     type: 'invoice.paid',
-    data: { object: { customer, id: invoiceId, amount_paid: amountCents, currency: 'eur' } },
+    data: { object: { customer, id: invoiceId, amount_paid: amountCents, currency: 'eur', billing_reason: billingReason } },
   }
   const { handleWebhookEvent } = await import('../modules/billing/billing.service')
   await handleWebhookEvent(Buffer.from('{}'), 'sig')
@@ -74,13 +79,16 @@ describe('Referral (Integration)', () => {
     const invoiceId = `in_${invitedId}`
     await fireInvoicePaid(customer, invoiceId, 1000) // 10.00 € → 2.00 € commission
     await fireInvoicePaid(customer, invoiceId, 1000) // duplicate → ignored
+    // Non-renewal invoice (e.g. manual/proration) must NOT credit a commission.
+    await fireInvoicePaid(customer, `in_manual_${invitedId}`, 5000, 'manual')
 
     const commissions = await prisma.referralCommission.findMany({ where: { referrerId: referrer.userId } })
     expect(commissions).toHaveLength(1)
     expect(commissions[0]!.amountCents).toBe(200)
 
     const overview = await request(app).get(`${API}/referral`).set(...bearer(referrer))
-    expect(overview.body.earnings.owedCents).toBe(200)
+    const eur = overview.body.earnings.find((e: { currency: string }) => e.currency === 'eur')
+    expect(eur.owedCents).toBe(200)
     expect(overview.body.invitedCount).toBe(1)
     expect(overview.body.invited[0].emailMasked).toMatch(/^.\*\*\*@/)
   })
@@ -132,7 +140,8 @@ describe('Referral (Integration)', () => {
     expect(settled.body.amountCents).toBe(1000)
 
     const after = await request(app).get(`${API}/referral`).set(...bearer(referrer))
-    expect(after.body.earnings.owedCents).toBe(0)
-    expect(after.body.earnings.paidCents).toBe(1000)
+    const eurAfter = after.body.earnings.find((e: { currency: string }) => e.currency === 'eur')
+    expect(eurAfter.owedCents).toBe(0)
+    expect(eurAfter.paidCents).toBe(1000)
   })
 })

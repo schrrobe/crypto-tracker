@@ -22,7 +22,7 @@
       <KpiCard label="Aktive Sessions" :value="o.activeSessions" />
       <KpiCard label="Aktive Abos" :value="o.activeSubscriptions" />
       <KpiCard label="MRR (Proxy)" :value="money(o.mrrProxyCents)" />
-      <KpiCard label="Offene Payouts" :value="money(o.referral.owedCents)" :sub="`${o.referral.activeReferrers} Referrer`" />
+      <KpiCard label="Offene Payouts" :value="earnings(o.referral.byCurrency, 'owedCents')" :sub="`${o.referral.activeReferrers} Referrer`" />
       <KpiCard v-if="churn" label="Abgelaufene Pro" :value="churn.expiredPro" :sub="`${churn.expiringSoon7d} laufen bald ab`" />
     </div>
 
@@ -94,7 +94,7 @@ import type {
   AdminHealthDto,
 } from '@crypto-tracker/shared'
 import { adminApi } from '../services/admin'
-import { money } from '../format'
+import { money, earnings } from '../format'
 import KpiCard from '../components/KpiCard.vue'
 import AttentionPanel from '../components/AttentionPanel.vue'
 import HealthBadges from '../components/HealthBadges.vue'
