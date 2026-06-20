@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import request from 'supertest'
 import { prisma } from '../lib/prisma'
-import { API, app, bearer, makeAdmin, registerUser } from './helpers'
+import { API, app, bearer, createExchangeSource, makeAdmin, registerUser } from './helpers'
 
 describe('Admin (Integration)', () => {
   it('requireAdmin: anonym + Nicht-Admin → 404, Admin → 200', async () => {
@@ -66,5 +66,68 @@ describe('Admin (Integration)', () => {
     const ok = await request(app).delete(`${API}/admin/users/${victim.userId}`).set(...bearer(admin))
     expect(ok.status).toBe(204)
     expect(await prisma.user.findUnique({ where: { id: victim.userId } })).toBeNull()
+  })
+
+  it('Audit-Log: Mutationen schreiben Einträge; Liste filtert; überlebt User-Löschung', async () => {
+    const admin = await registerUser('audit-admin', 'FREE')
+    await makeAdmin(admin)
+    const target = await registerUser('audit-target', 'FREE')
+
+    await request(app)
+      .patch(`${API}/admin/users/${target.userId}/plan`)
+      .set(...bearer(admin))
+      .send({ plan: 'PRO' })
+      .expect(204)
+
+    const byTarget = await request(app)
+      .get(`${API}/admin/audit?targetId=${target.userId}`)
+      .set(...bearer(admin))
+    expect(byTarget.status).toBe(200)
+    const planEntry = byTarget.body.audit.find((a: { action: string }) => a.action === 'USER_PLAN_CHANGED')
+    expect(planEntry).toBeTruthy()
+    expect(planEntry.actorEmail).toBe(admin.email)
+    expect(planEntry.metadata.to).toBe('PRO')
+
+    // Filter by action
+    const filtered = await request(app)
+      .get(`${API}/admin/audit?action=USER_PLAN_CHANGED`)
+      .set(...bearer(admin))
+    expect(filtered.body.audit.every((a: { action: string }) => a.action === 'USER_PLAN_CHANGED')).toBe(true)
+
+    // Audit survives deletion of the target
+    await request(app).delete(`${API}/admin/users/${target.userId}`).set(...bearer(admin)).expect(204)
+    const afterDelete = await request(app)
+      .get(`${API}/admin/audit?targetId=${target.userId}`)
+      .set(...bearer(admin))
+    expect(afterDelete.body.audit.some((a: { action: string }) => a.action === 'USER_DELETED')).toBe(true)
+
+    const nonAdmin = await request(app).get(`${API}/admin/audit`).set(...bearer(target))
+    expect(nonAdmin.status).toBe(404)
+  })
+
+  it('Admin-Sync: löst Run + Audit aus; fremde Source 404', async () => {
+    const admin = await registerUser('sync-admin', 'FREE')
+    await makeAdmin(admin)
+    const owner = await registerUser('sync-owner', 'PRO')
+    const source = await createExchangeSource(owner, 'Kraken')
+
+    const list = await request(app).get(`${API}/admin/users/${owner.userId}/sources`).set(...bearer(admin))
+    expect(list.status).toBe(200)
+    expect(list.body.sources.some((s: { id: string }) => s.id === source.id)).toBe(true)
+
+    const sync = await request(app).post(`${API}/admin/sources/${source.id}/sync`).set(...bearer(admin))
+    expect([200, 202]).toContain(sync.status)
+    expect(sync.body.run.status).toMatch(/SUCCESS|ERROR|RUNNING/)
+
+    const runs = await prisma.syncRun.count({ where: { sourceId: source.id } })
+    expect(runs).toBeGreaterThanOrEqual(1)
+
+    const audit = await request(app)
+      .get(`${API}/admin/audit?action=SYNC_TRIGGERED`)
+      .set(...bearer(admin))
+    expect(audit.body.audit.some((a: { targetId: string }) => a.targetId === source.id)).toBe(true)
+
+    const missing = await request(app).post(`${API}/admin/sources/nonexistent-id/sync`).set(...bearer(admin))
+    expect(missing.status).toBe(404)
   })
 })

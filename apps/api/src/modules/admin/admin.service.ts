@@ -12,8 +12,12 @@ import type {
   AdminUserListDto,
   AdminUpdatePlanInput,
 } from '@crypto-tracker/shared'
+import type { AdminSourceDto } from '@crypto-tracker/shared'
 import { getReferralOverview } from '../referral/referral.service'
 import { deleteAccount } from '../auth/auth.service'
+import { requestSync } from '../sync/sync.service'
+import { toSyncRunDto } from '../sync/syncRun.mapper'
+import { AuditAction, recordAudit, type AuditActor } from './audit.service'
 
 // Pro price proxy for MRR (no live Stripe revenue query). Adjust if pricing changes.
 const PRO_PRICE_CENTS = 999
@@ -267,7 +271,8 @@ export async function getUserDetail(id: string): Promise<AdminUserDetailDto> {
   }
 }
 
-export async function updateUserPlan(id: string, input: AdminUpdatePlanInput): Promise<void> {
+export async function updateUserPlan(actor: AuditActor, id: string, input: AdminUpdatePlanInput): Promise<void> {
+  const before = await prisma.user.findUnique({ where: { id }, select: { plan: true } })
   await prisma.user.update({
     where: { id },
     data: {
@@ -275,21 +280,42 @@ export async function updateUserPlan(id: string, input: AdminUpdatePlanInput): P
       planUntil: input.planUntil === undefined ? undefined : input.planUntil ? new Date(input.planUntil) : null,
     },
   })
+  await recordAudit({
+    actor,
+    action: AuditAction.USER_PLAN_CHANGED,
+    targetType: 'USER',
+    targetId: id,
+    metadata: { from: before?.plan, to: input.plan, planUntil: input.planUntil ?? null },
+  })
 }
 
-export async function deleteUser(actingAdminId: string, id: string): Promise<void> {
-  if (actingAdminId === id) throw AppError.badRequest('CANNOT_DELETE_SELF', 'Admin kann sich nicht selbst löschen')
-  const target = await prisma.user.findUnique({ where: { id }, select: { isAdmin: true } })
+export async function deleteUser(actor: AuditActor, id: string): Promise<void> {
+  if (actor.id === id) throw AppError.badRequest('CANNOT_DELETE_SELF', 'Admin kann sich nicht selbst löschen')
+  const target = await prisma.user.findUnique({ where: { id }, select: { isAdmin: true, email: true } })
   if (!target) throw AppError.notFound('User nicht gefunden')
   if (target.isAdmin) {
     const admins = await prisma.user.count({ where: { isAdmin: true } })
     if (admins <= 1) throw AppError.badRequest('CANNOT_DELETE_LAST_ADMIN', 'Letzter Admin kann nicht gelöscht werden')
   }
   await deleteAccount(id)
+  await recordAudit({
+    actor,
+    action: AuditAction.USER_DELETED,
+    targetType: 'USER',
+    targetId: id,
+    metadata: { email: target.email },
+  })
 }
 
-export async function revokeSessions(id: string): Promise<number> {
+export async function revokeSessions(actor: AuditActor, id: string): Promise<number> {
   const { count } = await prisma.refreshToken.deleteMany({ where: { userId: id } })
+  await recordAudit({
+    actor,
+    action: AuditAction.USER_SESSIONS_REVOKED,
+    targetType: 'USER',
+    targetId: id,
+    metadata: { revoked: count },
+  })
   return count
 }
 
@@ -314,11 +340,21 @@ export async function listCommissions(referrerId?: string): Promise<AdminCommiss
   }))
 }
 
-export async function voidCommission(id: string): Promise<void> {
-  const c = await prisma.referralCommission.findUnique({ where: { id }, select: { payoutId: true, voidedAt: true } })
+export async function voidCommission(actor: AuditActor, id: string): Promise<void> {
+  const c = await prisma.referralCommission.findUnique({
+    where: { id },
+    select: { payoutId: true, voidedAt: true, amountCents: true, currency: true, referrerId: true },
+  })
   if (!c) throw AppError.notFound('Kommission nicht gefunden')
   if (c.payoutId) throw AppError.badRequest('ALREADY_PAID', 'Bereits ausgezahlte Kommission kann nicht storniert werden')
   await prisma.referralCommission.update({ where: { id }, data: { voidedAt: new Date() } })
+  await recordAudit({
+    actor,
+    action: AuditAction.COMMISSION_VOIDED,
+    targetType: 'COMMISSION',
+    targetId: id,
+    metadata: { amountCents: c.amountCents, currency: c.currency, referrerId: c.referrerId },
+  })
 }
 
 export async function listPayoutHistory(): Promise<{ id: string; referrerEmail: string; amountCents: number; currency: string; createdAt: string }[]> {
@@ -334,4 +370,50 @@ export async function listPayoutHistory(): Promise<{ id: string; referrerEmail: 
     currency: p.currency,
     createdAt: p.createdAt.toISOString(),
   }))
+}
+
+// --- Admin sync -------------------------------------------------------------
+
+export async function adminListUserSources(userId: string): Promise<AdminSourceDto[]> {
+  const sources = await prisma.portfolioSource.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, label: true, type: true, provider: true, lastSyncAt: true },
+  })
+  const withRuns = await Promise.all(
+    sources.map(async (s) => {
+      const runs = await prisma.syncRun.findMany({
+        where: { sourceId: s.id },
+        orderBy: { startedAt: 'desc' },
+        take: 5,
+      })
+      return {
+        id: s.id,
+        label: s.label,
+        type: s.type,
+        provider: s.provider,
+        lastSyncAt: s.lastSyncAt?.toISOString() ?? null,
+        recentRuns: runs.map(toSyncRunDto),
+      }
+    }),
+  )
+  return withRuns
+}
+
+export async function adminTriggerSync(
+  actor: AuditActor,
+  sourceId: string,
+): Promise<{ run: ReturnType<typeof toSyncRunDto>; queued: boolean }> {
+  const source = await prisma.portfolioSource.findUnique({ where: { id: sourceId }, select: { userId: true } })
+  if (!source) throw AppError.notFound('Quelle nicht gefunden')
+  // Run as the owner so existing ownership checks pass.
+  const result = await requestSync(source.userId, sourceId)
+  await recordAudit({
+    actor,
+    action: AuditAction.SYNC_TRIGGERED,
+    targetType: 'SOURCE',
+    targetId: sourceId,
+    metadata: { ownerUserId: source.userId, queued: result.queued },
+  })
+  return result
 }

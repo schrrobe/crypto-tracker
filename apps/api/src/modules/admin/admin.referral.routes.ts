@@ -5,6 +5,7 @@ import { asyncHandler } from '../../lib/asyncHandler'
 import { AppError } from '../../lib/errors'
 import { listPendingPayouts, settlePayout } from '../referral/referral.service'
 import * as admin from './admin.service'
+import { AuditAction, recordAudit } from './audit.service'
 
 export const adminReferralRoutes = Router()
 
@@ -26,7 +27,15 @@ adminReferralRoutes.post(
   asyncHandler(async (req, res) => {
     const { referrerId } = req.params
     if (!referrerId) throw AppError.notFound()
-    res.json(await settlePayout(referrerId, req.body.currency))
+    const payout = await settlePayout(referrerId, req.body.currency)
+    await recordAudit({
+      actor: req.adminUser,
+      action: AuditAction.PAYOUT_SETTLED,
+      targetType: 'PAYOUT',
+      targetId: payout.id,
+      metadata: { referrerId, amountCents: payout.amountCents, currency: payout.currency },
+    })
+    res.json(payout)
   }),
 )
 
@@ -43,7 +52,7 @@ adminReferralRoutes.post(
   asyncHandler(async (req, res) => {
     const { id } = req.params
     if (!id) throw AppError.notFound()
-    await admin.voidCommission(id)
+    await admin.voidCommission(req.adminUser, id)
     res.status(204).end()
   }),
 )

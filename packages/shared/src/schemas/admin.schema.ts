@@ -103,6 +103,43 @@ export const adminUpdatePlanSchema = z.object({
 })
 export type AdminUpdatePlanInput = z.infer<typeof adminUpdatePlanSchema>
 
+// --- Audit log --------------------------------------------------------------
+
+export interface AdminAuditDto {
+  id: string
+  actorEmail: string
+  action: string
+  targetType: string
+  targetId: string | null
+  metadata: unknown
+  createdAt: string
+}
+
+export interface AdminAuditListDto {
+  audit: AdminAuditDto[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export const adminAuditQuerySchema = z.object({
+  action: z.string().optional(),
+  targetId: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+})
+
+// --- Admin source view (for manual sync) ------------------------------------
+
+export interface AdminSourceDto {
+  id: string
+  label: string
+  type: string
+  provider: string | null
+  lastSyncAt: string | null
+  recentRuns: import('./portfolio.schema').SyncRunDto[]
+}
+
 export const adminUsersQuerySchema = z.object({
   search: z.string().trim().optional(),
   plan: z.enum(['FREE', 'PRO']).optional(),

@@ -8,6 +8,7 @@ declare global {
   namespace Express {
     interface Request {
       userId: string
+      adminUser: { id: string; email: string }
     }
   }
 }
@@ -33,12 +34,13 @@ export const requireAdmin: RequestHandler = (req, _res, next) => {
       return
     }
     prisma.user
-      .findUnique({ where: { id: req.userId }, select: { isAdmin: true } })
+      .findUnique({ where: { id: req.userId }, select: { id: true, email: true, isAdmin: true } })
       .then((user) => {
         if (!user?.isAdmin) {
           next(AppError.notFound())
           return
         }
+        req.adminUser = { id: user.id, email: user.email }
         next()
       })
       .catch(next)

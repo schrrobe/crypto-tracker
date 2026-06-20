@@ -33,13 +33,45 @@
         Konto löschen
       </button>
     </div>
+
+    <div class="bg-white rounded-lg shadow-sm p-4 mt-6">
+      <h3 class="font-medium mb-3">Quellen & Sync</h3>
+      <p v-if="sources.length === 0" class="text-sm text-slate-400">Keine Quellen.</p>
+      <div v-for="s in sources" :key="s.id" class="border-t border-slate-100 py-3 first:border-t-0">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="font-medium">{{ s.label }}</span>
+            <span class="text-xs text-slate-400 ml-2">{{ s.provider ?? s.type }}</span>
+            <span class="text-xs text-slate-400 ml-2">letzter Sync: {{ s.lastSyncAt ? dt(s.lastSyncAt) : '–' }}</span>
+          </div>
+          <button
+            class="rounded bg-slate-900 text-white px-3 py-1 text-xs disabled:opacity-50"
+            :disabled="syncing === s.id"
+            @click="triggerSync(s.id)"
+          >
+            {{ syncing === s.id ? '…' : 'Jetzt syncen' }}
+          </button>
+        </div>
+        <div class="mt-1 flex gap-1 flex-wrap">
+          <span
+            v-for="r in s.recentRuns"
+            :key="r.id"
+            class="text-xs rounded px-1.5 py-0.5"
+            :class="r.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-700' : r.status === 'ERROR' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'"
+            :title="r.errorMessage ?? ''"
+          >
+            {{ r.status }}<span v-if="r.errorCode"> · {{ r.errorCode }}</span>
+          </span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import type { AdminUserDetailDto } from '@crypto-tracker/shared'
+import type { AdminUserDetailDto, AdminSourceDto } from '@crypto-tracker/shared'
 import { adminApi } from '../services/admin'
 import { ApiError } from '../services/api.client'
 import { money, date } from '../format'
@@ -49,13 +81,38 @@ const route = useRoute()
 const router = useRouter()
 const id = route.params.id as string
 const u = ref<AdminUserDetailDto | null>(null)
+const sources = ref<AdminSourceDto[]>([])
+const syncing = ref<string | null>(null)
 const planChoice = ref<'FREE' | 'PRO'>('FREE')
 const msg = ref('')
 const err = ref('')
 
+function dt(iso: string): string {
+  return new Date(iso).toLocaleString('de-DE')
+}
+
 async function load() {
   u.value = await adminApi.user(id)
   planChoice.value = u.value.plan
+  await loadSources()
+}
+async function loadSources() {
+  sources.value = (await adminApi.userSources(id)).sources
+}
+async function triggerSync(sourceId: string) {
+  err.value = msg.value = ''
+  syncing.value = sourceId
+  try {
+    const { queued } = await adminApi.triggerSync(sourceId)
+    // Queued runs finish in the worker → refetch after a short delay.
+    if (queued) await new Promise((r) => setTimeout(r, 1500))
+    await loadSources()
+    msg.value = 'Sync ausgelöst.'
+  } catch (e) {
+    flash(e)
+  } finally {
+    syncing.value = null
+  }
 }
 function flash(e: unknown) {
   err.value = e instanceof ApiError ? e.message : 'Aktion fehlgeschlagen'

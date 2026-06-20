@@ -1,14 +1,17 @@
 import type {
   AdminAssetsDto,
+  AdminAuditListDto,
   AdminCommissionDto,
   AdminGrowthPointDto,
   AdminImportsDto,
   AdminOverviewDto,
   AdminPriceCacheDto,
+  AdminSourceDto,
   AdminSyncHealthDto,
   AdminUserDetailDto,
   AdminUserListDto,
   AdminUpdatePlanInput,
+  SyncRunDto,
 } from '@crypto-tracker/shared'
 import { api } from './api.client'
 
@@ -56,6 +59,9 @@ export const adminApi = {
     return api.get<AdminUserListDto>(`/admin/users?${q.toString()}`)
   },
   user: (id: string) => api.get<AdminUserDetailDto>(`/admin/users/${id}`),
+  userSources: (id: string) => api.get<{ sources: AdminSourceDto[] }>(`/admin/users/${id}/sources`),
+  triggerSync: (sourceId: string) =>
+    api.post<{ run: SyncRunDto; queued: boolean }>(`/admin/sources/${sourceId}/sync`),
   updatePlan: (id: string, input: AdminUpdatePlanInput) => api.patch<void>(`/admin/users/${id}/plan`, input),
   deleteUser: (id: string) => api.delete<void>(`/admin/users/${id}`),
   revokeSessions: (id: string) => api.post<{ revoked: number }>(`/admin/users/${id}/revoke-sessions`),
@@ -69,4 +75,13 @@ export const adminApi = {
       `/admin/referral/commissions${referrerId ? `?referrerId=${referrerId}` : ''}`,
     ),
   voidCommission: (id: string) => api.post<void>(`/admin/referral/commissions/${id}/void`),
+
+  audit: (params: { action?: string; targetId?: string; page?: number; pageSize?: number }) => {
+    const q = new URLSearchParams()
+    if (params.action) q.set('action', params.action)
+    if (params.targetId) q.set('targetId', params.targetId)
+    if (params.page) q.set('page', String(params.page))
+    if (params.pageSize) q.set('pageSize', String(params.pageSize))
+    return api.get<AdminAuditListDto>(`/admin/audit?${q.toString()}`)
+  },
 }

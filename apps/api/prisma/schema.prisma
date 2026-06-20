@@ -119,6 +119,24 @@ model User {
   passwordResetTokens PasswordResetToken[]
   commissionsEarned ReferralCommission[] @relation("Earned")
   payouts       Payout[]
+  auditLogs     AuditLog[]        @relation("ActorAudits")
+}
+
+// Append-only audit trail of admin actions. targetId is a plain string (no FK)
+// so entries survive deletion of the target user/commission.
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actorEmail String
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation("ActorAudits", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([targetId])
 }
 
 // Earnings ledger: 20% of each Pro invoice paid by an invited user.

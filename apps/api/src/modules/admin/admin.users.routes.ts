@@ -25,13 +25,22 @@ adminUsersRoutes.get(
   }),
 )
 
+adminUsersRoutes.get(
+  '/:id/sources',
+  asyncHandler(async (req, res) => {
+    const { id } = req.params
+    if (!id) throw AppError.notFound()
+    res.json({ sources: await admin.adminListUserSources(id) })
+  }),
+)
+
 adminUsersRoutes.patch(
   '/:id/plan',
   validate(adminUpdatePlanSchema),
   asyncHandler(async (req, res) => {
     const { id } = req.params
     if (!id) throw AppError.notFound()
-    await admin.updateUserPlan(id, req.body)
+    await admin.updateUserPlan(req.adminUser, id, req.body)
     res.status(204).end()
   }),
 )
@@ -41,7 +50,7 @@ adminUsersRoutes.delete(
   asyncHandler(async (req, res) => {
     const { id } = req.params
     if (!id) throw AppError.notFound()
-    await admin.deleteUser(req.userId, id)
+    await admin.deleteUser(req.adminUser, id)
     res.status(204).end()
   }),
 )
@@ -51,6 +60,6 @@ adminUsersRoutes.post(
   asyncHandler(async (req, res) => {
     const { id } = req.params
     if (!id) throw AppError.notFound()
-    res.json({ revoked: await admin.revokeSessions(id) })
+    res.json({ revoked: await admin.revokeSessions(req.adminUser, id) })
   }),
 )

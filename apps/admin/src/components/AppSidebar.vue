@@ -39,6 +39,7 @@ const links = [
   { to: '/assets', label: 'Assets' },
   { to: '/transactions', label: 'Transaktionen' },
   { to: '/price-cache', label: 'Preis-Cache' },
+  { to: '/audit', label: 'Audit-Log' },
 ]
 
 async function onLogout() {
