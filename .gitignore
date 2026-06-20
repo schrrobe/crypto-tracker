@@ -25,3 +25,6 @@ apps/api/src/generated/
 # generierte apps/mobile/android/.gitignore — Gradle-Build, kopierte Web-Assets,
 # local.properties). iOS-Gerüst folgt auf einem Mac.
 apps/mobile/ios/
+
+# Serena MCP server
+.serena/

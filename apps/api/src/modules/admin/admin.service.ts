@@ -12,8 +12,8 @@ import type {
   AdminUserListDto,
   AdminUpdatePlanInput,
 } from '@crypto-tracker/shared'
-import type { AdminChurnDto, AdminSourceDto } from '@crypto-tracker/shared'
-import { getReferralOverview } from '../referral/referral.service'
+import type { AdminAttentionDto, AdminChurnDto, AdminSourceDto } from '@crypto-tracker/shared'
+import { getReferralOverview, listPendingPayouts } from '../referral/referral.service'
 import { deleteAccount } from '../auth/auth.service'
 import { requestSync } from '../sync/sync.service'
 import { toSyncRunDto } from '../sync/syncRun.mapper'
@@ -31,18 +31,33 @@ function daysAgo(days: number): Date {
 
 export async function getOverview(): Promise<AdminOverviewDto> {
   const now = new Date()
-  const [totalUsers, proUsers, activeSubscriptions, newUsers7d, newUsers30d, owed, paid, referrers, invited] =
-    await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { plan: 'PRO' } }),
-      prisma.user.count({ where: { plan: 'PRO', planUntil: { gt: now } } }),
-      prisma.user.count({ where: { createdAt: { gte: daysAgo(7) } } }),
-      prisma.user.count({ where: { createdAt: { gte: daysAgo(30) } } }),
-      prisma.referralCommission.aggregate({ _sum: { amountCents: true }, where: { payoutId: null, voidedAt: null } }),
-      prisma.referralCommission.aggregate({ _sum: { amountCents: true }, where: { payoutId: { not: null }, voidedAt: null } }),
-      prisma.referralCommission.findMany({ where: { voidedAt: null }, select: { referrerId: true }, distinct: ['referrerId'] }),
-      prisma.user.count({ where: { referredById: { not: null } } }),
-    ])
+  const [
+    totalUsers,
+    proUsers,
+    activeSubscriptions,
+    newUsers7d,
+    newUsers30d,
+    prev7d,
+    prev30d,
+    activeSessions,
+    owed,
+    paid,
+    referrers,
+    invited,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.count({ where: { plan: 'PRO' } }),
+    prisma.user.count({ where: { plan: 'PRO', planUntil: { gt: now } } }),
+    prisma.user.count({ where: { createdAt: { gte: daysAgo(7) } } }),
+    prisma.user.count({ where: { createdAt: { gte: daysAgo(30) } } }),
+    prisma.user.count({ where: { createdAt: { gte: daysAgo(14), lt: daysAgo(7) } } }),
+    prisma.user.count({ where: { createdAt: { gte: daysAgo(60), lt: daysAgo(30) } } }),
+    prisma.refreshToken.count({ where: { expiresAt: { gt: now } } }),
+    prisma.referralCommission.aggregate({ _sum: { amountCents: true }, where: { payoutId: null, voidedAt: null } }),
+    prisma.referralCommission.aggregate({ _sum: { amountCents: true }, where: { payoutId: { not: null }, voidedAt: null } }),
+    prisma.referralCommission.findMany({ where: { voidedAt: null }, select: { referrerId: true }, distinct: ['referrerId'] }),
+    prisma.user.count({ where: { referredById: { not: null } } }),
+  ])
   const freeUsers = totalUsers - proUsers
   return {
     totalUsers,
@@ -51,6 +66,9 @@ export async function getOverview(): Promise<AdminOverviewDto> {
     proRatePct: totalUsers === 0 ? 0 : Math.round((proUsers / totalUsers) * 1000) / 10,
     newUsers7d,
     newUsers30d,
+    newUsers7dDeltaPct: deltaPct(newUsers7d, prev7d),
+    newUsers30dDeltaPct: deltaPct(newUsers30d, prev30d),
+    activeSessions,
     activeSubscriptions,
     mrrProxyCents: activeSubscriptions * PRO_PRICE_CENTS,
     referral: {
@@ -59,6 +77,40 @@ export async function getOverview(): Promise<AdminOverviewDto> {
       activeReferrers: referrers.length,
       invitedUsers: invited,
     },
+  }
+}
+
+// % change vs previous period; null when previous was 0 (no meaningful ratio).
+function deltaPct(current: number, previous: number): number | null {
+  if (previous === 0) return null
+  return Math.round(((current - previous) / previous) * 1000) / 10
+}
+
+export async function getActivity(): Promise<import('@crypto-tracker/shared').AdminActivityDto> {
+  const [signups, auditRows] = await Promise.all([
+    prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, email: true, plan: true, createdAt: true },
+    }),
+    prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 5 }),
+  ])
+  return {
+    recentSignups: signups.map((s) => ({
+      id: s.id,
+      email: s.email,
+      plan: s.plan,
+      createdAt: s.createdAt.toISOString(),
+    })),
+    recentAudit: auditRows.map((r) => ({
+      id: r.id,
+      actorEmail: r.actorEmail,
+      action: r.action,
+      targetType: r.targetType,
+      targetId: r.targetId,
+      metadata: r.metadata,
+      createdAt: r.createdAt.toISOString(),
+    })),
   }
 }
 
@@ -346,6 +398,33 @@ export async function setAdmin(actor: AuditActor, id: string, isAdmin: boolean):
     targetId: id,
     metadata: { from: target.isAdmin, to: isAdmin },
   })
+}
+
+export async function getAttention(): Promise<AdminAttentionDto> {
+  const now = new Date()
+  const in7d = new Date(Date.now() + 7 * DAY_MS)
+  const [sourcesErrRows, failedImports, stalePriceCache, pending, expiringSoonPro, suspendedUsers] =
+    await Promise.all([
+      // Sources whose most recent SyncRun errored (current broken state).
+      prisma.$queryRaw<{ c: number }[]>`
+        SELECT count(*)::int AS c FROM (
+          SELECT DISTINCT ON (r."sourceId") r.status
+          FROM "SyncRun" r ORDER BY r."sourceId", r."startedAt" DESC
+        ) latest WHERE latest.status = 'ERROR'`,
+      prisma.csvImport.count({ where: { status: 'FAILED' } }),
+      prisma.assetPrice.count({ where: { fetchedAt: { lt: new Date(Date.now() - 60 * 60 * 1000) } } }),
+      listPendingPayouts(),
+      prisma.user.count({ where: { plan: 'PRO', planUntil: { gte: now, lte: in7d } } }),
+      prisma.user.count({ where: { suspendedAt: { not: null } } }),
+    ])
+  return {
+    sourcesInError: sourcesErrRows[0]?.c ?? 0,
+    failedImports,
+    stalePriceCache,
+    pendingPayouts: pending.length,
+    expiringSoonPro,
+    suspendedUsers,
+  }
 }
 
 export async function getChurnStats(): Promise<AdminChurnDto> {

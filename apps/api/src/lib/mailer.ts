@@ -23,6 +23,13 @@ const transporter =
 
 export const mailerConfigured = transporter !== null
 
+// Liveness check for the SMTP connection (used by the admin health endpoint).
+// Throws if not configured or the server is unreachable.
+export async function verifySmtp(): Promise<void> {
+  if (!transporter) throw new Error('SMTP nicht konfiguriert')
+  await transporter.verify()
+}
+
 export async function sendMail(mail: Mail): Promise<void> {
   if (!transporter) {
     // Console fallback: no SMTP configured (local/dev without mail server)

@@ -203,6 +203,64 @@ describe('Admin (Integration)', () => {
     expect(audit.body.audit.length).toBeGreaterThanOrEqual(2)
   })
 
+  it('Dashboard: overview liefert activeSessions + Deltas; activity liefert Signups + Audit', async () => {
+    const admin = await registerUser('dash-admin', 'FREE')
+    await makeAdmin(admin)
+    // erzeugt eine Admin-Aktion → Audit-Eintrag für die Activity
+    const target = await registerUser('dash-target', 'FREE')
+    await request(app).post(`${API}/admin/users/${target.userId}/revoke-sessions`).set(...bearer(admin)).expect(200)
+
+    const overview = await request(app).get(`${API}/admin/stats/overview`).set(...bearer(admin))
+    expect(overview.status).toBe(200)
+    expect(typeof overview.body.activeSessions).toBe('number')
+    expect(overview.body.activeSessions).toBeGreaterThanOrEqual(1)
+    expect('newUsers7dDeltaPct' in overview.body).toBe(true)
+
+    const activity = await request(app).get(`${API}/admin/stats/activity`).set(...bearer(admin))
+    expect(activity.status).toBe(200)
+    expect(activity.body.recentSignups.length).toBeGreaterThanOrEqual(1)
+    expect(activity.body.recentSignups[0]).toHaveProperty('email')
+    expect(activity.body.recentAudit.some((a: { action: string }) => a.action === 'USER_SESSIONS_REVOKED')).toBe(true)
+  })
+
+  it('Attention: liefert alle Felder; suspendedUsers steigt nach Sperre', async () => {
+    const admin = await registerUser('att-admin', 'FREE')
+    await makeAdmin(admin)
+    const target = await registerUser('att-target', 'FREE')
+    await request(app).post(`${API}/admin/users/${target.userId}/suspend`).set(...bearer(admin)).expect(204)
+
+    const res = await request(app).get(`${API}/admin/stats/attention`).set(...bearer(admin))
+    expect(res.status).toBe(200)
+    for (const k of ['sourcesInError', 'failedImports', 'stalePriceCache', 'pendingPayouts', 'expiringSoonPro', 'suspendedUsers']) {
+      expect(typeof res.body[k]).toBe('number')
+    }
+    expect(res.body.suspendedUsers).toBeGreaterThanOrEqual(1)
+
+    const nonAdmin = await request(app).get(`${API}/admin/stats/attention`).set(...bearer(target))
+    expect(nonAdmin.status).toBe(404)
+  })
+
+  it('Health: DB ok, optionale Dienste skipped im Test-Setup', async () => {
+    const admin = await registerUser('health-admin', 'FREE')
+    await makeAdmin(admin)
+
+    const res = await request(app).get(`${API}/admin/stats/health`).set(...bearer(admin))
+    expect(res.status).toBe(200)
+    expect(res.body.checkedAt).toBeTruthy()
+    expect(res.body.checks).toHaveLength(4)
+    const byName = Object.fromEntries(res.body.checks.map((c: { name: string }) => [c.name, c]))
+    expect(byName.database.state).toBe('ok')
+    // Test-Env: kein REDIS_URL/SMTP_HOST, FAKE_PRICES=true → skipped
+    expect(byName.redis.state).toBe('skipped')
+    expect(byName.coingecko.state).toBe('skipped')
+    expect(byName.smtp.state).toBe('skipped')
+    for (const c of res.body.checks) expect(['ok', 'down', 'skipped']).toContain(c.state)
+
+    const target = await registerUser('health-nonadmin', 'FREE')
+    const nonAdmin = await request(app).get(`${API}/admin/stats/health`).set(...bearer(target))
+    expect(nonAdmin.status).toBe(404)
+  })
+
   it('Churn: zählt abgelaufene und bald ablaufende Pro', async () => {
     const admin = await registerUser('churn-admin', 'FREE')
     await makeAdmin(admin)

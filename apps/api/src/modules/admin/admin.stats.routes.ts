@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
 import * as admin from './admin.service'
+import { getHealth } from './admin.health.service'
 
 export const adminStatsRoutes = Router()
 
@@ -34,3 +35,6 @@ adminStatsRoutes.get(
 
 adminStatsRoutes.get('/price-cache', asyncHandler(async (_req, res) => res.json(await admin.getPriceCacheStats())))
 adminStatsRoutes.get('/churn', asyncHandler(async (_req, res) => res.json(await admin.getChurnStats())))
+adminStatsRoutes.get('/activity', asyncHandler(async (_req, res) => res.json(await admin.getActivity())))
+adminStatsRoutes.get('/attention', asyncHandler(async (_req, res) => res.json(await admin.getAttention())))
+adminStatsRoutes.get('/health', asyncHandler(async (_req, res) => res.json(await getHealth())))

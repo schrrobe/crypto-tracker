@@ -9,6 +9,10 @@ export interface AdminOverviewDto {
   proRatePct: number
   newUsers7d: number
   newUsers30d: number
+  // % change vs the previous equal-length period (null if previous period was 0).
+  newUsers7dDeltaPct: number | null
+  newUsers30dDeltaPct: number | null
+  activeSessions: number
   activeSubscriptions: number
   mrrProxyCents: number
   referral: {
@@ -121,6 +125,39 @@ export interface AdminAuditListDto {
   total: number
   page: number
   pageSize: number
+}
+
+export interface AdminActivitySignupDto {
+  id: string
+  email: string
+  plan: 'FREE' | 'PRO'
+  createdAt: string
+}
+
+export interface AdminActivityDto {
+  recentSignups: AdminActivitySignupDto[]
+  recentAudit: AdminAuditDto[]
+}
+
+export type HealthState = 'ok' | 'down' | 'skipped'
+export interface AdminHealthCheckDto {
+  name: 'database' | 'redis' | 'coingecko' | 'smtp'
+  state: HealthState
+  latencyMs: number | null
+  detail: string | null
+}
+export interface AdminHealthDto {
+  checks: AdminHealthCheckDto[]
+  checkedAt: string
+}
+
+export interface AdminAttentionDto {
+  sourcesInError: number
+  failedImports: number
+  stalePriceCache: number
+  pendingPayouts: number
+  expiringSoonPro: number
+  suspendedUsers: number
 }
 
 export interface AdminChurnDto {

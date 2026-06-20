@@ -1,9 +1,12 @@
 import type {
+  AdminActivityDto,
   AdminAssetsDto,
+  AdminAttentionDto,
   AdminAuditListDto,
   AdminChurnDto,
   AdminCommissionDto,
   AdminGrowthPointDto,
+  AdminHealthDto,
   AdminImportsDto,
   AdminOverviewDto,
   AdminPriceCacheDto,
@@ -51,6 +54,9 @@ export const adminApi = {
     ),
   priceCache: () => api.get<AdminPriceCacheDto>('/admin/stats/price-cache'),
   churn: () => api.get<AdminChurnDto>('/admin/stats/churn'),
+  activity: () => api.get<AdminActivityDto>('/admin/stats/activity'),
+  attention: () => api.get<AdminAttentionDto>('/admin/stats/attention'),
+  health: () => api.get<AdminHealthDto>('/admin/stats/health'),
 
   users: (params: { search?: string; plan?: string; page?: number; pageSize?: number }) => {
     const q = new URLSearchParams()
