@@ -82,6 +82,13 @@ pnpm dev          # API (:3010) + app (:5173) in parallel
 Individually: `pnpm dev:api` / `pnpm dev:app` · Prisma Studio: `pnpm db:studio` ·
 Adminer (optional): `docker compose --profile tools up -d` → http://localhost:8081
 
+**Admin panel:** `pnpm dev:all` also starts the admin app on http://localhost:5175.
+Access is gated by the `isAdmin` role — grant it with
+`pnpm --filter @crypto-tracker/api admin:grant <email>`.
+
+Local dev admin (seeded manually, **local only**): email `admin@local.dev`
+(password is not stored here — ask the maintainer or reset it).
+
 **Background sync (optional):** `pnpm queue:up` (Redis on host port 6381),
 set `REDIS_URL=redis://localhost:6381` in `apps/api/.env`, and additionally run
 `pnpm --filter @crypto-tracker/api dev:worker`. Without `REDIS_URL` the sync
