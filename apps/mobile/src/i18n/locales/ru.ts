@@ -10,6 +10,7 @@ const ru: MessageSchema = {
     retry: 'Повторить',
     loadFailed: 'Не удалось загрузить данные',
     toggleBalances: 'Показать/скрыть суммы',
+    back: 'Назад',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -404,6 +405,15 @@ const ru: MessageSchema = {
     importCsv: 'Импортировать CSV',
     addManual: 'Добавить вручную',
   },
+  surveys: {
+    title: 'Опрос',
+    bannerTitle: 'Новый опрос',
+    fillOut: 'Заполнить',
+    freeTextPlaceholder: 'Ваш ответ…',
+    submit: 'Отправить',
+    submitFailed: 'Не удалось отправить ответ',
+    thanks: 'Спасибо за участие!',
+  },
   errors: {
     EMAIL_TAKEN: 'Этот адрес эл. почты уже зарегистрирован',
     INVALID_API_KEY: 'API-ключ отклонён провайдером',
@@ -442,6 +452,8 @@ const ru: MessageSchema = {
     PORTFOLIO_LAST: 'Последний портфель нельзя удалить',
     INVALID_RESET_TOKEN: 'Ссылка недействительна или истекла — запросите новую',
     PLAN_UPGRADE_REQUIRED: 'Эта функция требует Crypto Tracker Pro',
+    SURVEY_ALREADY_SUBMITTED: 'Вы уже прошли этот опрос',
+    SURVEY_INVALID_ANSWER: 'Неверный ответ',
   },
   relative: {
     never: 'никогда',

@@ -14,6 +14,9 @@ const routes: RouteRecordRaw[] = [
   { path: '/transactions', name: 'transactions', component: () => import('../views/TransactionsView.vue') },
   { path: '/price-cache', name: 'price-cache', component: () => import('../views/PriceCacheView.vue') },
   { path: '/audit', name: 'audit', component: () => import('../views/AuditLogView.vue') },
+  { path: '/surveys', name: 'surveys', component: () => import('../views/SurveysView.vue') },
+  { path: '/surveys/new', name: 'survey-new', component: () => import('../views/SurveyBuilderView.vue') },
+  { path: '/surveys/:id/results', name: 'survey-results', component: () => import('../views/SurveyResultsView.vue') },
   { path: '/churn', name: 'churn', component: () => import('../views/ChurnView.vue') },
 ]
 

@@ -121,6 +121,7 @@ model User {
   commissionsEarned ReferralCommission[] @relation("Earned")
   payouts       Payout[]
   auditLogs     AuditLog[]        @relation("ActorAudits")
+  surveyResponses SurveyResponse[]
 }
 
 // Append-only audit trail of admin actions. targetId is a plain string (no FK)
@@ -419,4 +420,82 @@ model AssetPrice {
   asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([assetId, fetchedAt])
+}
+
+enum SurveyStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum QuestionType {
+  FREE_TEXT
+  SINGLE_CHOICE
+  MULTI_CHOICE
+}
+
+// Admin-authored survey shown to end users. Lifecycle: DRAFT (editable) →
+// PUBLISHED (visible to users, answerable) → CLOSED (read-only, results only).
+model Survey {
+  id          String           @id @default(uuid())
+  title       String
+  description String?
+  status      SurveyStatus     @default(DRAFT)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  publishedAt DateTime?
+  closedAt    DateTime?
+  questions   SurveyQuestion[]
+  responses   SurveyResponse[]
+}
+
+model SurveyQuestion {
+  id       String         @id @default(uuid())
+  surveyId String
+  type     QuestionType
+  prompt   String
+  order    Int
+  survey   Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  options  SurveyOption[]
+  answers  SurveyAnswer[]
+
+  @@index([surveyId])
+}
+
+model SurveyOption {
+  id         String         @id @default(uuid())
+  questionId String
+  label      String
+  order      Int
+  question   SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+model SurveyResponse {
+  id        String         @id @default(uuid())
+  surveyId  String
+  userId    String
+  createdAt DateTime       @default(now())
+  survey    Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers   SurveyAnswer[]
+
+  // One response per user per survey.
+  @@unique([surveyId, userId])
+  @@index([surveyId])
+}
+
+model SurveyAnswer {
+  id         String         @id @default(uuid())
+  responseId String
+  questionId String
+  text       String?        // FREE_TEXT answers
+  optionIds  String[]       // selected SurveyOption ids (1 for SINGLE_CHOICE, N for MULTI_CHOICE)
+  response   SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  // Restrict: questions cannot be deleted while answers exist (surveys are immutable once published).
+  question   SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@index([responseId])
+  @@index([questionId])
 }

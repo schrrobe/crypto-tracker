@@ -16,8 +16,13 @@ import type {
   AdminUserListDto,
   AdminUpdatePlanInput,
   SyncRunDto,
+  CreateSurveyInput,
+  FreeTextAnswerListDto,
+  SurveyListDto,
+  SurveyResultsDto,
+  UpdateSurveyInput,
 } from '@crypto-tracker/shared'
-import { api } from './api.client'
+import { api, downloadFile } from './api.client'
 
 interface CountList {
   byType?: { key: string; count: number }[]
@@ -95,4 +100,22 @@ export const adminApi = {
     if (params.pageSize) q.set('pageSize', String(params.pageSize))
     return api.get<AdminAuditListDto>(`/admin/audit?${q.toString()}`)
   },
+
+  surveys: () => api.get<SurveyListDto>('/admin/surveys'),
+  createSurvey: (input: CreateSurveyInput) => api.post<{ id: string }>('/admin/surveys', input),
+  updateSurvey: (id: string, input: UpdateSurveyInput) => api.patch<void>(`/admin/surveys/${id}`, input),
+  publishSurvey: (id: string) => api.post<void>(`/admin/surveys/${id}/publish`),
+  closeSurvey: (id: string) => api.post<void>(`/admin/surveys/${id}/close`),
+  deleteSurvey: (id: string) => api.delete<void>(`/admin/surveys/${id}`),
+  surveyResults: (id: string) => api.get<SurveyResultsDto>(`/admin/surveys/${id}/results`),
+  surveyFreeText: (id: string, params: { questionId: string; q?: string; page?: number; pageSize?: number }) => {
+    const sp = new URLSearchParams()
+    sp.set('questionId', params.questionId)
+    if (params.q) sp.set('q', params.q)
+    if (params.page) sp.set('page', String(params.page))
+    if (params.pageSize) sp.set('pageSize', String(params.pageSize))
+    return api.get<FreeTextAnswerListDto>(`/admin/surveys/${id}/free-text?${sp.toString()}`)
+  },
+  surveyFreeTextCsv: (id: string, questionId: string) =>
+    downloadFile(`/admin/surveys/${id}/free-text/export.csv?questionId=${questionId}`, `survey-${id}-free-text.csv`),
 }

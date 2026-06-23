@@ -41,6 +41,7 @@ const links = [
   { to: '/transactions', label: 'Transaktionen' },
   { to: '/price-cache', label: 'Preis-Cache' },
   { to: '/audit', label: 'Audit-Log' },
+  { to: '/surveys', label: 'Umfragen' },
 ]
 
 async function onLogout() {

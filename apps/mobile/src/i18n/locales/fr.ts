@@ -10,6 +10,7 @@ const fr: MessageSchema = {
     retry: 'Réessayer',
     loadFailed: 'Impossible de charger les données',
     toggleBalances: 'Afficher/masquer les montants',
+    back: 'Retour',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -404,6 +405,15 @@ const fr: MessageSchema = {
     importCsv: 'Importer un CSV',
     addManual: 'Saisir manuellement',
   },
+  surveys: {
+    title: 'Sondage',
+    bannerTitle: 'Nouveau sondage',
+    fillOut: 'Remplir',
+    freeTextPlaceholder: 'Votre réponse…',
+    submit: 'Envoyer',
+    submitFailed: "La réponse n'a pas pu être envoyée",
+    thanks: 'Merci de votre participation !',
+  },
   errors: {
     EMAIL_TAKEN: 'Cette adresse e-mail est déjà enregistrée',
     INVALID_API_KEY: 'La clé API a été refusée par le fournisseur',
@@ -442,6 +452,8 @@ const fr: MessageSchema = {
     PORTFOLIO_LAST: 'Le dernier portfolio ne peut pas être supprimé',
     INVALID_RESET_TOKEN: 'Le lien est invalide ou expiré — demandez-en un nouveau',
     PLAN_UPGRADE_REQUIRED: 'Cette fonction nécessite Crypto Tracker Pro',
+    SURVEY_ALREADY_SUBMITTED: 'Vous avez déjà répondu à ce sondage',
+    SURVEY_INVALID_ANSWER: 'Votre réponse est invalide',
   },
   relative: {
     never: 'jamais',

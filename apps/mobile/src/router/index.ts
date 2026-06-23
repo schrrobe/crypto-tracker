@@ -24,6 +24,7 @@ const routes: Array<RouteRecordRaw> = [
     children: [
       { path: '', redirect: '/tabs/dashboard' },
       { path: 'dashboard', component: () => import('../views/DashboardPage.vue') },
+      { path: 'dashboard/surveys/:id', component: () => import('../views/surveys/SurveyPage.vue') },
       { path: 'holdings', component: () => import('../views/HoldingsPage.vue') },
       { path: 'market', component: () => import('../views/MarketPage.vue') },
       { path: 'sources', component: () => import('../views/sources/SourcesPage.vue') },

@@ -83,6 +83,28 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// Authenticated file download (refreshes once on 401). Triggers a browser save.
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  let res = await rawRequest(path)
+  if (res.status === 401) {
+    const refreshed = await tryRefresh()
+    if (refreshed) res = await rawRequest(path)
+    else window.dispatchEvent(new CustomEvent('auth:expired'))
+  }
+  if (!res.ok) {
+    throw new ApiError('DOWNLOAD_FAILED', res.status, `Download fehlgeschlagen (${res.status})`)
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>

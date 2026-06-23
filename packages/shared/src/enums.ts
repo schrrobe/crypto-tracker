@@ -73,6 +73,20 @@ export const PositionSide = {
 } as const
 export type PositionSide = (typeof PositionSide)[keyof typeof PositionSide]
 
+export const SurveyStatus = {
+  DRAFT: 'DRAFT',
+  PUBLISHED: 'PUBLISHED',
+  CLOSED: 'CLOSED',
+} as const
+export type SurveyStatus = (typeof SurveyStatus)[keyof typeof SurveyStatus]
+
+export const QuestionType = {
+  FREE_TEXT: 'FREE_TEXT',
+  SINGLE_CHOICE: 'SINGLE_CHOICE',
+  MULTI_CHOICE: 'MULTI_CHOICE',
+} as const
+export type QuestionType = (typeof QuestionType)[keyof typeof QuestionType]
+
 export const TxType = {
   BUY: 'BUY',
   SELL: 'SELL',

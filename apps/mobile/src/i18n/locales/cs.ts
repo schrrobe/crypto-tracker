@@ -10,6 +10,7 @@ const cs: MessageSchema = {
     retry: 'Zkusit znovu',
     loadFailed: 'Data se nepodařilo načíst',
     toggleBalances: 'Zobrazit/skrýt částky',
+    back: 'Zpět',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -404,6 +405,15 @@ const cs: MessageSchema = {
     importCsv: 'Importovat CSV',
     addManual: 'Zadat ručně',
   },
+  surveys: {
+    title: 'Anketa',
+    bannerTitle: 'Nová anketa',
+    fillOut: 'Vyplnit',
+    freeTextPlaceholder: 'Vaše odpověď…',
+    submit: 'Odeslat',
+    submitFailed: 'Odpověď se nepodařilo odeslat',
+    thanks: 'Děkujeme za účast!',
+  },
   errors: {
     EMAIL_TAKEN: 'Tato e-mailová adresa je již zaregistrována',
     INVALID_API_KEY: 'API klíč byl poskytovatelem odmítnut',
@@ -442,6 +452,8 @@ const cs: MessageSchema = {
     PORTFOLIO_LAST: 'Poslední portfolio nelze smazat',
     INVALID_RESET_TOKEN: 'Odkaz je neplatný nebo vypršel — vyžádejte si nový',
     PLAN_UPGRADE_REQUIRED: 'Tato funkce vyžaduje Crypto Tracker Pro',
+    SURVEY_ALREADY_SUBMITTED: 'Tuto anketu jste již vyplnili',
+    SURVEY_INVALID_ANSWER: 'Vaše odpověď je neplatná',
   },
   relative: {
     never: 'nikdy',

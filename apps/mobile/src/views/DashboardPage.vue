@@ -26,6 +26,23 @@
         <ion-refresher-content />
       </ion-refresher>
 
+      <!-- Pending surveys — banner per open survey -->
+      <ion-card
+        v-for="s in surveys.pending"
+        :key="s.id"
+        button
+        data-testid="survey-banner"
+        :router-link="`/tabs/dashboard/surveys/${s.id}`"
+      >
+        <ion-card-header>
+          <ion-card-subtitle>{{ $t('surveys.bannerTitle') }}</ion-card-subtitle>
+          <ion-card-title>{{ s.title }}</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-button size="small" fill="outline">{{ $t('surveys.fillOut') }}</ion-button>
+        </ion-card-content>
+      </ion-card>
+
       <LoadingSkeleton v-if="pageLoading && !portfolio.summary" />
       <ErrorState v-else-if="pageError && !portfolio.summary" @retry="loadData" />
       <template v-else>
@@ -195,12 +212,14 @@ import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { useAuthStore } from '../stores/auth.store'
+import { useSurveysStore } from '../stores/surveys.store'
 import { formatCurrency, formatCurrencyRaw, formatQuantity, formatRelativeTime } from '../services/format'
 import { balancesHidden, toggleBalances } from '../services/privacy'
 import { openPaywall } from '../services/paywall'
 
 const portfolio = usePortfolioStore()
 const auth = useAuthStore()
+const surveys = useSurveysStore()
 
 function pnlColor(value: string): string {
   return Number(value) < 0 ? 'var(--app-color-loss)' : 'var(--app-color-gain)'
@@ -264,6 +283,8 @@ onIonViewWillEnter(() => {
   // the base currency may have changed in the settings
   currency.value = (auth.user?.baseCurrency as 'EUR' | 'USD') ?? 'EUR'
   loadData()
+  // non-blocking: pending surveys power the banner above
+  surveys.loadPending().catch(() => {})
 })
 </script>
 
