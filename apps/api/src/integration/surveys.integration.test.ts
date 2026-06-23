@@ -58,7 +58,7 @@ describe('Surveys (Integration)', () => {
           { questionId: free.id, text: 'Mehr Dark Mode bitte' },
         ],
       })
-    expect(submit.status).toBe(201)
+    expect(submit.status).toBe(204)
 
     // no longer pending for this user
     const after = await request(app).get(`${API}/surveys/pending`).set(...bearer(user))
@@ -95,7 +95,7 @@ describe('Surveys (Integration)', () => {
     const payload = { answers: [{ questionId: single.id, optionIds: [single.options[0].id] }] }
 
     const first = await request(app).post(`${API}/surveys/${surveyId}/responses`).set(...bearer(user)).send(payload)
-    expect(first.status).toBe(201)
+    expect(first.status).toBe(204)
 
     const second = await request(app).post(`${API}/surveys/${surveyId}/responses`).set(...bearer(user)).send(payload)
     expect(second.status).toBe(409)

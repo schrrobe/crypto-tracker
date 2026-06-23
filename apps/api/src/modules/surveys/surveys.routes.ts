@@ -28,6 +28,8 @@ surveysRoutes.post(
   validate(submitSurveyResponseSchema),
   asyncHandler(async (req, res) => {
     await surveysService.submitResponse(req.userId, routeParam(req, 'id'), req.body)
-    res.status(201).end()
+    // 204 (not 201): the client treats only empty 204s as bodyless; a 201 with an
+    // empty body would make api.client.res.json() throw.
+    res.status(204).end()
   }),
 )

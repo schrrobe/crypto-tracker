@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { UserDto } from '@crypto-tracker/shared'
 import { api, getRefreshToken, isNativePlatform, setTokens } from '../services/api.client'
+import { useSurveysStore } from './surveys.store'
 
 interface AuthResponse {
   user: UserDto
@@ -59,6 +60,7 @@ export const useAuthStore = defineStore('auth', () => {
     await api.post('/auth/logout', refreshToken ? { refreshToken } : undefined).catch(() => {})
     setTokens(null)
     user.value = null
+    useSurveysStore().reset()
   }
 
   async function updateBaseCurrency(baseCurrency: 'EUR' | 'USD'): Promise<void> {
@@ -70,6 +72,7 @@ export const useAuthStore = defineStore('auth', () => {
     await api.delete('/auth/me')
     setTokens(null)
     user.value = null
+    useSurveysStore().reset()
   }
 
   async function setAutoSync(enabled: boolean): Promise<void> {
@@ -100,6 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
   function sessionExpired() {
     setTokens(null)
     user.value = null
+    useSurveysStore().reset()
   }
 
   return {

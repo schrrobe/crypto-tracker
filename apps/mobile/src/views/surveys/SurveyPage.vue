@@ -40,6 +40,7 @@
               <ion-textarea
                 :auto-grow="true"
                 :rows="2"
+                data-testid="survey-freetext"
                 :placeholder="$t('surveys.freeTextPlaceholder')"
                 :value="answers[q.id]?.text"
                 @ionInput="setText(q.id, $event.target.value ?? '')"
