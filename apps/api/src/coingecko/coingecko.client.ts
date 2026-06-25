@@ -8,12 +8,27 @@ const BASE = 'https://api.coingecko.com/api/v3'
 // HTML/text instead of JSON — without this guard res.json() would throw an
 // unhandled exception (500).
 //   notFoundCodes: HTTP codes that count as "no match" and return null
-//   (instead of 502) — e.g. 401/404 on the historical daily price.
-async function cgFetchJson<T>(url: string, notFoundCodes: number[] = []): Promise<T | null> {
+//   (instead of 502) — e.g. 404 on the historical daily price.
+//   windowOutCodes: HTTP codes that mean "not available to THIS API tier"
+//   (e.g. 401 = date outside the free-tier window) — thrown as a typed
+//   PRICE_OUT_OF_WINDOW so the caller can avoid caching it as a permanent
+//   negative (a paid key may unlock the date later).
+async function cgFetchJson<T>(
+  url: string,
+  notFoundCodes: number[] = [],
+  windowOutCodes: number[] = [],
+): Promise<T | null> {
   const res = await fetch(url, {
     headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
   })
   if (notFoundCodes.includes(res.status)) return null
+  if (windowOutCodes.includes(res.status)) {
+    throw new AppError(
+      'PRICE_OUT_OF_WINDOW',
+      502,
+      `CoinGecko: Datum außerhalb des Abruf-Fensters (${res.status})`,
+    )
+  }
   if (!res.ok) {
     throw new AppError('PRICE_PROVIDER_ERROR', 502, `CoinGecko antwortet mit ${res.status}`)
   }
@@ -115,28 +130,51 @@ export async function fetchMarketChart(
   }
 }
 
-// EUR daily price (00:00 UTC) for the tax cost basis. null = CoinGecko has
-// no price for this date (free tier: max. ~365 days back, then responds
-// with 401) — the caller caches this as a negative entry.
-export async function fetchHistoricalPrice(coingeckoId: string, date: Date): Promise<number | null> {
+// Result of a historical daily-price lookup. The three states must stay
+// distinct so the cache is not poisoned:
+//   ok            → a price exists, cache it
+//   no-data       → coin/date genuinely has no price (404 or empty body) →
+//                   cache as a permanent negative (re-asking will not help)
+//   out-of-window → date is outside THIS tier's window (401) → DO NOT cache;
+//                   a paid key would return a price, so a later run must retry
+export type HistoricalPriceLookup =
+  | { status: 'ok'; priceEur: number }
+  | { status: 'no-data' }
+  | { status: 'out-of-window' }
+
+// EUR daily price (00:00 UTC) for the tax cost basis.
+export async function fetchHistoricalPrice(
+  coingeckoId: string,
+  date: Date,
+): Promise<HistoricalPriceLookup> {
   if (env.FAKE_PRICES) {
     // Deterministic and date-dependent: 80–100 % of the fake price across the year
     const base = (FAKE_PRICES[coingeckoId] ?? { eur: 1, usd: 1.1 }).eur
     const startOfYear = Date.UTC(date.getUTCFullYear(), 0, 1)
     const dayOfYear = Math.floor((date.getTime() - startOfYear) / 86_400_000)
-    return base * (0.8 + 0.2 * (dayOfYear / 366))
+    return { status: 'ok', priceEur: base * (0.8 + 0.2 * (dayOfYear / 366)) }
   }
 
   const dd = String(date.getUTCDate()).padStart(2, '0')
   const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
   const yyyy = date.getUTCFullYear()
   const url = `${BASE}/coins/${encodeURIComponent(coingeckoId)}/history?date=${dd}-${mm}-${yyyy}&localization=false`
-  // 401: date outside the free-tier window; 404: coin unknown — both mean "no price"
-  const json = await cgFetchJson<{ market_data?: { current_price?: { eur?: number } } }>(
-    url,
-    [401, 404],
-  )
-  return json?.market_data?.current_price?.eur ?? null
+  try {
+    // 404 → coin unknown ("no price", cacheable). 401 → date outside the
+    // free-tier window (tier-dependent, NOT cacheable) → thrown + caught below.
+    const json = await cgFetchJson<{ market_data?: { current_price?: { eur?: number } } }>(
+      url,
+      [404],
+      [401],
+    )
+    const eur = json?.market_data?.current_price?.eur
+    return eur === undefined || eur === null ? { status: 'no-data' } : { status: 'ok', priceEur: eur }
+  } catch (err) {
+    if (err instanceof AppError && err.code === 'PRICE_OUT_OF_WINDOW') {
+      return { status: 'out-of-window' }
+    }
+    throw err
+  }
 }
 
 export async function fetchSimplePrices(coingeckoIds: string[]): Promise<SimplePrices> {

@@ -12,6 +12,11 @@ import { priceKey, resolveHistoricalPrices } from './historical-price.service'
 const mockedFetch = vi.mocked(fetchHistoricalPrice)
 const DATE = new Date('2024-05-10T15:30:00.000Z') // normalized to 00:00 UTC
 
+// Lookup-result helpers (fetchHistoricalPrice returns a discriminated union)
+const ok = (priceEur: number) => ({ status: 'ok' as const, priceEur })
+const NO_DATA = { status: 'no-data' as const } // 404 → cacheable negative
+const OUT_OF_WINDOW = { status: 'out-of-window' as const } // 401 → NOT cacheable
+
 async function createTestAsset(coingeckoId: string | null) {
   return prisma.asset.create({
     data: {
@@ -50,7 +55,7 @@ describe('historical-price.service', () => {
 
   it('Lookup wird gecached, Negativ-Ergebnis ebenfalls (kein zweiter Call)', async () => {
     const asset = await createTestAsset(`hpt-neg-${Date.now()}`)
-    mockedFetch.mockResolvedValueOnce(null)
+    mockedFetch.mockResolvedValueOnce(NO_DATA)
 
     const first = await resolveHistoricalPrices([
       { assetId: asset.id, coingeckoId: asset.coingeckoId, date: DATE },
@@ -77,7 +82,7 @@ describe('historical-price.service', () => {
 
   it('dedupliziert identische (Asset, Tag)-Paare', async () => {
     const asset = await createTestAsset(`hpt-dedupe-${Date.now()}`)
-    mockedFetch.mockResolvedValue(100)
+    mockedFetch.mockResolvedValue(ok(100))
 
     await resolveHistoricalPrices([
       { assetId: asset.id, coingeckoId: asset.coingeckoId, date: new Date('2024-05-10T01:00:00Z') },
@@ -88,7 +93,7 @@ describe('historical-price.service', () => {
 
   it('Cap begrenzt Lookups pro Lauf und meldet limitReached', async () => {
     const asset = await createTestAsset(`hpt-cap-${Date.now()}`)
-    mockedFetch.mockResolvedValue(50)
+    mockedFetch.mockResolvedValue(ok(50))
 
     // 45 distinct days > cap (40)
     const requests = Array.from({ length: 45 }, (_, i) => ({
@@ -108,8 +113,8 @@ describe('historical-price.service', () => {
   it('transienter Fehler bricht ab, bereits geholte Preise landen trotzdem im Cache', async () => {
     const asset = await createTestAsset(`hpt-abort-${Date.now()}`)
     mockedFetch
-      .mockResolvedValueOnce(100)
-      .mockResolvedValueOnce(200)
+      .mockResolvedValueOnce(ok(100))
+      .mockResolvedValueOnce(ok(200))
       .mockRejectedValueOnce(new Error('429 Too Many Requests'))
 
     const days = [0, 1, 2].map((i) => new Date(Date.UTC(2024, 2, 1 + i)))
@@ -126,9 +131,44 @@ describe('historical-price.service', () => {
 
     // Folgelauf: nur der dritte Tag braucht noch einen Call, der Rest kommt aus dem Cache
     mockedFetch.mockReset()
-    mockedFetch.mockResolvedValue(300)
+    mockedFetch.mockResolvedValue(ok(300))
     const second = await resolveHistoricalPrices(requests)
     expect(mockedFetch).toHaveBeenCalledTimes(1)
     expect(second.prices.get(priceKey(asset.id, days[2]!))?.toString()).toBe('300')
+  })
+
+  it('404 (no-data) wird negativ gecached, 401 (out-of-window) NICHT', async () => {
+    // no-data: a genuine miss is cached → a second run does not call again
+    const noData = await createTestAsset(`hpt-nodata-${Date.now()}`)
+    mockedFetch.mockResolvedValue(NO_DATA)
+    const a1 = await resolveHistoricalPrices([
+      { assetId: noData.id, coingeckoId: noData.coingeckoId, date: DATE },
+    ])
+    expect(a1.prices.get(priceKey(noData.id, DATE))).toBeNull()
+    const a2 = await resolveHistoricalPrices([
+      { assetId: noData.id, coingeckoId: noData.coingeckoId, date: DATE },
+    ])
+    expect(a2.prices.get(priceKey(noData.id, DATE))).toBeNull()
+    expect(mockedFetch).toHaveBeenCalledTimes(1) // 2nd run served from negative cache
+
+    // out-of-window: tier-limited 401 is NOT persisted → a later run retries
+    // (so a paid key later unlocks the date instead of hitting a poisoned cache)
+    mockedFetch.mockReset()
+    const win = await createTestAsset(`hpt-window-${Date.now()}`)
+    mockedFetch.mockResolvedValueOnce(OUT_OF_WINDOW)
+    const b1 = await resolveHistoricalPrices([
+      { assetId: win.id, coingeckoId: win.coingeckoId, date: DATE },
+    ])
+    // key stays unset → engine sees MISSING, but nothing was written to the DB
+    expect(b1.prices.has(priceKey(win.id, DATE))).toBe(false)
+    expect(await prisma.historicalAssetPrice.count({ where: { assetId: win.id } })).toBe(0)
+
+    // second run hits the network again (no negative cache) and now succeeds
+    mockedFetch.mockResolvedValueOnce(ok(123))
+    const b2 = await resolveHistoricalPrices([
+      { assetId: win.id, coingeckoId: win.coingeckoId, date: DATE },
+    ])
+    expect(mockedFetch).toHaveBeenCalledTimes(2)
+    expect(b2.prices.get(priceKey(win.id, DATE))?.toString()).toBe('123')
   })
 })

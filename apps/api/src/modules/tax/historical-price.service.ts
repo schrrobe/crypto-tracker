@@ -76,8 +76,14 @@ export async function resolveHistoricalPrices(
         break
       }
       lookups += 1
-      const price = await fetchHistoricalPrice(req.coingeckoId as string, req.date)
-      const priceEur = price === null ? null : new Prisma.Decimal(price.toString())
+      const lookup = await fetchHistoricalPrice(req.coingeckoId as string, req.date)
+      if (lookup.status === 'out-of-window') {
+        // Outside this tier's window → leave the key unset (engine sees MISSING)
+        // and do NOT persist a negative row: a later run with a key may resolve it.
+        continue
+      }
+      const priceEur =
+        lookup.status === 'ok' ? new Prisma.Decimal(lookup.priceEur.toString()) : null
       fetched.push({ assetId: req.assetId, date: req.date, priceEur })
       prices.set(key, priceEur)
     }
