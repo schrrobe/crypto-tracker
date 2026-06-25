@@ -44,7 +44,17 @@ export async function enqueueSyncRun(runId: string): Promise<void> {
   await getQueue().add(
     'sync-run',
     { runId },
-    // No auto-retry: executeSyncRun writes provider errors into the run itself
-    { attempts: 1, removeOnComplete: 100, removeOnFail: 100 },
+    // Provider errors (rate limit, bad key) are written INTO the run and do not
+    // throw, so they never trigger a retry — they surface to the user as-is.
+    // attempts/backoff only matter for infrastructure throws (DB blip, transient
+    // crash): executeSyncRun is idempotent on a still-RUNNING run, so re-running
+    // is safe. jobId = runId deduplicates accidental double-enqueue of one run.
+    {
+      jobId: runId,
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5000 },
+      removeOnComplete: 100,
+      removeOnFail: 100,
+    },
   )
 }

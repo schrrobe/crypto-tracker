@@ -76,7 +76,9 @@
         <p v-if="uploadResult?.preset" class="hint preset" data-testid="csv-preset">
           {{ $t('csv.presetDetected', { provider: presetName(uploadResult.preset) }) }}
         </p>
-        <ion-text v-if="uploadResult?.duplicateExchangeSource" color="danger">
+        <!-- Heuristic: matches by provider only (a CSV carries no account id), so
+             two distinct accounts on one exchange can false-positive → warning, not danger. -->
+        <ion-text v-if="uploadResult?.duplicateExchangeSource" color="warning">
           <p class="hint" data-testid="csv-duplicate-warning">
             ⚠
             {{

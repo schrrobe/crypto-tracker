@@ -184,6 +184,7 @@ const en: MessageSchema = {
     deleteTitle: 'Delete "{label}"?',
     deleteMessage: 'All holdings of this source will be removed.',
     renameTitle: 'Rename source',
+    renameFailed: 'Rename failed',
     importHistory: 'CSV import history',
     transactions: 'Transactions',
     typeExchange: 'Exchange',

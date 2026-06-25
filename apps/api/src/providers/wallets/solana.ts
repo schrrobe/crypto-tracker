@@ -136,7 +136,11 @@ export const solanaProvider: WalletProvider = {
       const known = KNOWN_MINTS[mint]
       // Dust/spam filter: import unknown mints only on explicit request
       if (!known && !options?.includeUnknownTokens) continue
-      const symbol = known ?? `${mint.slice(0, 4)}…${mint.slice(-4)}`
+      // Unknown mints resolve to an unmapped asset BY this display symbol (the
+      // global Asset table has no mint column). 4+4 base58 chars collided too
+      // easily for crafted spam — 6+6 (~58^12) makes that effectively impossible.
+      // The real mint stays in meta.mint for later mint-keyed mapping.
+      const symbol = known ?? `${mint.slice(0, 6)}…${mint.slice(-6)}`
       balances.push({ symbol, amount: fromBaseUnits(raw, decimals), meta: { mint } })
     }
 

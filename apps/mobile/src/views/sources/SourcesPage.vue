@@ -105,6 +105,7 @@
 <script setup lang="ts">
 import {
   alertController,
+  toastController,
   IonButton,
   IonButtons,
   IonContent,
@@ -232,9 +233,20 @@ async function promptRename(source: SourceDto) {
       { text: t('common.cancel'), role: 'cancel' },
       {
         text: t('common.save'),
-        handler: (values: { label: string }) => {
+        handler: async (values: { label: string }) => {
           const label = values.label.trim()
-          if (label && label !== source.label) sourcesStore.rename(source.id, label)
+          if (!label || label === source.label) return
+          try {
+            await sourcesStore.rename(source.id, label)
+          } catch {
+            // Without this, a failed PATCH silently left the old label on screen.
+            const toast = await toastController.create({
+              message: t('sources.renameFailed'),
+              duration: 3000,
+              color: 'danger',
+            })
+            await toast.present()
+          }
         },
       },
     ],

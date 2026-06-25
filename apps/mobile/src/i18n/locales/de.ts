@@ -183,6 +183,7 @@ const de = {
     deleteTitle: '„{label}" löschen?',
     deleteMessage: 'Alle Bestände dieser Quelle werden entfernt.',
     renameTitle: 'Quelle umbenennen',
+    renameFailed: 'Umbenennen fehlgeschlagen',
     importHistory: 'CSV-Import-Historie',
     transactions: 'Transaktionen',
     typeExchange: 'Exchange',

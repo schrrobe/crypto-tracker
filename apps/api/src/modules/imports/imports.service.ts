@@ -2,13 +2,15 @@ import { Prisma, type CsvImport } from '@prisma/client'
 import { EXCHANGE_PROVIDERS, type CsvImportDto, type CsvUploadResponse, type ImportErrorRow } from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
-import { parseCsv, suggestMappingWithPreset } from '../../csv/csv.parser'
+import { detectPreset, parseCsv, suggestMappingWithPreset } from '../../csv/csv.parser'
 import {
   applyBalanceMapping,
   applyTransactionMapping,
   type BalanceMapping,
   type TransactionMapping,
+  type TransactionMappingOptions,
 } from '../../csv/csv.mapper'
+import { normalizeKrakenAsset } from '../../providers/exchanges/kraken'
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { computeNetBalances } from '../transactions/tx-net-balance'
@@ -137,7 +139,10 @@ export async function confirmMapping(
   }
 
   if (record.kind === 'TRANSACTIONS') {
-    return confirmTransactionImport(record, rows, mapping as TransactionMapping)
+    // Re-detect the preset from the (unchanged) headers so we know whether
+    // preset-specific parsing (Kraken: signed amounts, XXBT/ZEUR codes) applies.
+    const preset = detectPreset(headers)?.preset ?? null
+    return confirmTransactionImport(record, rows, mapping as TransactionMapping, preset)
   }
 
   const { valid, errors } = applyBalanceMapping(rows, mapping)
@@ -184,8 +189,17 @@ async function confirmTransactionImport(
   record: ImportWithSource,
   rows: Array<Record<string, string>>,
   mapping: TransactionMapping,
+  preset: string | null = null,
 ): Promise<CsvImportDto> {
-  const { valid, errors } = applyTransactionMapping(rows, mapping)
+  // Kraken ledgers store signed amounts (outflows negative), legacy asset codes
+  // (XXBT/ZEUR) and a direction-neutral "trade" type — the fiat/fee leg of each
+  // trade is dropped (normalizeKrakenAsset → null). Other formats keep the
+  // generic positive-amount/type-from-column parsing.
+  const options: TransactionMappingOptions =
+    preset === 'KRAKEN'
+      ? { signedQuantity: true, normalizeSymbol: (rawSymbol) => normalizeKrakenAsset(rawSymbol)?.symbol ?? null }
+      : {}
+  const { valid, errors } = applyTransactionMapping(rows, mapping, options)
 
   const assetMap = await resolveAssetsBySymbol(valid.map((r) => r.symbol))
   const netInput: Array<{ assetId: string; type: typeof valid[number]['type']; quantity: Prisma.Decimal }> = []

@@ -184,6 +184,7 @@ const pl: MessageSchema = {
     deleteTitle: 'Usunąć „{label}"?',
     deleteMessage: 'Wszystkie aktywa tego źródła zostaną usunięte.',
     renameTitle: 'Zmień nazwę źródła',
+    renameFailed: 'Zmiana nazwy nie powiodła się',
     importHistory: 'Historia importów CSV',
     transactions: 'Transakcje',
     typeExchange: 'Giełda',

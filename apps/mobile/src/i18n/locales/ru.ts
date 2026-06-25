@@ -184,6 +184,7 @@ const ru: MessageSchema = {
     deleteTitle: 'Удалить «{label}»?',
     deleteMessage: 'Все активы этого источника будут удалены.',
     renameTitle: 'Переименовать источник',
+    renameFailed: 'Не удалось переименовать',
     importHistory: 'История CSV-импортов',
     transactions: 'Транзакции',
     typeExchange: 'Биржа',

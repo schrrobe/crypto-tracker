@@ -9,7 +9,7 @@ import { ProviderError, type RawBalance, type RawPosition } from '../../provider
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { getOwnedSource } from '../sources/sources.service'
-import { enqueueSyncRun, isQueueEnabled } from './sync.queue'
+import { enqueueSyncRun, isQueueEnabled, pingRedis } from './sync.queue'
 import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 const RUNNING_STALE_MS = 2 * 60 * 1000
@@ -117,15 +117,40 @@ export async function startSyncRun(userId: string, sourceId: string): Promise<Sy
     throw AppError.badRequest('SOURCE_NOT_SYNCABLE', 'Nur Exchange- und Wallet-Quellen können synchronisiert werden')
   }
 
-  const running = await prisma.syncRun.findFirst({
-    where: { sourceId, status: 'RUNNING', startedAt: { gt: new Date(Date.now() - RUNNING_STALE_MS) } },
+  // Atomic running-lock: a row-level lock on the source serializes concurrent
+  // sync starts, so the read-then-create below can't race two RUNNING runs into
+  // existence (the previous plain check was a TOCTOU window — two parallel
+  // requests both passed it and double-fetched the provider). A RUNNING run
+  // older than RUNNING_STALE_MS counts as stale (crashed process) and does not block.
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "PortfolioSource" WHERE id = ${sourceId} FOR UPDATE`
+    const running = await tx.syncRun.findFirst({
+      where: { sourceId, status: 'RUNNING', startedAt: { gt: new Date(Date.now() - RUNNING_STALE_MS) } },
+    })
+    if (running) {
+      throw AppError.conflict('SYNC_ALREADY_RUNNING', 'Für diese Quelle läuft bereits ein Sync')
+    }
+    const run = await tx.syncRun.create({ data: { sourceId, status: 'RUNNING' } })
+    return toSyncRunDto(run)
   })
-  if (running) {
-    throw AppError.conflict('SYNC_ALREADY_RUNNING', 'Für diese Quelle läuft bereits ein Sync')
-  }
+}
 
-  const run = await prisma.syncRun.create({ data: { sourceId, status: 'RUNNING' } })
-  return toSyncRunDto(run)
+// Reaper: a RUNNING run whose process was killed (worker OOM/SIGKILL) can never
+// set itself to ERROR — executeSyncRun's catch only runs in a live process.
+// Such runs would stay RUNNING forever (the stale window only gates NEW runs,
+// it never reaps the orphan). This marks them ERROR/STALE. Called as a
+// repeatable worker job.
+export async function reapStaleRuns(): Promise<{ reaped: number }> {
+  const result = await prisma.syncRun.updateMany({
+    where: { status: 'RUNNING', startedAt: { lt: new Date(Date.now() - RUNNING_STALE_MS) } },
+    data: {
+      status: 'ERROR',
+      finishedAt: new Date(),
+      errorCode: 'STALE',
+      errorMessage: 'Sync wurde nicht abgeschlossen (Prozess beendet?)',
+    },
+  })
+  return { reaped: result.count }
 }
 
 // Step 2: execute the run — deliberately without an Express dependency (runs inline
@@ -244,8 +269,23 @@ export async function requestSync(
   if (!isQueueEnabled()) {
     return { run: await syncSource(userId, sourceId), queued: false }
   }
+  // Verify Redis is reachable BEFORE creating the RUNNING run. Otherwise a dead
+  // Redis would leave a RUNNING run that never gets executed and never marked
+  // ERROR (the frontend would poll it until its 60s timeout). On a dead queue we
+  // deliberately fall back to inline execution.
+  try {
+    await pingRedis()
+  } catch {
+    return { run: await syncSource(userId, sourceId), queued: false }
+  }
   const run = await startSyncRun(userId, sourceId)
-  await enqueueSyncRun(run.id)
+  try {
+    await enqueueSyncRun(run.id)
+  } catch {
+    // Redis died in the race between ping and add — the RUNNING run already
+    // exists, so execute it inline here instead of leaving it orphaned.
+    return { run: await executeSyncRun(run.id), queued: false }
+  }
   return { run, queued: true }
 }
 
