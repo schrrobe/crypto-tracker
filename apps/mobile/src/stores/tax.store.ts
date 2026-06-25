@@ -28,6 +28,10 @@ export const useTaxStore = defineStore('tax', () => {
   // Upper bound on automatic re-fetches (cap is 40/run without a key →
   // 20 passes ≈ 800 daily prices) so a never-clearing warning cannot loop forever.
   const MAX_BACKFILL_PASSES = 20
+  // Bumped on every loadWithBackfill call (and reset); an in-flight loop whose
+  // epoch is no longer current stops, so a year/country toggle mid-backfill does
+  // not race a stale loop against the new one.
+  let backfillEpoch = 0
 
   async function load(force = false): Promise<void> {
     const scope = usePortfoliosStore().scopeQuery('&')
@@ -50,12 +54,21 @@ export const useTaxStore = defineStore('tax', () => {
   // re-open the report manually. Bounded by MAX_BACKFILL_PASSES; a transient error
   // stops the loop but keeps whatever was loaded.
   async function loadWithBackfill(): Promise<void> {
+    const epoch = ++backfillEpoch
     await load()
     let passes = 0
-    while (
-      passes < MAX_BACKFILL_PASSES &&
-      report.value?.warnings.some((w) => w.code === TaxWarningCode.PRICE_LOOKUP_LIMIT_REACHED)
-    ) {
+    // Strictly-decreasing guard: if a pass does not reduce the open count, the
+    // remaining dates are unresolvable this run (e.g. out-of-window without a
+    // key) — stop instead of re-fetching the same dates and burning the rate limit.
+    let prevRemaining = Number.POSITIVE_INFINITY
+    while (passes < MAX_BACKFILL_PASSES && epoch === backfillEpoch) {
+      const warn = report.value?.warnings.find(
+        (w) => w.code === TaxWarningCode.PRICE_LOOKUP_LIMIT_REACHED,
+      )
+      if (!warn) break
+      const remaining = warn.count ?? 0
+      if (remaining >= prevRemaining) break
+      prevRemaining = remaining
       passes += 1
       backfilling.value = true
       try {
@@ -64,7 +77,8 @@ export const useTaxStore = defineStore('tax', () => {
         break
       }
     }
-    backfilling.value = false
+    // Only the current loop clears the flag — a superseded loop must not.
+    if (epoch === backfillEpoch) backfilling.value = false
   }
 
   function clearCache(): void {
@@ -79,6 +93,7 @@ export const useTaxStore = defineStore('tax', () => {
   function reset(): void {
     report.value = null
     cache.clear()
+    backfillEpoch++ // cancel any in-flight backfill loop
   }
 
   return { report, year, country, backfilling, load, loadWithBackfill, clearCache, setCountry, reset }

@@ -11,6 +11,7 @@ import { useTaxStore } from './tax.store'
 const mockApi = api as unknown as { get: Mock }
 
 const LIMIT = { code: 'PRICE_LOOKUP_LIMIT_REACHED', count: 5 }
+const limit = (count: number) => ({ code: 'PRICE_LOOKUP_LIMIT_REACHED', count })
 function report(warnings: unknown[] = []) {
   return {
     year: 2024,
@@ -30,10 +31,10 @@ describe('tax.store loadWithBackfill', () => {
     mockApi.get.mockReset()
   })
 
-  it('reloads (force) until the price-lookup-limit warning clears', async () => {
+  it('reloads (force) while the open count keeps dropping, until the warning clears', async () => {
     mockApi.get
-      .mockResolvedValueOnce(report([LIMIT])) // first load: capped
-      .mockResolvedValueOnce(report([LIMIT])) // pass 1: still capped
+      .mockResolvedValueOnce(report([limit(5)])) // first load: 5 open
+      .mockResolvedValueOnce(report([limit(3)])) // pass 1: progress (3 open)
       .mockResolvedValueOnce(report([])) // pass 2: cache full, warning gone
     const store = useTaxStore()
     await store.loadWithBackfill()
@@ -42,8 +43,20 @@ describe('tax.store loadWithBackfill', () => {
     expect(store.backfilling).toBe(false)
   })
 
-  it('stops after the max-pass bound even if the warning never clears', async () => {
-    mockApi.get.mockResolvedValue(report([LIMIT]))
+  it('stops after one non-progress pass (e.g. only out-of-window dates left)', async () => {
+    // count never drops → re-fetching would burn the rate limit for nothing
+    mockApi.get.mockResolvedValue(report([limit(5)]))
+    const store = useTaxStore()
+    await store.loadWithBackfill()
+    // 1 initial load + 1 pass that made no progress = 2 (NOT the 20-pass bound)
+    expect(mockApi.get).toHaveBeenCalledTimes(2)
+    expect(store.backfilling).toBe(false)
+  })
+
+  it('stops at the max-pass bound when progress is real but slow', async () => {
+    // strictly-decreasing count so the no-progress guard never trips
+    let n = 1000
+    mockApi.get.mockImplementation(() => Promise.resolve(report([limit((n -= 1))])))
     const store = useTaxStore()
     await store.loadWithBackfill()
     // 1 initial load + 20 backfill passes (MAX_BACKFILL_PASSES) = 21
