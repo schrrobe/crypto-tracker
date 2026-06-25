@@ -110,6 +110,15 @@ export function signedTxType(rawType: string, negative: boolean): MappedTransact
 // Eingaben mit Zone (Z oder ±hh:mm) behalten ihre Zone.
 const CSV_TIMEZONE = 'Europe/Berlin'
 
+// Hoisted once — constructing an Intl.DateTimeFormat per row is expensive on a
+// 5000-row import. Options are constant (fixed zone), so a single instance is safe.
+const CSV_TZ_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: CSV_TIMEZONE,
+  hour12: false,
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit',
+})
+
 // Wandelt eine Wanduhrzeit in CSV_TIMEZONE in den korrekten UTC-Instant um —
 // DST-korrekt, weil der Offset für genau dieses Datum aus Intl bestimmt wird.
 function wallClockToUtc(
@@ -117,12 +126,7 @@ function wallClockToUtc(
   hour: number, minute: number, second: number,
 ): Date {
   const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second)
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: CSV_TIMEZONE,
-    hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  }).formatToParts(new Date(utcGuess))
+  const parts = CSV_TZ_FORMATTER.formatToParts(new Date(utcGuess))
   const get = (type: string): number => Number(parts.find((p) => p.type === type)?.value)
   const zoneHour = get('hour') === 24 ? 0 : get('hour') // Intl kann 24 statt 0 liefern
   const zoneAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), zoneHour, get('minute'), get('second'))

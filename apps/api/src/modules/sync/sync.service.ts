@@ -13,6 +13,12 @@ import { enqueueSyncRun, isQueueEnabled, pingRedis } from './sync.queue'
 import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 const RUNNING_STALE_MS = 2 * 60 * 1000
+// Reaper threshold is deliberately MUCH larger than RUNNING_STALE_MS: the latter
+// only gates whether a *new* run may start, the former declares a run truly dead.
+// A slow-but-alive sync (many sources, slow provider) can legitimately run past
+// 2 min — reaping it then would race a live executeSyncRun. 30 min is safely
+// beyond any real sync (each provider call is capped at FETCH_TIMEOUT_MS).
+const REAP_STALE_MS = 30 * 60 * 1000
 const FETCH_TIMEOUT_MS = 30 * 1000
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -142,7 +148,7 @@ export async function startSyncRun(userId: string, sourceId: string): Promise<Sy
 // repeatable worker job.
 export async function reapStaleRuns(): Promise<{ reaped: number }> {
   const result = await prisma.syncRun.updateMany({
-    where: { status: 'RUNNING', startedAt: { lt: new Date(Date.now() - RUNNING_STALE_MS) } },
+    where: { status: 'RUNNING', startedAt: { lt: new Date(Date.now() - REAP_STALE_MS) } },
     data: {
       status: 'ERROR',
       finishedAt: new Date(),

@@ -372,6 +372,9 @@ model CsvImport {
   filename      String
   kind          ImportKind
   status        ImportStatus    @default(PENDING_MAPPING)
+  // Detected export preset (KRAKEN/BITPANDA) at upload time. Persisted so confirm
+  // applies preset-specific parsing deterministically instead of re-detecting.
+  preset        String?
   columnMapping Json?
   rawPreview    Json
   rawRows       Json?

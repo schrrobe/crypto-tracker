@@ -2,7 +2,7 @@ import { Prisma, type CsvImport } from '@prisma/client'
 import { EXCHANGE_PROVIDERS, type CsvImportDto, type CsvUploadResponse, type ImportErrorRow } from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
-import { detectPreset, parseCsv, suggestMappingWithPreset } from '../../csv/csv.parser'
+import { parseCsv, suggestMappingWithPreset } from '../../csv/csv.parser'
 import {
   applyBalanceMapping,
   applyTransactionMapping,
@@ -47,6 +47,7 @@ export async function uploadCsv(
 ): Promise<CsvUploadResponse> {
   const pid = await resolvePortfolioId(userId, portfolioId)
   const { headers, rows } = parseCsv(file.buffer.toString('utf8'))
+  const { mapping, preset } = suggestMappingWithPreset(headers, kind)
 
   const source = await prisma.portfolioSource.create({
     data: {
@@ -63,14 +64,13 @@ export async function uploadCsv(
       filename: file.originalname,
       kind,
       status: 'PENDING_MAPPING',
+      preset, // persisted so confirm parses deterministically, no header re-detection
       rawPreview: { headers, rows: rows.slice(0, PREVIEW_ROWS) },
       rawRows: rows,
       totalRows: rows.length,
     },
     include: { source: { select: { label: true } } },
   })
-
-  const { mapping, preset } = suggestMappingWithPreset(headers, kind)
 
   // Active duplicate detection: exchange either chosen explicitly (covers all 11)
   // or detected via preset (KRAKEN/BITPANDA = ProviderId). If an API source for the
@@ -139,10 +139,9 @@ export async function confirmMapping(
   }
 
   if (record.kind === 'TRANSACTIONS') {
-    // Re-detect the preset from the (unchanged) headers so we know whether
-    // preset-specific parsing (Kraken: signed amounts, XXBT/ZEUR codes) applies.
-    const preset = detectPreset(headers)?.preset ?? null
-    return confirmTransactionImport(record, rows, mapping as TransactionMapping, preset)
+    // Preset was detected and persisted at upload time → deterministic parsing
+    // (Kraken: signed amounts, XXBT/ZEUR codes), not coupled to header re-detection.
+    return confirmTransactionImport(record, rows, mapping as TransactionMapping, record.preset)
   }
 
   const { valid, errors } = applyBalanceMapping(rows, mapping)
