@@ -21,6 +21,10 @@ import type {
   SurveyListDto,
   SurveyResultsDto,
   UpdateSurveyInput,
+  AdminAnnouncementDto,
+  AdminAnnouncementListDto,
+  CreateAnnouncementInput,
+  UpdateAnnouncementInput,
 } from '@crypto-tracker/shared'
 import { api, downloadFile } from './api.client'
 
@@ -118,4 +122,11 @@ export const adminApi = {
   },
   surveyFreeTextCsv: (id: string, questionId: string) =>
     downloadFile(`/admin/surveys/${id}/free-text/export.csv?questionId=${questionId}`, `survey-${id}-free-text.csv`),
+
+  announcements: () => api.get<AdminAnnouncementListDto>('/admin/announcements'),
+  createAnnouncement: (input: CreateAnnouncementInput) =>
+    api.post<{ announcement: AdminAnnouncementDto }>('/admin/announcements', input),
+  updateAnnouncement: (id: string, input: UpdateAnnouncementInput) =>
+    api.patch<{ announcement: AdminAnnouncementDto }>(`/admin/announcements/${id}`, input),
+  deleteAnnouncement: (id: string) => api.delete<void>(`/admin/announcements/${id}`),
 }

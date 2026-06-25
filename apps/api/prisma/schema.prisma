@@ -499,3 +499,23 @@ model SurveyAnswer {
   @@index([responseId])
   @@index([questionId])
 }
+
+enum AnnouncementLevel {
+  ERROR
+  INFO
+}
+
+// Admin-authored broadcast banner shown to all users. Visible while active and
+// within the optional [startsAt, endsAt] window.
+model Announcement {
+  id        String            @id @default(uuid())
+  level     AnnouncementLevel
+  message   String
+  active    Boolean           @default(false)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([active])
+}

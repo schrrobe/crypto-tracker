@@ -18,6 +18,7 @@ import { appConfigRoutes } from './modules/app-config/app-config.routes'
 import { referralRoutes } from './modules/referral/referral.routes'
 import { adminRoutes } from './modules/admin/admin.routes'
 import { surveysRoutes } from './modules/surveys/surveys.routes'
+import { announcementsRoutes } from './modules/announcements/announcements.routes'
 
 export function createApp() {
   const app = express()
@@ -75,6 +76,7 @@ export function createApp() {
   api.use('/referral', referralRoutes)
   api.use('/admin', adminRoutes)
   api.use('/surveys', surveysRoutes)
+  api.use('/announcements', announcementsRoutes)
 
   app.use((_req, res) => {
     res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route nicht gefunden' } })

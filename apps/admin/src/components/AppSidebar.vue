@@ -42,6 +42,7 @@ const links = [
   { to: '/price-cache', label: 'Preis-Cache' },
   { to: '/audit', label: 'Audit-Log' },
   { to: '/surveys', label: 'Umfragen' },
+  { to: '/announcements', label: 'Ankündigungen' },
 ]
 
 async function onLogout() {

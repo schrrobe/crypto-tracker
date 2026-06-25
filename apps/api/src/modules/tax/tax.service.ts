@@ -82,9 +82,9 @@ async function enrichTransactions(
     .filter((p) => !(p.tx.type === 'DEPOSIT' && transferGroupId(p.tx) !== null))
     .map((p) => ({ assetId: p.tx.assetId, coingeckoId: p.tx.asset.coingeckoId, date: p.tx.timestamp }))
 
-  const { prices, limitReached } = await resolveHistoricalPrices(requests)
+  const { prices, limitReached, remaining } = await resolveHistoricalPrices(requests)
   if (limitReached) {
-    warnings.push({ code: TaxWarningCode.PRICE_LOOKUP_LIMIT_REACHED })
+    warnings.push({ code: TaxWarningCode.PRICE_LOOKUP_LIMIT_REACHED, count: remaining })
   }
 
   const engineTxs: EngineTx[] = pending.map((p) => {
@@ -203,7 +203,10 @@ export async function getReport(
       thresholdApplied: report.totals.thresholdApplied,
       taxableAfterThresholdEur: report.totals.taxableAfterThresholdEur.toFixed(2),
       ...(report.totals.atNeuvermoegenGainEur !== undefined
-        ? { atNeuvermoegenGainEur: report.totals.atNeuvermoegenGainEur.toFixed(2) }
+        ? {
+            atNeuvermoegenGainEur: report.totals.atNeuvermoegenGainEur.toFixed(2),
+            atNeuvermoegenTaxEur: report.totals.atNeuvermoegenTaxEur?.toFixed(2),
+          }
         : {}),
       ...(report.totals.stakingIncomeEur !== undefined
         ? {

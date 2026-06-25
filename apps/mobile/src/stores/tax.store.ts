@@ -17,11 +17,28 @@ export const useTaxStore = defineStore('tax', () => {
   const year = ref(new Date().getFullYear() - 1)
   const country = ref<TaxCountry>(storedCountry())
 
-  async function load(): Promise<void> {
+  // Session cache so toggling year/country back and forth in the open report
+  // does not re-hit the API (and re-run CoinGecko backfill). Cleared on view
+  // (re-)entry via clearCache() so freshly imported transactions are not stale.
+  const cache = new Map<string, TaxReportDto>()
+
+  async function load(force = false): Promise<void> {
     const scope = usePortfoliosStore().scopeQuery('&')
-    report.value = await api.get<TaxReportDto>(
+    const key = `${country.value}|${year.value}|${scope}`
+    const cached = cache.get(key)
+    if (!force && cached) {
+      report.value = cached
+      return
+    }
+    const fresh = await api.get<TaxReportDto>(
       `/tax/report?year=${year.value}&country=${country.value}${scope}`,
     )
+    cache.set(key, fresh)
+    report.value = fresh
+  }
+
+  function clearCache(): void {
+    cache.clear()
   }
 
   function setCountry(value: TaxCountry): void {
@@ -31,7 +48,8 @@ export const useTaxStore = defineStore('tax', () => {
 
   function reset(): void {
     report.value = null
+    cache.clear()
   }
 
-  return { report, year, country, load, setCountry, reset }
+  return { report, year, country, load, clearCache, setCountry, reset }
 })

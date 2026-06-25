@@ -349,6 +349,7 @@ const de = {
     thresholdNotApplied: 'unter der Freigrenze',
     taxableAfterThreshold: 'Steuerpflichtiges Ergebnis',
     neuvermoegenGain: 'davon Neuvermögen (27,5 % Sondersteuersatz)',
+    neuvermoegenTax: 'geschätzte Steuer Neuvermögen (27,5 %)',
     stakingIncome: 'Staking-Einkünfte bei Zufluss (§22 Nr. 3 EStG)',
     stakingThreshold: 'Freigrenze Staking',
     stakingTaxable: 'Steuerpflichtige Staking-Einkünfte',
@@ -378,7 +379,7 @@ const de = {
         '{symbol}: Auszahlungen haben Bestände aus der Verfolgung entfernt ({count}×) — als Transfer verknüpfen, um die Kostenbasis zu erhalten',
       TRANSFERS_IGNORED: '{symbol}: Transfer-/Sonstige-Transaktionen wurden ignoriert ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: Kurs in Fremdwährung verworfen — historischer EUR-Tagespreis verwendet ({count}×)',
-      PRICE_LOOKUP_LIMIT_REACHED: 'Kurs-Abfragelimit erreicht — Report erneut erstellen, um weitere Kurse zu laden',
+      PRICE_LOOKUP_LIMIT_REACHED: 'Kurs-Abfragelimit erreicht — noch {count} Tagespreise offen. Report erneut erstellen, um sie nachzuladen',
       WALLET_REWARDS_ONLY:
         '{count} Wallet-Quelle(n) mit automatisch importierten Staking-Rewards — Käufe/Verkäufe dieser Wallets fehlen im Report',
       SWAP_DEFERRED:

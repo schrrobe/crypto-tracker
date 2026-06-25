@@ -350,6 +350,7 @@ const pl: MessageSchema = {
     thresholdNotApplied: 'poniżej progu zwolnienia',
     taxableAfterThreshold: 'Wynik podlegający opodatkowaniu',
     neuvermoegenGain: 'w tym Neuvermögen (specjalna stawka 27,5 %)',
+    neuvermoegenTax: 'szacowany podatek Neuvermögen (27,5 %)',
     stakingIncome: 'Przychody ze stakingu w momencie otrzymania (§22 Nr. 3 EStG)',
     stakingThreshold: 'Próg zwolnienia dla stakingu',
     stakingTaxable: 'Opodatkowane przychody ze stakingu',
@@ -379,7 +380,7 @@ const pl: MessageSchema = {
         '{symbol}: wypłaty usunęły aktywa ze śledzenia ({count}×) — połącz jako transfer, aby zachować koszt nabycia',
       TRANSFERS_IGNORED: '{symbol}: transakcje typu transfer/inne zostały zignorowane ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: odrzucono kurs w walucie obcej — użyto historycznej dziennej ceny w EUR ({count}×)',
-      PRICE_LOOKUP_LIMIT_REACHED: 'Osiągnięto limit zapytań o kursy — utwórz raport ponownie, aby pobrać kolejne kursy',
+      PRICE_LOOKUP_LIMIT_REACHED: 'Osiągnięto limit zapytań o kursy — pozostało {count} kursów dziennych. Utwórz raport ponownie, aby je pobrać',
       WALLET_REWARDS_ONLY:
         'Źródła typu portfel z automatycznie zaimportowanymi nagrodami za staking: {count} — kupna/sprzedaże z tych portfeli nie są ujęte w raporcie',
       SWAP_DEFERRED:

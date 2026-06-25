@@ -350,6 +350,7 @@ const en: MessageSchema = {
     thresholdNotApplied: 'below the exemption limit',
     taxableAfterThreshold: 'Taxable result',
     neuvermoegenGain: 'of which Neuvermögen (27.5% special tax rate)',
+    neuvermoegenTax: 'estimated tax Neuvermögen (27.5%)',
     stakingIncome: 'Staking income at receipt (§22 Nr. 3 EStG)',
     stakingThreshold: 'Staking exemption limit',
     stakingTaxable: 'Taxable staking income',
@@ -379,7 +380,7 @@ const en: MessageSchema = {
         '{symbol}: withdrawals removed holdings from tracking ({count}×) — link as transfer to preserve the cost basis',
       TRANSFERS_IGNORED: '{symbol}: transfer/other transactions were ignored ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: price in foreign currency discarded — historical EUR daily price used ({count}×)',
-      PRICE_LOOKUP_LIMIT_REACHED: 'Price lookup limit reached — generate the report again to load more prices',
+      PRICE_LOOKUP_LIMIT_REACHED: 'Price lookup limit reached — {count} daily prices still pending. Generate the report again to load them',
       WALLET_REWARDS_ONLY:
         '{count} wallet source(s) with automatically imported staking rewards — buys/sells of these wallets are missing from the report',
       SWAP_DEFERRED:

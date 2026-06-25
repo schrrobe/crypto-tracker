@@ -73,6 +73,12 @@ export const PositionSide = {
 } as const
 export type PositionSide = (typeof PositionSide)[keyof typeof PositionSide]
 
+export const AnnouncementLevel = {
+  ERROR: 'ERROR',
+  INFO: 'INFO',
+} as const
+export type AnnouncementLevel = (typeof AnnouncementLevel)[keyof typeof AnnouncementLevel]
+
 export const SurveyStatus = {
   DRAFT: 'DRAFT',
   PUBLISHED: 'PUBLISHED',

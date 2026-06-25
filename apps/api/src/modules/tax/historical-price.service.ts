@@ -20,6 +20,9 @@ export interface HistoricalPriceResult {
   // Missing key = lookup cap reached, retry on the next run.
   prices: Map<string, Prisma.Decimal | null>
   limitReached: boolean
+  // Distinct (asset, day) prices still unresolved when the cap was hit — these
+  // get filled from the cache on the next run. 0 when the cap was not reached.
+  remaining: number
 }
 
 export function toUtcDate(date: Date): Date {
@@ -45,7 +48,7 @@ export async function resolveHistoricalPrices(
     }
     if (!unique.has(key)) unique.set(key, { ...req, date: toUtcDate(req.date) })
   }
-  if (unique.size === 0) return { prices, limitReached: false }
+  if (unique.size === 0) return { prices, limitReached: false, remaining: 0 }
 
   const cached = await prisma.historicalAssetPrice.findMany({
     where: {
@@ -66,23 +69,30 @@ export async function resolveHistoricalPrices(
   // CoinGecko calls stay serial (rate limit); we collect the DB writes and
   // flush them at the end in ONE createMany instead of N individual upserts.
   const fetched: { assetId: string; date: Date; priceEur: Prisma.Decimal | null }[] = []
-  for (const [key, req] of unique) {
-    if (lookups >= LOOKUP_CAP_PER_RUN) {
-      limitReached = true
-      break
+  try {
+    for (const [key, req] of unique) {
+      if (lookups >= LOOKUP_CAP_PER_RUN) {
+        limitReached = true
+        break
+      }
+      lookups += 1
+      const price = await fetchHistoricalPrice(req.coingeckoId as string, req.date)
+      const priceEur = price === null ? null : new Prisma.Decimal(price.toString())
+      fetched.push({ assetId: req.assetId, date: req.date, priceEur })
+      prices.set(key, priceEur)
     }
-    lookups += 1
-    const price = await fetchHistoricalPrice(req.coingeckoId as string, req.date)
-    const priceEur = price === null ? null : new Prisma.Decimal(price.toString())
-    fetched.push({ assetId: req.assetId, date: req.date, priceEur })
-    prices.set(key, priceEur)
+  } finally {
+    // Persist whatever was fetched, even if a transient CoinGecko error (429/502)
+    // aborts the loop mid-way — otherwise the already-spent lookups are wasted and
+    // the next run refetches them. skipDuplicates handles a parallel run that wrote
+    // the same (asset, day).
+    if (fetched.length > 0) {
+      await prisma.historicalAssetPrice.createMany({ data: fetched, skipDuplicates: true })
+    }
   }
 
-  // skipDuplicates handles the case where a parallel run already wrote the same
-  // (asset, day) (previously: upsert with an empty update).
-  if (fetched.length > 0) {
-    await prisma.historicalAssetPrice.createMany({ data: fetched, skipDuplicates: true })
-  }
-
-  return { prices, limitReached }
+  // After the cache pass `unique` holds only network-bound entries; whatever we
+  // did not get to before the cap remains for the next run.
+  const remaining = limitReached ? unique.size - lookups : 0
+  return { prices, limitReached, remaining }
 }

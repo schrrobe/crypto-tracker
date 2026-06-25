@@ -68,6 +68,8 @@ export interface TaxReportTotalsDto {
   taxableAfterThresholdEur: string
   // AT only: Neuvermögen pool (27.5 % special tax rate), separate from Altvermögen
   atNeuvermoegenGainEur?: string
+  // AT only: estimated tax on the Neuvermögen pool (gain × 27.5 %)
+  atNeuvermoegenTaxEur?: string
   // DE only: staking inflows as other income (§22 Nr. 3 EStG, exemption limit 256 €)
   stakingIncomeEur?: string
   stakingThresholdEur?: string

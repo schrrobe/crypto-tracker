@@ -19,6 +19,7 @@ export type StorageKey =
   | 'language'
   | 'theme-preference'
   | 'balances-hidden'
+  | 'dismissed-announcements'
 
 const ALL_KEYS: StorageKey[] = [
   'refresh-token',
@@ -27,6 +28,7 @@ const ALL_KEYS: StorageKey[] = [
   'language',
   'theme-preference',
   'balances-hidden',
+  'dismissed-announcements',
 ]
 
 // Only the refresh token is security-critical → encrypted Secure Storage.

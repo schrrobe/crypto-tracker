@@ -350,6 +350,7 @@ const cs: MessageSchema = {
     thresholdNotApplied: 'pod hranicí osvobození',
     taxableAfterThreshold: 'Zdanitelný výsledek',
     neuvermoegenGain: 'z toho Neuvermögen (zvláštní sazba 27,5 %)',
+    neuvermoegenTax: 'odhadovaná daň Neuvermögen (27,5 %)',
     stakingIncome: 'Příjmy ze stakingu při přijetí (§22 Nr. 3 EStG)',
     stakingThreshold: 'Hranice osvobození pro staking',
     stakingTaxable: 'Zdanitelné příjmy ze stakingu',
@@ -379,7 +380,7 @@ const cs: MessageSchema = {
         '{symbol}: výběry odstranily aktiva ze sledování ({count}×) — propojte je jako převod, aby se zachovaly pořizovací náklady',
       TRANSFERS_IGNORED: '{symbol}: transakce typu převod/ostatní byly ignorovány ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol}: kurz v cizí měně zahozen — použita historická denní cena v EUR ({count}×)',
-      PRICE_LOOKUP_LIMIT_REACHED: 'Dosažen limit dotazů na kurzy — vytvořte report znovu, aby se načetly další kurzy',
+      PRICE_LOOKUP_LIMIT_REACHED: 'Dosažen limit dotazů na kurzy — zbývá {count} denních kurzů. Vytvořte report znovu, aby se načetly',
       WALLET_REWARDS_ONLY:
         'Zdroje typu peněženka s automaticky importovanými odměnami za staking: {count} — nákupy/prodeje těchto peněženek v reportu chybí',
       SWAP_DEFERRED:

@@ -88,6 +88,10 @@
               <span>{{ $t('tax.neuvermoegenGain') }}</span>
               <span data-testid="tax-neuvermoegen">{{ money(report.totals.atNeuvermoegenGainEur) }}</span>
             </div>
+            <div v-if="report.totals.atNeuvermoegenTaxEur !== undefined" class="total-row threshold">
+              <span>{{ $t('tax.neuvermoegenTax') }}</span>
+              <span data-testid="tax-neuvermoegen-tax">{{ money(report.totals.atNeuvermoegenTaxEur) }}</span>
+            </div>
             <template v-if="report.totals.stakingIncomeEur !== undefined">
               <div class="total-row">
                 <span>{{ $t('tax.stakingIncome') }}</span>
@@ -127,7 +131,7 @@
             <ion-label>{{ $t('tax.disposals') }}</ion-label>
           </ion-list-header>
           <ion-item
-            v-for="(d, i) in report.disposals"
+            v-for="(d, i) in visibleDisposals"
             :key="i"
             :data-testid="`tax-disposal-${d.assetSymbol}`"
           >
@@ -157,6 +161,12 @@
               </p>
             </ion-label>
           </ion-item>
+          <ion-infinite-scroll
+            v-if="report.disposals.length > visibleCount"
+            @ionInfinite="loadMore"
+          >
+            <ion-infinite-scroll-content />
+          </ion-infinite-scroll>
         </ion-list>
         <p v-else class="empty" data-testid="tax-no-disposals">{{ $t('tax.noDisposals') }}</p>
       </template>
@@ -177,6 +187,8 @@ import {
   IonContent,
   IonHeader,
   IonIcon,
+  IonInfiniteScroll,
+  IonInfiniteScrollContent,
   IonItem,
   IonLabel,
   IonList,
@@ -188,6 +200,7 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
+import type { InfiniteScrollCustomEvent } from '@ionic/vue'
 import { documentOutline, downloadOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import type { TaxCountry, TaxWarningDto } from '@crypto-tracker/shared'
@@ -204,6 +217,17 @@ const report = computed(() => store.report)
 
 const pageLoading = ref(false)
 const pageError = ref(false)
+
+// Render disposals incrementally — heavy traders can have thousands of rows;
+// mounting them all at once janks the page. Grow the window on scroll.
+const PAGE_SIZE = 50
+const visibleCount = ref(PAGE_SIZE)
+const visibleDisposals = computed(() => report.value?.disposals.slice(0, visibleCount.value) ?? [])
+
+function loadMore(ev: InfiniteScrollCustomEvent) {
+  visibleCount.value += PAGE_SIZE
+  void ev.target.complete()
+}
 
 // Tax years: current year back to 2015
 const years = Array.from({ length: new Date().getFullYear() - 2014 }, (_, i) => new Date().getFullYear() - i)
@@ -225,6 +249,7 @@ async function loadData() {
   pageError.value = false
   try {
     await store.load()
+    visibleCount.value = PAGE_SIZE
   } catch {
     pageError.value = true
   } finally {
@@ -242,9 +267,51 @@ async function onCountryChange(country: TaxCountry) {
   await loadData()
 }
 
+// German/Austrian decimal notation: comma separator (Excel DE/AT parses
+// "1234,56" as a number, "1234.56" as text). EUR values arrive already rounded
+// to 2 places from the server; quantities are trimmed to 8 fractional digits.
+function de(value: string): string {
+  return value.replace('.', ',')
+}
+
+function trimQty(q: string): string {
+  const dot = q.indexOf('.')
+  if (dot === -1) return q
+  const int = q.slice(0, dot)
+  const cut = q.slice(dot + 1).slice(0, 8).replace(/0+$/, '')
+  return cut ? `${int},${cut}` : int
+}
+
 async function exportCsv() {
   if (!report.value) return
   const r = report.value
+  const rows: Array<Array<string>> = r.disposals.map((d) => [
+    d.assetSymbol,
+    trimQty(d.quantity),
+    d.acquiredAt ? d.acquiredAt.slice(0, 10) : '',
+    d.disposedAt.slice(0, 10),
+    de(d.costBasisEur),
+    de(d.proceedsEur),
+    de(d.gainEur),
+    d.taxable ? 'ja' : 'nein',
+    d.regime,
+    d.priceQuality,
+  ])
+  // Summary rows so the export ties out to the totals shown on screen
+  rows.push([])
+  rows.push(['Summe Gewinn/Verlust', '', '', '', '', '', de(r.totals.totalGainEur), '', '', ''])
+  rows.push([
+    'Steuerpflichtig nach Freigrenze',
+    '',
+    '',
+    '',
+    '',
+    '',
+    de(r.totals.taxableAfterThresholdEur),
+    '',
+    '',
+    '',
+  ])
   await downloadCsv(
     `steuerreport-${r.country}-${r.year}.csv`,
     [
@@ -259,18 +326,7 @@ async function exportCsv() {
       'Regime',
       'Kursqualitaet',
     ],
-    r.disposals.map((d) => [
-      d.assetSymbol,
-      d.quantity,
-      d.acquiredAt ? d.acquiredAt.slice(0, 10) : '',
-      d.disposedAt.slice(0, 10),
-      d.costBasisEur,
-      d.proceedsEur,
-      d.gainEur,
-      d.taxable ? 'ja' : 'nein',
-      d.regime,
-      d.priceQuality,
-    ]),
+    rows,
   )
 }
 
@@ -279,6 +335,9 @@ async function exportPdf() {
 }
 
 onIonViewWillEnter(() => {
+  // Drop the session cache on (re-)entry so newly imported transactions show up;
+  // the cache only short-circuits year/country toggles within the open report.
+  store.clearCache()
   loadData()
 })
 </script>

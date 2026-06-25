@@ -465,6 +465,18 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('0')
     expect(warningCodes(report)).toContain('UNKNOWN_ACQUISITION_BASIS')
   })
+
+  it('Jahresgrenze: Verkauf 31.12. 23:30 UTC zählt lokal (CET) ins Folgejahr', () => {
+    const txs = [
+      tx({ type: 'BUY', qty: 1, price: 100, ts: '2023-06-01T00:00:00Z' }),
+      // 23:30 UTC am 31.12. = 00:30 lokal (CET, UTC+1) am 01.01. → Veranlagung 2024
+      tx({ type: 'SELL', qty: 1, price: 150, ts: '2023-12-31T23:30:00Z' }),
+    ]
+    expect(computeReportDE(txs, 2023).disposals.length).toBe(0)
+    const next = computeReportDE(txs, 2024)
+    expect(next.disposals.length).toBe(1)
+    expect(next.totals.totalGainEur.toString()).toBe('50')
+  })
 })
 
 describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
@@ -651,6 +663,29 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
     expect(report.disposals[0]?.priceQuality).toBe('MISSING')
     expect(report.totals.totalGainEur.toString()).toBe('0')
     expect(warningCodes(report)).toContain('MISSING_DISPOSAL_PRICE')
+  })
+
+  it('Altvermögen-Verlust mindert NICHT den Neuvermögen-Gewinn (getrennte Töpfe)', () => {
+    const report = computeReportAT(
+      [
+        // Altvermögen (vor Stichtag), ≤ 1 Jahr gehalten → steuerpflichtiges
+        // Spekulationsgeschäft mit Verlust -40
+        tx({ type: 'BUY', qty: 1, price: 100, ts: '2021-02-01T00:00:00Z', symbol: 'BTC' }),
+        tx({ type: 'SELL', qty: 1, price: 60, ts: '2021-06-01T00:00:00Z', symbol: 'BTC' }),
+        // Neuvermögen (ab Stichtag), Gewinn +100, immer steuerpflichtig (27,5 %)
+        tx({ type: 'BUY', qty: 1, price: 100, ts: '2021-04-01T00:00:00Z', symbol: 'ETH' }),
+        tx({ type: 'SELL', qty: 1, price: 200, ts: '2021-08-01T00:00:00Z', symbol: 'ETH' }),
+      ],
+      2021,
+    )
+    // Gesamt nettet informativ: -40 + 100 = 60
+    expect(report.totals.totalGainEur.toString()).toBe('60')
+    // Neuvermögen-Topf bleibt voll steuerpflichtig — Alt-Verlust darf nicht abziehen
+    expect(report.totals.atNeuvermoegenGainEur?.toString()).toBe('100')
+    expect(report.totals.taxableGainEur.toString()).toBe('100')
+    expect(report.totals.taxableAfterThresholdEur.toString()).toBe('100')
+    // 27,5 % Sondersteuersatz auf den Neuvermögen-Gewinn
+    expect(report.totals.atNeuvermoegenTaxEur?.toString()).toBe('27.5')
   })
 })
 

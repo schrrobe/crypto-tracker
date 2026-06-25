@@ -76,6 +76,8 @@ export interface EngineTotals {
   thresholdApplied: boolean
   taxableAfterThresholdEur: Decimal
   atNeuvermoegenGainEur?: Decimal
+  // AT only: estimated tax on the Neuvermögen pool at the 27.5 % flat rate (§27a EStG)
+  atNeuvermoegenTaxEur?: Decimal
   // DE only: other income from staking (§22 Nr. 3 EStG) at the time of inflow
   stakingIncomeEur?: Decimal
   stakingThresholdEur?: Decimal
@@ -156,6 +158,13 @@ function consumeFifo(lots: Lot[], quantity: Decimal): ConsumedSlice[] {
   return slices
 }
 
+// Per-unit cost. Defensive: a 0/negative quantity would throw on division.
+// The API blocks these (quantityString > 0), but imports/sync write Transaction
+// rows directly — guard so a single bad row can't crash the whole report.
+function perUnitCost(cost: Decimal, quantity: Decimal): Decimal {
+  return quantity.gt(0) ? cost.div(quantity) : ZERO
+}
+
 // Acquisition cost of a purchase: quantity × price + fee (incidental acquisition costs).
 // Without a price: basis 0 + warning (conservative — the full proceeds later become gain).
 function acquisitionCost(tx: EngineTx, warnings: WarningCollector): Decimal {
@@ -172,8 +181,16 @@ function disposalProceeds(tx: EngineTx): Decimal {
   return tx.quantity.mul(tx.priceEur).sub(tx.feeEur ?? ZERO)
 }
 
+// Tax year is the civil calendar year in the taxpayer's timezone. DE and AT both
+// use Central European Time (Europe/Berlin and Europe/Vienna share offset + DST
+// rules year-round), so a disposal at 31.12. 23:30 UTC counts for the NEXT year
+// (00:30 local). Bucketing on UTC would mis-assign transactions in the ~1–2 h
+// window around New Year to the wrong assessment period.
+const TAX_TZ = 'Europe/Berlin'
+const taxYearFormatter = new Intl.DateTimeFormat('en-US', { timeZone: TAX_TZ, year: 'numeric' })
+
 function inYear(date: Date, year: number): boolean {
-  return date.getUTCFullYear() === year
+  return Number(taxYearFormatter.format(date)) === year
 }
 
 // Linked pairs are normalized: the "incoming"
@@ -301,14 +318,14 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
           // withdrawal leg missing from the stream (defensive) → treat as unlinked
         }
         const cost = acquisitionCost(tx, warnings)
-        lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
+        lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: perUnitCost(cost, tx.quantity) })
         break
       }
       case 'STAKING_REWARD': {
         // §22 Nr. 3 EStG: inflow at market value = other income;
         // acquisition cost = inflow value, holding period starts at inflow
         const cost = acquisitionCost(tx, warnings)
-        lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
+        lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: perUnitCost(cost, tx.quantity) })
         if (inYear(tx.timestamp, year) && tx.priceEur !== null) {
           stakingIncome = stakingIncome.add(tx.quantity.mul(tx.priceEur))
         }
@@ -391,6 +408,8 @@ interface NeuPool {
 
 // Freigrenze §31 Abs. 3 EStG aF — applies only to Altvermögen speculation transactions
 const AT_ALT_THRESHOLD = new Prisma.Decimal(440)
+// Besonderer Steuersatz §27a Abs. 1 EStG on Neuvermögen capital gains
+const AT_NEU_TAX_RATE = new Prisma.Decimal('0.275')
 
 export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
   const warnings = new WarningCollector()
@@ -428,7 +447,7 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
         const cost = acquisitionCost(tx, warnings)
         if (tx.timestamp.getTime() < AT_ALT_CUTOFF.getTime()) {
           // Altvermögen: individual lots, the old speculation period applies
-          altLots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
+          altLots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: perUnitCost(cost, tx.quantity) })
         } else {
           // Neuvermögen: moving average price (KryptowährungsVO)
           neuPool.quantity = neuPool.quantity.add(tx.quantity)
@@ -525,16 +544,25 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
   const underThreshold = altTaxableNet.gt(0) && altTaxableNet.lt(AT_ALT_THRESHOLD)
   const altAfterThreshold = underThreshold ? ZERO : altTaxableNet
 
+  // Altvermögen speculation (§31 aF, progressive rate) and Neuvermögen (§27b,
+  // 27.5 % flat) are distinct income categories — a net loss in one must NOT
+  // reduce the taxable gain of the other. Clamp each bucket to >= 0 for the
+  // taxable figures (a net loss is simply not taxable; loss carry-forward is
+  // out of scope for V1). atNeuvermoegenGainEur stays raw so a Neu loss is visible.
+  const neuTaxable = Prisma.Decimal.max(neuNet, ZERO)
+  const altTaxable = Prisma.Decimal.max(altAfterThreshold, ZERO)
+
   return {
     disposals,
     totals: {
       totalGainEur: totalGain,
       taxFreeGainEur: taxFreeGain,
-      taxableGainEur: altTaxableNet.add(neuNet),
+      taxableGainEur: Prisma.Decimal.max(altTaxableNet, ZERO).add(neuTaxable),
       thresholdEur: AT_ALT_THRESHOLD,
       thresholdApplied: altTaxableNet.gte(AT_ALT_THRESHOLD),
-      taxableAfterThresholdEur: altAfterThreshold.add(neuNet),
+      taxableAfterThresholdEur: altTaxable.add(neuTaxable),
       atNeuvermoegenGainEur: neuNet,
+      atNeuvermoegenTaxEur: neuTaxable.mul(AT_NEU_TAX_RATE),
     },
     warnings: warnings.list(),
   }
@@ -572,7 +600,7 @@ export function computeHoldingsCostBasis(txs: EngineTx[]): Map<string, HoldingCo
           }
         }
         const cost = acquisitionCost(tx, warnings)
-        lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: cost.div(tx.quantity) })
+        lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: perUnitCost(cost, tx.quantity) })
         break
       }
       case 'SELL': {

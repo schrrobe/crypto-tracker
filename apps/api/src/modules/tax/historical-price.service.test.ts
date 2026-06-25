@@ -101,5 +101,34 @@ describe('historical-price.service', () => {
     expect(mockedFetch).toHaveBeenCalledTimes(40)
     expect(result.limitReached).toBe(true)
     expect([...result.prices.keys()]).toHaveLength(40)
+    // 45 angefragt − 40 geholt = 5 bleiben für den nächsten Lauf offen
+    expect(result.remaining).toBe(5)
+  })
+
+  it('transienter Fehler bricht ab, bereits geholte Preise landen trotzdem im Cache', async () => {
+    const asset = await createTestAsset(`hpt-abort-${Date.now()}`)
+    mockedFetch
+      .mockResolvedValueOnce(100)
+      .mockResolvedValueOnce(200)
+      .mockRejectedValueOnce(new Error('429 Too Many Requests'))
+
+    const days = [0, 1, 2].map((i) => new Date(Date.UTC(2024, 2, 1 + i)))
+    const requests = days.map((date) => ({
+      assetId: asset.id,
+      coingeckoId: asset.coingeckoId,
+      date,
+    }))
+
+    await expect(resolveHistoricalPrices(requests)).rejects.toThrow('429')
+    // Die zwei vor dem Fehler geholten Tagespreise wurden im finally persistiert
+    const persisted = await prisma.historicalAssetPrice.count({ where: { assetId: asset.id } })
+    expect(persisted).toBe(2)
+
+    // Folgelauf: nur der dritte Tag braucht noch einen Call, der Rest kommt aus dem Cache
+    mockedFetch.mockReset()
+    mockedFetch.mockResolvedValue(300)
+    const second = await resolveHistoricalPrices(requests)
+    expect(mockedFetch).toHaveBeenCalledTimes(1)
+    expect(second.prices.get(priceKey(asset.id, days[2]!))?.toString()).toBe('300')
   })
 })

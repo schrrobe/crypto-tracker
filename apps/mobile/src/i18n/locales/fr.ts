@@ -350,6 +350,7 @@ const fr: MessageSchema = {
     thresholdNotApplied: "sous le seuil d'exonération",
     taxableAfterThreshold: 'Résultat imposable',
     neuvermoegenGain: 'dont Neuvermögen (taux spécial de 27,5 %)',
+    neuvermoegenTax: 'impôt estimé Neuvermögen (27,5 %)',
     stakingIncome: 'Revenus de staking à la réception (§22 Nr. 3 EStG)',
     stakingThreshold: "Seuil d'exonération staking",
     stakingTaxable: 'Revenus de staking imposables',
@@ -379,7 +380,7 @@ const fr: MessageSchema = {
         "{symbol} : des retraits ont supprimé des avoirs du suivi ({count}×) — liez-les comme transfert pour conserver le coût d'acquisition",
       TRANSFERS_IGNORED: '{symbol} : les transactions de type transfert/autre ont été ignorées ({count}×)',
       FOREIGN_CURRENCY_PRICE_IGNORED: '{symbol} : cours en devise étrangère écarté — prix journalier EUR historique utilisé ({count}×)',
-      PRICE_LOOKUP_LIMIT_REACHED: "Limite de requêtes de cours atteinte — régénérez le rapport pour charger d'autres cours",
+      PRICE_LOOKUP_LIMIT_REACHED: "Limite de requêtes de cours atteinte — {count} cours quotidiens en attente. Régénérez le rapport pour les charger",
       WALLET_REWARDS_ONLY:
         '{count} source(s) de type portefeuille avec des récompenses de staking importées automatiquement — les achats/ventes de ces portefeuilles manquent dans le rapport',
       SWAP_DEFERRED:

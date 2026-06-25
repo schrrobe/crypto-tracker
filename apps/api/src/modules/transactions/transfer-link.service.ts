@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 
@@ -61,9 +62,18 @@ export async function linkTransfer(userId: string, txId: string, counterpartId: 
     }
   }
 
-  await prisma.transferLink.create({
-    data: { withdrawalTxId: withdrawal.id, depositTxId: deposit.id },
-  })
+  try {
+    await prisma.transferLink.create({
+      data: { withdrawalTxId: withdrawal.id, depositTxId: deposit.id },
+    })
+  } catch (error) {
+    // Race: two parallel links of the same transaction slip past the check above
+    // and collide on the unique index → clean 409 instead of 500.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw AppError.conflict('TRANSFER_LINK_ALREADY_LINKED', 'Eine der Transaktionen ist bereits verknüpft')
+    }
+    throw error
+  }
 }
 
 export async function unlinkTransfer(userId: string, txId: string): Promise<void> {
