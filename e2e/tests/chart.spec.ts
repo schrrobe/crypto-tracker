@@ -21,7 +21,7 @@ test('Wertverlauf-Chart: erscheint mit Beständen, Range-Wechsel, Delta-Prozent'
   await page.getByRole('tab', { name: 'Dashboard' }).click()
   const chart = page.getByTestId('portfolio-chart')
   await expect(chart).toBeVisible()
-  await expect(chart.locator('svg path')).toHaveCount(2) // area + line
+  await expect(chart.locator('svg.chart path')).toHaveCount(2) // area + line
 
   // Fake history rises from 90 % to 100 % → +11.1 %
   await expect(page.getByTestId('chart-delta')).toContainText('+11,1 %')
@@ -34,7 +34,7 @@ test('Wertverlauf-Chart: erscheint mit Beständen, Range-Wechsel, Delta-Prozent'
   await page.getByTestId('chart-range-7d').click()
   await expect(page.getByTestId('chart-delta')).toContainText('+11,1 %')
   await page.getByTestId('chart-range-30d').click()
-  await expect(chart.locator('svg path')).toHaveCount(2)
+  await expect(chart.locator('svg.chart path')).toHaveCount(2)
 
   // Currency toggle: USD history (fake: BTC 55.000 $)
   await page.getByTestId('total-value-card').click()
