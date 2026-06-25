@@ -333,6 +333,7 @@ const ru: MessageSchema = {
   },
   tax: {
     title: 'Налоговый отчёт',
+    backfillingPrices: 'Загрузка недостающих дневных цен …',
     settingsEntry: 'Налоговый отчёт (DE/AT)',
     reportsSection: 'Отчёты',
     year: 'Налоговый год',

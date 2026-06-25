@@ -333,6 +333,7 @@ const en: MessageSchema = {
   },
   tax: {
     title: 'Tax report',
+    backfillingPrices: 'Loading remaining daily prices …',
     settingsEntry: 'Tax report (DE/AT)',
     reportsSection: 'Reports',
     year: 'Tax year',

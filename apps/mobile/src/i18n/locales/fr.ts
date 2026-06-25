@@ -333,6 +333,7 @@ const fr: MessageSchema = {
   },
   tax: {
     title: 'Rapport fiscal',
+    backfillingPrices: 'Chargement des cours journaliers manquants …',
     settingsEntry: 'Rapport fiscal (DE/AT)',
     reportsSection: 'Rapports',
     year: 'Année fiscale',

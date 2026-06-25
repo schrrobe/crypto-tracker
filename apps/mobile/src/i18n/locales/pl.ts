@@ -333,6 +333,7 @@ const pl: MessageSchema = {
   },
   tax: {
     title: 'Raport podatkowy',
+    backfillingPrices: 'Wczytywanie brakujących kursów dziennych …',
     settingsEntry: 'Raport podatkowy (DE/AT)',
     reportsSection: 'Raporty',
     year: 'Rok podatkowy',

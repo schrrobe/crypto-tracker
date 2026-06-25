@@ -56,6 +56,11 @@
         <ion-card-content data-testid="tax-disclaimer">{{ $t('tax.disclaimer') }}</ion-card-content>
       </ion-card>
 
+      <ion-item v-if="store.backfilling" lines="none" data-testid="tax-backfilling">
+        <ion-spinner slot="start" name="dots" />
+        <ion-label>{{ $t('tax.backfillingPrices') }}</ion-label>
+      </ion-item>
+
       <LoadingSkeleton v-if="pageLoading" />
       <ErrorState v-else-if="pageError" @retry="loadData" />
 
@@ -196,6 +201,7 @@ import {
   IonPage,
   IonSelect,
   IonSelectOption,
+  IonSpinner,
   IonTitle,
   IonToolbar,
   onIonViewWillEnter,
@@ -252,9 +258,13 @@ async function loadData() {
     visibleCount.value = PAGE_SIZE
   } catch {
     pageError.value = true
+    return
   } finally {
     pageLoading.value = false
   }
+  // First report is painted; if the price-lookup cap left daily prices open,
+  // keep topping them up in the background (store.backfilling drives the hint).
+  void store.loadWithBackfill()
 }
 
 async function onYearChange(year: number) {

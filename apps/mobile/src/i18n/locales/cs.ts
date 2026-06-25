@@ -333,6 +333,7 @@ const cs: MessageSchema = {
   },
   tax: {
     title: 'Daňový report',
+    backfillingPrices: 'Načítání chybějících denních kurzů …',
     settingsEntry: 'Daňový report (DE/AT)',
     reportsSection: 'Reporty',
     year: 'Daňový rok',

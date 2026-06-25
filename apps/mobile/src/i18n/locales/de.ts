@@ -332,6 +332,7 @@ const de = {
   },
   tax: {
     title: 'Steuerreport',
+    backfillingPrices: 'Lade fehlende Tagespreise nach …',
     settingsEntry: 'Steuerreport (DE/AT)',
     reportsSection: 'Berichte',
     year: 'Steuerjahr',
