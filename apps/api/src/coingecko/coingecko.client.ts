@@ -58,6 +58,17 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out
 }
 
+// Insert into a size-bounded cache: Map keeps insertion order, so evicting the
+// first key drops the oldest entry. Stops the in-memory caches from growing
+// without bound across the coin × currency × range key space.
+function cacheSet<V>(cache: Map<string, V>, key: string, value: V, max: number): void {
+  if (!cache.has(key) && cache.size >= max) {
+    const oldest = cache.keys().next().value
+    if (oldest !== undefined) cache.delete(oldest)
+  }
+  cache.set(key, value)
+}
+
 export interface CoinSearchResult {
   id: string
   symbol: string
@@ -86,6 +97,7 @@ export type MarketChartPoint = [number, number]
 
 const chartCache = new Map<string, { at: number; data: MarketChartPoint[] }>()
 const CHART_CACHE_TTL_MS = 30 * 60 * 1000
+const CHART_CACHE_MAX = 500
 
 // Historical prices for the value history — on-demand instead of local snapshots,
 // so the chart is filled immediately even without background sync. A 30-min cache
@@ -109,7 +121,7 @@ export async function fetchMarketChart(
       const fraction = i / points
       return [now - span + span * fraction, current * (0.9 + 0.1 * fraction)] as MarketChartPoint
     })
-    chartCache.set(cacheKey, { at: Date.now(), data })
+    cacheSet(chartCache, cacheKey, { at: Date.now(), data }, CHART_CACHE_MAX)
     return data
   }
 
@@ -117,7 +129,7 @@ export async function fetchMarketChart(
   try {
     const json = await cgFetchJson<{ prices?: MarketChartPoint[] }>(url)
     const data = json?.prices ?? []
-    chartCache.set(cacheKey, { at: Date.now(), data })
+    cacheSet(chartCache, cacheKey, { at: Date.now(), data }, CHART_CACHE_MAX)
     return data
   } catch (err) {
     // Rate limit/outage: return the last known state (no matter how old) instead

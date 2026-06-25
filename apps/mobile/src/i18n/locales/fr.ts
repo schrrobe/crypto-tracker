@@ -81,6 +81,8 @@ const fr: MessageSchema = {
     range30d: '30j',
     range1y: '1A',
     historyExcluded: '{n} actif(s) sans historique (pas de correspondance)',
+    historyNote: 'Basé sur les avoirs actuels aux prix historiques, pas sur les achats/ventes passés.',
+    historyError: "Impossible de charger l'historique.",
     accountBreakdown: 'Répartition par compte',
     netLiabilityNote: 'Valeur totale négative : dette de marge ouverte.',
   },

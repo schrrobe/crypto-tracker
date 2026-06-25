@@ -81,6 +81,8 @@ const cs: MessageSchema = {
     range30d: '30d',
     range1y: '1R',
     historyExcluded: 'Aktiva bez historie (bez přiřazení): {n}',
+    historyNote: 'Na základě aktuálních aktiv za historické ceny, nikoli minulých nákupů/prodejů.',
+    historyError: 'Historii se nepodařilo načíst.',
     accountBreakdown: 'Rozdělení podle účtů',
     netLiabilityNote: 'Záporná celková hodnota: otevřený maržový závazek.',
   },

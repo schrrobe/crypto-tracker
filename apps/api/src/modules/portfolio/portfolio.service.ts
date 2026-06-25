@@ -161,17 +161,20 @@ export async function getHistory(
     include: { asset: { select: { coingeckoId: true } } },
   })
 
-  // aggregate per asset; only mapped assets have a price history
+  // aggregate per asset; only mapped assets have a price history.
+  // Count unmapped by DISTINCT asset, not per holding (same coin can sit in
+  // several sources and would otherwise be counted multiple times).
   const byCoin = new Map<string, Prisma.Decimal>()
-  let excludedAssets = 0
+  const unmappedAssetIds = new Set<string>()
   for (const h of holdings) {
     const coinId = h.asset.coingeckoId
     if (!coinId) {
-      excludedAssets += 1
+      unmappedAssetIds.add(h.assetId)
       continue
     }
     byCoin.set(coinId, (byCoin.get(coinId) ?? ZERO).add(h.quantity))
   }
+  let excludedAssets = unmappedAssetIds.size
 
   if (byCoin.size === 0) return { range, currency, points: [], excludedAssets }
 
@@ -185,18 +188,33 @@ export async function getHistory(
     const value = Number(h.quantity.mul(currency === 'EUR' ? price.priceEur : price.priceUsd))
     currentValue.set(coinId, (currentValue.get(coinId) ?? 0) + value)
   }
+  // Sort by current value desc; coins whose latest price is momentarily missing
+  // rank as 0. Stable tie-break by coinId keeps selection deterministic so a
+  // dropped coin (and the excludedAssets count below) does not flicker between
+  // requests. Anything beyond the top-N is surfaced via excludedAssets.
   const topCoins = [...byCoin.keys()]
-    .sort((a, b) => (currentValue.get(b) ?? 0) - (currentValue.get(a) ?? 0))
+    .sort((a, b) => (currentValue.get(b) ?? 0) - (currentValue.get(a) ?? 0) || a.localeCompare(b))
     .slice(0, HISTORY_MAX_ASSETS)
   excludedAssets += byCoin.size - topCoins.length
 
   const vsCurrency = currency.toLowerCase() as 'eur' | 'usd'
   const series = new Map<string, MarketChartPoint[]>()
+  // Sequential on purpose: ≤10 calls, most served from the 30-min cache. Firing
+  // them in parallel on a cold cache risks a burst 429 from the free tier that
+  // would fail every coin at once (no prior cache to fall back to).
   for (const coinId of topCoins) {
     // Guard per asset: a failed market_chart call (rate limit, no cache) must
-    // not kill the entire history — skip the asset.
+    // not kill the entire history — skip the asset. An empty/short response
+    // (200 with no prices, e.g. a brand-new coin) is also an exclusion:
+    // otherwise the coin would silently contribute 0 to every bucket and
+    // understate the portfolio value with no signal to the user.
     try {
-      series.set(coinId, await fetchMarketChart(coinId, vsCurrency, days))
+      const data = await fetchMarketChart(coinId, vsCurrency, days)
+      if (data.length === 0) {
+        excludedAssets += 1
+        continue
+      }
+      series.set(coinId, data)
     } catch (err) {
       console.warn(`[history] market_chart für ${coinId} fehlgeschlagen, übersprungen: ${String(err)}`)
       excludedAssets += 1
@@ -208,8 +226,8 @@ export async function getHistory(
   const points = Array.from({ length: buckets + 1 }, (_, i) => {
     const t = now - spanMs + (spanMs * i) / buckets
     let total = ZERO
-    for (const coinId of topCoins) {
-      const price = priceAt(series.get(coinId) ?? [], t)
+    for (const [coinId, coinSeries] of series) {
+      const price = priceAt(coinSeries, t)
       if (price === null) continue
       total = total.add((byCoin.get(coinId) ?? ZERO).mul(new Prisma.Decimal(price)))
     }

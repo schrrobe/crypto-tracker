@@ -81,6 +81,8 @@ const pl: MessageSchema = {
     range30d: '30d',
     range1y: '1R',
     historyExcluded: 'Aktywa bez historii (brak przypisania): {n}',
+    historyNote: 'Na podstawie bieżących aktywów po cenach historycznych, nie przeszłych transakcji.',
+    historyError: 'Nie udało się załadować historii.',
     accountBreakdown: 'Podział na konta',
     netLiabilityNote: 'Ujemna wartość łączna: otwarte zobowiązanie margin.',
   },

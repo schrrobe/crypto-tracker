@@ -1,6 +1,6 @@
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
-import { API, app, bearer, createExchangeSource, registerUser } from './helpers'
+import { API, app, bearer, createExchangeSource, registerUser, setPlan } from './helpers'
 
 // FAKE_PRICES: market_chart deterministically returns 90 % → 100 % of the current
 // fake price; the last history point therefore matches the summary total value.
@@ -54,5 +54,59 @@ describe('Portfolio-Verlauf (Integration)', () => {
       .get(`${API}/portfolio/history?range=foo`)
       .set(...bearer(user))
       .expect(400)
+  })
+
+  it('24h-USD liefert 25 Punkte und höhere Werte als EUR', async () => {
+    const user = await registerUser('history24usd')
+    const source = await createExchangeSource(user, '24h USD Exchange')
+    await request(app).post(`${API}/sources/${source.id}/sync`).set(...bearer(user)).expect(200)
+
+    const eur = await request(app)
+      .get(`${API}/portfolio/history?range=24h&currency=EUR`)
+      .set(...bearer(user))
+    const usd = await request(app)
+      .get(`${API}/portfolio/history?range=24h&currency=USD`)
+      .set(...bearer(user))
+    expect(usd.body.currency).toBe('USD')
+    expect(usd.body.points).toHaveLength(25)
+    expect(Number(usd.body.points.at(-1).value)).toBeGreaterThan(Number(eur.body.points.at(-1).value))
+  })
+
+  it('mappt alle Assets → excludedAssets=0, Buckets streng aufsteigend & ISO', async () => {
+    const user = await registerUser('historymeta')
+    const source = await createExchangeSource(user, 'Meta Exchange')
+    await request(app).post(`${API}/sources/${source.id}/sync`).set(...bearer(user)).expect(200)
+
+    const res = await request(app)
+      .get(`${API}/portfolio/history?range=30d&currency=EUR`)
+      .set(...bearer(user))
+    expect(res.status).toBe(200)
+    // Fake source holds only mapped coins (BTC + ETH) → nothing excluded
+    expect(res.body.excludedAssets).toBe(0)
+    expect(res.body.points).toHaveLength(31) // 30 buckets + endpoint
+
+    const ts = res.body.points.map((p: { t: string }) => Date.parse(p.t))
+    expect(ts.every((t: number) => Number.isFinite(t))).toBe(true)
+    for (let i = 1; i < ts.length; i += 1) expect(ts[i]).toBeGreaterThan(ts[i - 1])
+    // Last bucket is ~now
+    expect(ts.at(-1)).toBeGreaterThan(Date.now() - 60_000)
+  })
+
+  it('1-Jahres-Verlauf: Pro=200/53 Punkte, Free=402', async () => {
+    const user = await registerUser('history1y') // default plan PRO
+    const source = await createExchangeSource(user, '1y Exchange')
+    await request(app).post(`${API}/sources/${source.id}/sync`).set(...bearer(user)).expect(200)
+
+    const pro = await request(app)
+      .get(`${API}/portfolio/history?range=1y&currency=EUR`)
+      .set(...bearer(user))
+    expect(pro.status).toBe(200)
+    expect(pro.body.points).toHaveLength(53) // 52 buckets + endpoint
+
+    await setPlan(user, 'FREE')
+    await request(app)
+      .get(`${API}/portfolio/history?range=1y&currency=EUR`)
+      .set(...bearer(user))
+      .expect(402)
   })
 })

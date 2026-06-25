@@ -80,6 +80,8 @@ const de = {
     range30d: '30T',
     range1y: '1J',
     historyExcluded: '{n} Asset(s) ohne Verlauf (kein Mapping)',
+    historyNote: 'Basiert auf aktuellem Bestand zu historischen Preisen, nicht auf vergangenen Käufen/Verkäufen.',
+    historyError: 'Verlauf konnte nicht geladen werden.',
     accountBreakdown: 'Konten-Aufteilung',
     netLiabilityNote: 'Negativer Gesamtwert: offene Margin-Verbindlichkeit.',
   },

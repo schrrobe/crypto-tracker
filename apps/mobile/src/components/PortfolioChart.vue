@@ -13,6 +13,10 @@
     </ion-card-header>
     <ion-card-content>
       <div v-if="loading" class="chart-loading"><ion-spinner name="crescent" /></div>
+      <div v-else-if="error" class="chart-error" data-testid="chart-error">
+        <p class="muted">{{ $t('dashboard.historyError') }}</p>
+        <ion-button size="small" fill="outline" @click="load">{{ $t('common.retry') }}</ion-button>
+      </div>
       <template v-else>
         <svg viewBox="0 0 300 90" class="chart" preserveAspectRatio="none">
           <path :d="areaPath" class="area" />
@@ -42,12 +46,14 @@
       <p v-if="excludedAssets > 0" class="muted">
         {{ $t('dashboard.historyExcluded', { n: excludedAssets }) }}
       </p>
+      <p v-if="!loading && !error" class="muted">{{ $t('dashboard.historyNote') }}</p>
     </ion-card-content>
   </ion-card>
 </template>
 
 <script setup lang="ts">
 import {
+  IonButton,
   IonCard,
   IonCardContent,
   IonCardHeader,
@@ -74,11 +80,15 @@ const range = ref<HistoryRange>('24h')
 const points = ref<PortfolioHistoryDto['points']>([])
 const excludedAssets = ref(0)
 const loading = ref(false)
+const error = ref(false)
 
-const visible = computed(() => props.hasHoldings && (loading.value || points.value.length >= 2))
+const visible = computed(
+  () => props.hasHoldings && (loading.value || error.value || points.value.length >= 2),
+)
 
 async function load() {
   loading.value = true
+  error.value = false
   try {
     const res = await api.get<PortfolioHistoryDto>(
       `/portfolio/history?range=${range.value}&currency=${props.currency}${usePortfoliosStore().scopeQuery('&')}`,
@@ -87,6 +97,8 @@ async function load() {
     excludedAssets.value = res.excludedAssets
   } catch {
     points.value = []
+    excludedAssets.value = 0
+    error.value = true
   } finally {
     loading.value = false
   }
@@ -177,6 +189,14 @@ const areaPath = computed(() =>
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.chart-error {
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .line {
   stroke: var(--ion-color-primary);

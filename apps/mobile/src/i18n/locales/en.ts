@@ -81,6 +81,8 @@ const en: MessageSchema = {
     range30d: '30d',
     range1y: '1Y',
     historyExcluded: '{n} asset(s) without history (no mapping)',
+    historyNote: 'Based on current holdings at historical prices, not on past buys/sells.',
+    historyError: 'Could not load history.',
     accountBreakdown: 'Account breakdown',
     netLiabilityNote: 'Negative total value: open margin liability.',
   },
