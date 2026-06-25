@@ -242,6 +242,16 @@ describe('Kraken-Ledger Zeilen-Mapping (signed + Symbol-Normalisierung)', () => 
     expect(kraken.errors).toHaveLength(0)
     expect(kraken.valid[0]).toMatchObject({ symbol: 'BTC', quantity: '2.0', type: 'SELL' })
   })
+
+  it('lehnt unbekannte/vertippte Ledger-Typen ab, statt sie zu BUY/SELL zu raten', () => {
+    const rows = [
+      { asset: 'XXBT', amount: '-1.0', type: 'tarde', time: '2024-03-01 12:00:00', fee: '0' }, // Tippfehler
+      { asset: 'XETH', amount: '5.0', type: 'rollover', time: '2024-03-02 12:00:00', fee: '0' }, // nicht unterstützt
+    ]
+    const { valid, errors } = applyTransactionMapping(rows, krakenMapping, krakenOptions)
+    expect(valid).toHaveLength(0)
+    expect(errors).toHaveLength(2) // beide als Fehlerzeile erfasst, nicht stillschweigend importiert
+  })
 })
 
 describe('Bitpanda Zeilen-Mapping', () => {

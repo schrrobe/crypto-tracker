@@ -90,17 +90,21 @@ export function normalizeSignedNumber(value: string): { value: string; negative:
 // Kraken-Ledger-Typen sind teils richtungsneutral ("trade"/"spend"/"receive") — dort
 // bestimmt das Vorzeichen des Betrags die Richtung. Eindeutige Typen
 // (deposit/withdrawal/staking/transfer) bleiben erhalten.
-export function signedTxType(rawType: string, negative: boolean): MappedTransactionRow['type'] {
-  const explicit = TYPE_ALIASES[rawType.trim().toLowerCase()]
-  if (
-    explicit === 'DEPOSIT' ||
-    explicit === 'WITHDRAWAL' ||
-    explicit === 'STAKING_REWARD' ||
-    explicit === 'TRANSFER'
-  ) {
+export function signedTxType(rawType: string, negative: boolean): MappedTransactionRow['type'] | null {
+  const normalized = rawType.trim().toLowerCase()
+  const explicit = TYPE_ALIASES[normalized]
+  // Known alias (deposit/withdrawal/staking/transfer/buy/sell/other) wins as-is.
+  if (explicit) {
     return explicit
   }
-  return negative ? 'SELL' : 'BUY'
+  // Only the genuinely direction-neutral Kraken ledger types derive their
+  // direction from the sign. Anything else (typo, unsupported future type)
+  // returns null so the caller surfaces an import error instead of guessing.
+  // ("receive" is already an explicit DEPOSIT alias above.)
+  if (normalized === 'trade' || normalized === 'spend') {
+    return negative ? 'SELL' : 'BUY'
+  }
+  return null
 }
 
 // CSV-Zeitstempel ohne explizite Zeitzone werden als lokale Zeit der Zielgruppe

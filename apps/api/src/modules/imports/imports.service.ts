@@ -141,7 +141,10 @@ export async function confirmMapping(
   if (record.kind === 'TRANSACTIONS') {
     // Preset was detected and persisted at upload time → deterministic parsing
     // (Kraken: signed amounts, XXBT/ZEUR codes), not coupled to header re-detection.
-    return confirmTransactionImport(record, rows, mapping as TransactionMapping, record.preset)
+    // Legacy rows uploaded before the preset column existed have preset=NULL → fall
+    // back to re-detecting from headers so they still confirm with the right parser.
+    const preset = record.preset ?? suggestMappingWithPreset(headers, record.kind).preset
+    return confirmTransactionImport(record, rows, mapping as TransactionMapping, preset)
   }
 
   const { valid, errors } = applyBalanceMapping(rows, mapping)
