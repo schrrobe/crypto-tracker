@@ -27,9 +27,6 @@ import { TaxWarningCode } from '@crypto-tracker/shared'
 type Decimal = Prisma.Decimal
 const ZERO = new Prisma.Decimal(0)
 
-// Cutoff date for Altvermögen/Neuvermögen, Austria
-const AT_ALT_CUTOFF = new Date(Date.UTC(2021, 2, 1))
-
 export type EnginePriceSource = 'ORIGINAL' | 'BACKFILLED' | 'MISSING'
 
 export interface EngineTx {
@@ -193,6 +190,22 @@ function inYear(date: Date, year: number): boolean {
   return Number(taxYearFormatter.format(date)) === year
 }
 
+// AT Altvermögen/Neuvermögen cutoff is the CIVIL date 1.3.2021 in Austrian local
+// time (CET — same offset/DST as Europe/Berlin). Comparing on UTC midnight would
+// misclassify acquisitions in the ~1 h window around the cutoff (e.g. 28.2. 23:30
+// UTC = 1.3. 00:30 local → Neuvermögen, not Altvermögen) — the same bug class the
+// inYear fix removed for year bucketing. Lexicographic ISO-date (YYYY-MM-DD) compare.
+const taxCivilDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TAX_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+const AT_ALT_CUTOFF_CIVIL = '2021-03-01'
+function isAtAltvermoegen(acquiredAt: Date): boolean {
+  return taxCivilDateFormatter.format(acquiredAt) < AT_ALT_CUTOFF_CIVIL
+}
+
 // Linked pairs are normalized: the "incoming"
 // leg (DEPOSIT or BUY) may nominally sit up to 24 h before the "outgoing" one
 // (CSV day-level granularity) — its sort key is raised to the out timestamp,
@@ -250,6 +263,13 @@ function receiveTransferSlices(lots: Lot[], moved: ConsumedSlice[], quantity: De
 
 // Builds the disposal rows from the consumed slices; the proceeds are
 // distributed proportionally to quantity. No warning logic — that is the caller's.
+//
+// Money is rounded to whole cents PER ROW here, and the totals are summed from
+// these rounded rows (see sumGains in the callers). The cent is the legal unit,
+// so rounding here keeps the displayed/exported per-disposal rows reconciling
+// exactly with the totals — full-precision totals vs per-row toFixed(2) would
+// otherwise drift by 1–2 cents. Tradeoff: the Freigrenze comparison now runs on
+// the cent-rounded sum (sub-cent shift at the exact threshold edge — acceptable).
 function buildDisposals(
   tx: EngineTx,
   slices: ConsumedSlice[],
@@ -258,7 +278,8 @@ function buildDisposals(
 ): EngineDisposal[] {
   const proceeds = disposalProceeds(tx)
   return slices.map((slice) => {
-    const sliceProceeds = proceeds.mul(slice.quantity).div(tx.quantity)
+    const sliceProceeds = proceeds.mul(slice.quantity).div(tx.quantity).toDecimalPlaces(2)
+    const costBasisEur = slice.costBasisEur.toDecimalPlaces(2)
     return {
       sourceId: tx.sourceId,
       assetSymbol: tx.assetSymbol,
@@ -266,9 +287,9 @@ function buildDisposals(
       acquiredAt: slice.acquiredAt,
       disposedAt: tx.timestamp,
       quantity: slice.quantity,
-      costBasisEur: slice.costBasisEur,
+      costBasisEur,
       proceedsEur: sliceProceeds,
-      gainEur: sliceProceeds.sub(slice.costBasisEur),
+      gainEur: sliceProceeds.sub(costBasisEur),
       taxable: taxableFor(slice),
       regime,
       priceQuality: tx.priceSource,
@@ -445,7 +466,7 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
           break
         }
         const cost = acquisitionCost(tx, warnings)
-        if (tx.timestamp.getTime() < AT_ALT_CUTOFF.getTime()) {
+        if (isAtAltvermoegen(tx.timestamp)) {
           // Altvermögen: individual lots, the old speculation period applies
           altLots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: perUnitCost(cost, tx.quantity) })
         } else {
@@ -458,7 +479,7 @@ export function computeReportAT(txs: EngineTx[], year: number): EngineReport {
       case 'STAKING_REWARD': {
         // §27b Abs. 2 EStG: no inflow income, acquisition cost 0 —
         // the full value is taxed only at disposal
-        if (tx.timestamp.getTime() < AT_ALT_CUTOFF.getTime()) {
+        if (isAtAltvermoegen(tx.timestamp)) {
           altLots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: ZERO })
         } else {
           neuPool.quantity = neuPool.quantity.add(tx.quantity)

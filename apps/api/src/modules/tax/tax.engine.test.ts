@@ -47,6 +47,29 @@ function warningCodes(report: { warnings: Array<{ code: string }> }): string[] {
 }
 
 describe('Tax Engine — Deutschland (§23 EStG)', () => {
+  it('Centrundung: Summe der angezeigten Zeilen entspricht exakt dem Total', () => {
+    // SELL über 3 FIFO-Lots, Erlös 10,0002 € teilt sich nicht glatt durch 3 →
+    // ohne Per-Zeile-Rundung würden Zeilensumme und Total um Cent auseinanderlaufen.
+    const report = computeReportDE(
+      [
+        tx({ type: 'BUY', qty: 1, price: 1, ts: '2024-01-01T00:00:00Z' }),
+        tx({ type: 'BUY', qty: 1, price: 1, ts: '2024-01-02T00:00:00Z' }),
+        tx({ type: 'BUY', qty: 1, price: 1, ts: '2024-01-03T00:00:00Z' }),
+        tx({ type: 'SELL', qty: 3, price: 3.3334, ts: '2024-06-01T00:00:00Z' }),
+      ],
+      2024,
+    )
+    expect(report.disposals).toHaveLength(3)
+    for (const d of report.disposals) {
+      expect(d.gainEur.decimalPlaces()).toBeLessThanOrEqual(2)
+      expect(d.proceedsEur.decimalPlaces()).toBeLessThanOrEqual(2)
+      expect(d.costBasisEur.decimalPlaces()).toBeLessThanOrEqual(2)
+    }
+    const sumRows = report.disposals.reduce((s, d) => s.add(d.gainEur), new Prisma.Decimal(0))
+    expect(sumRows.toString()).toBe(report.totals.totalGainEur.toString())
+    expect(report.totals.totalGainEur.toString()).toBe('6.99')
+  })
+
   it('FIFO: ältestes Lot wird zuerst verbraucht', () => {
     const report = computeReportDE(
       [
@@ -502,10 +525,12 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
   })
 
   it('Stichtag 1.3.2021: Anschaffung davor = Alt, ab Stichtag = Neu', () => {
+    // Mid-day timestamps so the split is unambiguous in CET; the exact
+    // midnight boundary is covered by the dedicated Stichtag tests above.
     const report = computeReportAT(
       [
-        tx({ type: 'BUY', qty: 1, price: 100, ts: '2021-02-28T23:59:59Z' }),
-        tx({ type: 'BUY', qty: 1, price: 100, ts: '2021-03-01T00:00:00Z' }),
+        tx({ type: 'BUY', qty: 1, price: 100, ts: '2021-02-28T12:00:00Z' }),
+        tx({ type: 'BUY', qty: 1, price: 100, ts: '2021-03-01T12:00:00Z' }),
         tx({ type: 'SELL', qty: 2, price: 300, ts: '2023-06-01T00:00:00Z' }),
       ],
       2023,
@@ -556,6 +581,36 @@ describe('Tax Engine — Österreich (§27b EStG / Alt-/Neuvermögen)', () => {
     // no Freigrenze on Neuvermögen
     expect(report.totals.taxableAfterThresholdEur.toString()).toBe('400')
     expect(report.totals.atNeuvermoegenGainEur?.toString()).toBe('400')
+  })
+
+  it('Stichtag: Kauf 28.2.2021 23:30 UTC zählt lokal (CET) als Neuvermögen', () => {
+    // 28.2. 23:30 UTC = 1.3. 00:30 CET → ab Stichtag → Neuvermögen.
+    // UTC-Mitternachtsvergleich hätte das fälschlich als Altvermögen gebucht.
+    const report = computeReportAT(
+      [
+        tx({ type: 'BUY', qty: 1, price: 100, ts: '2021-02-28T23:30:00Z' }),
+        tx({ type: 'SELL', qty: 1, price: 500, ts: '2025-06-01T00:00:00Z' }),
+      ],
+      2025,
+    )
+    expect(report.disposals[0]?.regime).toBe('AT_NEUVERMOEGEN')
+    // Neuvermögen: immer steuerpflichtig, keine 440 €-Freigrenze
+    expect(report.totals.atNeuvermoegenGainEur?.toString()).toBe('400')
+    expect(report.totals.taxableAfterThresholdEur.toString()).toBe('400')
+  })
+
+  it('Stichtag: Kauf 28.2.2021 22:30 UTC zählt lokal (CET) noch als Altvermögen', () => {
+    // 28.2. 22:30 UTC = 28.2. 23:30 CET → vor Stichtag → Altvermögen (> 1 Jahr → steuerfrei)
+    const report = computeReportAT(
+      [
+        tx({ type: 'BUY', qty: 1, price: 100, ts: '2021-02-28T22:30:00Z' }),
+        tx({ type: 'SELL', qty: 1, price: 500, ts: '2025-06-01T00:00:00Z' }),
+      ],
+      2025,
+    )
+    expect(report.disposals[0]?.regime).toBe('AT_ALTVERMOEGEN')
+    expect(report.disposals[0]?.taxable).toBe(false)
+    expect(report.totals.taxFreeGainEur.toString()).toBe('400')
   })
 
   it('gemischter Verkauf: Altvermögen wird zuerst verbraucht', () => {
