@@ -31,7 +31,7 @@
         <p class="muted">{{ $t('dashboard.historyEmpty') }}</p>
       </div>
 
-      <ion-segment :value="range" class="ranges" @ionChange="onRangeChange($event.detail.value as HistoryRange)">
+      <ion-segment :value="range" class="ranges" @ionChange="onRangeChange($event)">
         <ion-segment-button value="24h" data-testid="chart-range-24h">
           <ion-label>{{ $t('dashboard.range24h') }}</ion-label>
         </ion-segment-button>
@@ -73,7 +73,7 @@ import {
   IonSpinner,
 } from '@ionic/vue'
 import { lockClosed } from 'ionicons/icons'
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { HistoryRange, PortfolioHistoryDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
 import { usePortfoliosStore } from '../stores/portfolios.store'
@@ -114,10 +114,18 @@ async function load() {
   }
 }
 
-function onRangeChange(value: HistoryRange) {
+function onRangeChange(ev: CustomEvent) {
+  const value = ev.detail.value as HistoryRange
   // 1-year history is Pro — free users get the paywall instead of the range
   if (value === '1y' && !auth.isPro) {
     openPaywall()
+    // Ionic leaves the tapped (locked) button checked even though `range` never
+    // changes. Reset the segment back to the active range so the switcher does
+    // not lie about which range the chart is showing.
+    const el = ev.target as (EventTarget & { value: string }) | null
+    nextTick(() => {
+      if (el) el.value = range.value
+    })
     return
   }
   range.value = value
