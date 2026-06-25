@@ -379,6 +379,8 @@ const en: MessageSchema = {
       'This report is a non-binding calculation aid. Assumptions: FIFO per source/wallet (DE, wallet-based view per BMF-Schreiben v. 10.05.2022) — linked transfers carry the cost basis over, unlinked withdrawals lose it; Altvermögen is consumed first (AT); crypto-to-crypto transactions linked as a swap are tax-neutral in AT (§27b, the cost basis moves along), in DE a disposal — unlinked swaps and foreign currency conversion are not covered. Rebase yields from liquid staking tokens (e.g. stETH) and MEV/tip income of your own validators are not captured automatically. Please seek professional advice for your tax return.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: acquisition without price — cost basis of 0 assumed ({count}×)',
+      STAKING_INCOME_PRICE_MISSING:
+        '{symbol}: staking reward without price — not counted in staking income ({count}×). Regenerate the report to backfill daily prices',
       MISSING_DISPOSAL_PRICE: '{symbol}: disposal without a determinable price — not included in totals ({count}×)',
       SOLD_MORE_THAN_ACQUIRED: '{symbol}: more disposed of than recorded as acquired — uncovered portion with basis 0 ({count}×)',
       WITHDRAWAL_REMOVED_LOTS:

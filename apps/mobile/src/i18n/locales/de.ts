@@ -378,6 +378,8 @@ const de = {
       'Dieser Report ist eine unverbindliche Berechnungshilfe. Annahmen: FIFO je Quelle/Wallet (DE, walletbezogene Betrachtung nach BMF-Schreiben v. 10.05.2022) — verknüpfte Transfers übertragen die Kostenbasis, unverknüpfte Auszahlungen verlieren sie; Altvermögen wird zuerst verbraucht (AT); als Tausch verknüpfte Krypto-zu-Krypto-Vorgänge gelten in AT steuerneutral (§27b, Kostenbasis wandert mit), in DE als Veräußerung — unverknüpfte Tauschvorgänge und Fremdwährungsumrechnung sind nicht abgebildet. Rebase-Erträge von Liquid-Staking-Tokens (z.B. stETH) und MEV-/Tip-Einnahmen eigener Validatoren werden nicht automatisch erfasst. Für die Steuererklärung bitte fachlichen Rat einholen.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: Erwerb ohne Kurs — Anschaffungskosten 0 angesetzt ({count}×)',
+      STAKING_INCOME_PRICE_MISSING:
+        '{symbol}: Staking-Reward ohne Kurs — nicht im Staking-Einkommen erfasst ({count}×). Report erneut erstellen, um Tagespreise nachzuladen',
       MISSING_DISPOSAL_PRICE: '{symbol}: Veräußerung ohne ermittelbaren Kurs — nicht in den Summen ({count}×)',
       SOLD_MORE_THAN_ACQUIRED: '{symbol}: mehr veräußert als angeschafft erfasst — ungedeckter Anteil mit Basis 0 ({count}×)',
       WITHDRAWAL_REMOVED_LOTS:

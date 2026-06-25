@@ -34,6 +34,9 @@ export const TaxWarningCode = {
   WALLET_REWARDS_ONLY: 'WALLET_REWARDS_ONLY',
   // AT: crypto-to-crypto swap is tax-deferred — cost basis carries over
   SWAP_DEFERRED: 'SWAP_DEFERRED',
+  // Staking reward inflow without a EUR price — excluded from staking income,
+  // so the §22 Nr. 3 income line is understated (distinct from the cost-basis warning)
+  STAKING_INCOME_PRICE_MISSING: 'STAKING_INCOME_PRICE_MISSING',
 } as const
 export type TaxWarningCode = (typeof TaxWarningCode)[keyof typeof TaxWarningCode]
 

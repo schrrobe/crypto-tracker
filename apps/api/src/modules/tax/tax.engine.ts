@@ -347,8 +347,13 @@ export function computeReportDE(txs: EngineTx[], year: number): EngineReport {
         // acquisition cost = inflow value, holding period starts at inflow
         const cost = acquisitionCost(tx, warnings)
         lots.push({ acquiredAt: tx.timestamp, remaining: tx.quantity, costPerUnit: perUnitCost(cost, tx.quantity) })
-        if (inYear(tx.timestamp, year) && tx.priceEur !== null) {
-          stakingIncome = stakingIncome.add(tx.quantity.mul(tx.priceEur))
+        if (inYear(tx.timestamp, year)) {
+          if (tx.priceEur !== null) {
+            stakingIncome = stakingIncome.add(tx.quantity.mul(tx.priceEur))
+          } else {
+            // Reward counted at 0 income → §22 Nr. 3 income line is understated; signal it
+            warnings.add(TaxWarningCode.STAKING_INCOME_PRICE_MISSING, tx.assetSymbol)
+          }
         }
         break
       }

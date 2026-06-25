@@ -95,6 +95,14 @@ export class ProviderError extends Error {
       // not enabled — must not abort the overall sync
       | 'ENDPOINT_FORBIDDEN',
     message: string,
+    // HTTP status of the underlying response when the error came from a transport
+    // failure (vs. a JSON-RPC application error, which has none). Callers use it to
+    // tell retryable statuses (429/5xx) apart from terminal ones (4xx).
+    public readonly status?: number,
+    // Rewards collected before a staking-reward import stopped early (transient RPC
+    // failure / missing block time). The sync persists these, then flags the run
+    // PARTIAL_SYNC — distinguishing a truncated import from a clean, complete one.
+    public readonly partialRewards?: RawStakingReward[],
   ) {
     super(message)
     this.name = 'ProviderError'

@@ -487,6 +487,8 @@ describe('Tax Engine — Deutschland (§23 EStG)', () => {
     expect(report.totals.stakingIncomeEur?.toString()).toBe('0')
     expect(report.disposals[0]?.costBasisEur.toString()).toBe('0')
     expect(warningCodes(report)).toContain('UNKNOWN_ACQUISITION_BASIS')
+    // income line is understated → dedicated signal, distinct from the cost-basis warning
+    expect(warningCodes(report)).toContain('STAKING_INCOME_PRICE_MISSING')
   })
 
   it('Jahresgrenze: Verkauf 31.12. 23:30 UTC zählt lokal (CET) ins Folgejahr', () => {

@@ -329,8 +329,12 @@ model Transaction {
   currency     String?
   timestamp    DateTime
   // Dedupe-Anker für Chain-Importe (z.B. sol-reward:<stakeAccount>:<epoch>,
-  // eth-wd:<withdrawalIndex>) — macht Reward-Syncs idempotent (skipDuplicates)
-  externalRef  String?         @unique
+  // eth-wd:<withdrawalIndex>) — macht Reward-Syncs idempotent (skipDuplicates).
+  // Eindeutig PRO QUELLE, nicht global: dieselbe öffentliche Adresse (Validator/
+  // Stake-Account) kann von mehreren Nutzern verfolgt werden und erzeugt dann
+  // identische Refs — eine globale Unique-Constraint würde den Reward des zweiten
+  // Nutzers via skipDuplicates still verschlucken (Datenverlust im Steuerreport).
+  externalRef  String?
   source       PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   asset        Asset           @relation(fields: [assetId], references: [id])
   transferOut  TransferLink?   @relation("TransferWithdrawal")
@@ -338,6 +342,7 @@ model Transaction {
   swapOut      SwapLink?       @relation("SwapSell")
   swapIn       SwapLink?       @relation("SwapBuy")
 
+  @@unique([sourceId, externalRef])
   @@index([sourceId, timestamp])
 }
 

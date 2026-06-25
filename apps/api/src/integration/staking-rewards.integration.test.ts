@@ -8,15 +8,14 @@ import { API, app, bearer, registerUser, type TestUser } from './helpers'
 
 let addrCounter = 0
 
-// Unique address per test: externalRef is globally unique and the test DB
-// is not cleared between runs — same address = silent dedupe collision
+// Unique address per test to keep runs isolated (the test DB is not cleared
+// between runs). externalRef dedupe is now scoped per source (see A1 test below).
 function uniqueAddress(): string {
   addrCounter += 1
   return `So1Wallet${process.pid}x${Date.now()}x${addrCounter}`
 }
 
-async function createSolanaSource(user: TestUser) {
-  const address = uniqueAddress()
+async function createSolanaSource(user: TestUser, address: string = uniqueAddress()) {
   const res = await request(app)
     .post(`${API}/sources`)
     .set(...bearer(user))
@@ -75,5 +74,41 @@ describe('On-Chain-Staking-Rewards (Integration)', () => {
     // Source has transactions → no longer in uncoveredSources
     const uncoveredIds = report.body.uncoveredSources.map((s: { id: string }) => s.id)
     expect(uncoveredIds).not.toContain(source.id)
+  })
+
+  it('A1: gleiche öffentliche Adresse, zwei Nutzer — Rewards pro Quelle erhalten', async () => {
+    const userA = await registerUser('a1-a')
+    const userB = await registerUser('a1-b')
+    const shared = uniqueAddress() // identical address → identical externalRefs
+    const a = await createSolanaSource(userA, shared)
+    const b = await createSolanaSource(userB, shared)
+
+    await request(app).post(`${API}/sources/${a.id}/sync`).set(...bearer(userA))
+    await request(app).post(`${API}/sources/${b.id}/sync`).set(...bearer(userB))
+
+    // Per-source externalRef scope: both keep their 2 rewards. Under a global unique
+    // index the second sync would silently drop both via skipDuplicates → 0.
+    expect(await prisma.transaction.count({ where: { sourceId: a.id, type: 'STAKING_REWARD' } })).toBe(2)
+    expect(await prisma.transaction.count({ where: { sourceId: b.id, type: 'STAKING_REWARD' } })).toBe(2)
+  })
+
+  it('B3: Reward-Provider-Fehler flaggt PARTIAL_SYNC, Bestände bleiben', async () => {
+    const user = await registerUser('b3')
+    const source = await createSolanaSource(user, `${uniqueAddress()}REWARDFAIL`)
+
+    const sync = await request(app).post(`${API}/sources/${source.id}/sync`).set(...bearer(user))
+    expect(sync.body.run.status).toBe('SUCCESS') // balance sync committed
+
+    const run = await prisma.syncRun.findFirst({
+      where: { sourceId: source.id },
+      orderBy: { startedAt: 'desc' },
+    })
+    expect(run?.errorCode).toBe('PARTIAL_SYNC')
+
+    // Balances persisted; no reward transactions (cursor not advanced → retried next sync)
+    expect(await prisma.holding.count({ where: { sourceId: source.id } })).toBeGreaterThan(0)
+    expect(
+      await prisma.transaction.count({ where: { sourceId: source.id, type: 'STAKING_REWARD' } }),
+    ).toBe(0)
   })
 })

@@ -52,7 +52,7 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
     throw new ProviderError('RATE_LIMITED', 'Solana-RPC Rate-Limit erreicht, bitte später erneut')
   }
   if (!res.ok) {
-    throw new ProviderError('PROVIDER_ERROR', `Solana-RPC antwortet mit ${res.status}`)
+    throw new ProviderError('PROVIDER_ERROR', `Solana-RPC antwortet mit ${res.status}`, res.status)
   }
   const json = (await res.json()) as RpcResponse<T>
   if (json.error) {
@@ -97,6 +97,36 @@ function epochFromExternalRef(ref: string | null): number | null {
   return match ? Number(match[1]) : null
 }
 
+// Distinguish "retry later" (rate limit / HTTP 5xx / network) from "this epoch is
+// genuinely gone" (RPC json-rpc error for a pruned/too-old epoch). A transient
+// error must NOT let the cursor advance past the epoch — otherwise that epoch's
+// reward is lost forever (it would never be re-queried). Pruned epochs, by
+// contrast, must be skipped forward or one un-retainable epoch would stall every
+// future reward.
+// HTTP statuses worth retrying — everything else (esp. 4xx) is terminal for the request.
+const RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504])
+
+// A genuinely un-retainable epoch (RPC long-term-storage pruning / too-old slot).
+// These never reappear, so the cursor must skip forward; older history is imported
+// via CSV. Matched by message because JSON-RPC error codes vary across RPC vendors.
+function isPrunedEpochError(e: ProviderError): boolean {
+  return /prun|not found|older|cleaned up|skipped|missing|not available/i.test(e.message)
+}
+
+function isTransientRpcError(e: unknown): boolean {
+  if (e instanceof ProviderError) {
+    if (e.code === 'RATE_LIMITED') return true
+    // HTTP-level failure (rpc() attaches the status): only explicitly retryable
+    // statuses are transient; a 4xx is terminal and must not stall the loop forever.
+    if (e.status !== undefined) return RETRYABLE_HTTP_STATUS.has(e.status)
+    // JSON-RPC application error (no HTTP status): skip only known pruned/too-old
+    // epochs; any other JSON-RPC error stops the loop (treated transient) so its
+    // reward is never silently lost.
+    return !isPrunedEpochError(e)
+  }
+  return true // unknown (e.g. fetch network throw) → treat as transient, never drop
+}
+
 export const solanaProvider: WalletProvider = {
   kind: 'wallet',
   id: 'SOLANA',
@@ -109,6 +139,10 @@ export const solanaProvider: WalletProvider = {
     const balanceResult = await rpc<{ value: number }>('getBalance', [address])
 
     const stakeAccounts = await fetchStakeAccounts(address)
+    // account.lamports = delegated stake + accrued rewards + rent-exempt reserve.
+    // The reserve is intentionally included: it is recoverable (refunded when the
+    // stake account is deactivated and closed), so it is part of net worth — this
+    // is a portfolio value, not a spendable-balance, view.
     const stakedLamports = stakeAccounts.reduce((sum, acc) => sum + acc.lamports, 0n)
 
     const balances: RawBalance[] = [
@@ -149,7 +183,9 @@ export const solanaProvider: WalletProvider = {
 
   // Inflation rewards of the stake accounts, one query per epoch. Incremental:
   // from the epoch after lastExternalRef; first import limited to REWARD_BACKFILL_EPOCHS.
-  // Epochs that are not retained (RPC pruning) are silently skipped.
+  // Genuinely un-retained epochs (RPC pruning) are skipped forward; transient
+  // failures (rate limit / 5xx) stop the loop so the cursor never jumps a gap —
+  // the caller retries from the same epoch on the next sync (see isTransientRpcError).
   async fetchStakingRewards(
     address: string,
     sinceHint: { lastExternalRef: string | null },
@@ -168,30 +204,59 @@ export const solanaProvider: WalletProvider = {
     )
 
     const rewards: RawStakingReward[] = []
+    // Set when the loop stops early (truncated import). We throw afterwards carrying
+    // the rewards collected so far so the sync persists them AND flags PARTIAL_SYNC —
+    // a clean run returns normally and is reported as a full success.
+    let stop: { code: ProviderError['code']; status?: number; message: string } | null = null
     for (let epoch = fromEpoch; epoch <= lastComplete; epoch += 1) {
-      let results: Array<{ amount: number; effectiveSlot: number } | null>
       try {
-        results = await rpc('getInflationReward', [pubkeys, { epoch }])
-      } catch {
-        continue // epoch not (or no longer) available
-      }
+        const results = await rpc<Array<{ amount: number; effectiveSlot: number } | null>>(
+          'getInflationReward',
+          [pubkeys, { epoch }],
+        )
 
-      // effectiveSlot is the same for all accounts in an epoch → one getBlockTime suffices
-      const first = results.find((r) => r !== null && r.amount > 0)
-      if (!first) continue
-      const blockTime = await rpc<number | null>('getBlockTime', [first.effectiveSlot]).catch(() => null)
-      if (blockTime === null) continue // without a reliable timestamp there is no tax record
-      const timestamp = new Date(blockTime * 1000)
+        // effectiveSlot is the same for all accounts in an epoch → one getBlockTime suffices
+        const first = results.find((r) => r !== null && r.amount > 0)
+        if (!first) continue
+        const blockTime = await rpc<number | null>('getBlockTime', [first.effectiveSlot])
+        // No timestamp → cannot make a tax record. Treat like a transient stop
+        // (break, NOT continue): the cursor must not advance past this epoch, or its
+        // reward would be lost forever. Earlier epochs in this batch already persist;
+        // this epoch is retried on the next sync. Rare for recent (in-window) slots.
+        if (blockTime === null) {
+          stop = { code: 'PROVIDER_ERROR', message: `Blockzeit fehlt für Epoche ${epoch}` }
+          break
+        }
+        const timestamp = new Date(blockTime * 1000)
 
-      results.forEach((r, i) => {
-        if (!r || r.amount <= 0) return
-        rewards.push({
-          symbol: 'SOL',
-          amount: fromBaseUnits(BigInt(r.amount), 9),
-          timestamp,
-          externalRef: `sol-reward:${pubkeys[i]}:${epoch}`,
+        results.forEach((r, i) => {
+          if (!r || r.amount <= 0) return
+          rewards.push({
+            symbol: 'SOL',
+            amount: fromBaseUnits(BigInt(r.amount), 9),
+            timestamp,
+            externalRef: `sol-reward:${pubkeys[i]}:${epoch}`,
+          })
         })
-      })
+      } catch (e) {
+        // Transient (rate limit / 5xx / network): STOP — do not advance the cursor
+        // past this epoch; it is retried on the next sync. Genuinely pruned/too-old
+        // epochs are skipped forward (their history is imported via CSV).
+        if (isTransientRpcError(e)) {
+          stop = {
+            code: e instanceof ProviderError ? e.code : 'PROVIDER_ERROR',
+            status: e instanceof ProviderError ? e.status : undefined,
+            message: e instanceof Error ? e.message : String(e),
+          }
+          break
+        }
+        continue
+      }
+    }
+    // Truncated import → surface as a partial failure (carrying what we collected)
+    // so the sync flags PARTIAL_SYNC instead of mistaking it for a complete success.
+    if (stop) {
+      throw new ProviderError(stop.code, `Solana-Rewards unvollständig: ${stop.message}`, stop.status, rewards)
     }
     return rewards
   },
