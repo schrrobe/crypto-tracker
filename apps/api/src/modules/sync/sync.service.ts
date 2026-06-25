@@ -62,50 +62,69 @@ async function fetchSnapshotForSource(source: PortfolioSource): Promise<SourceSn
   throw AppError.badRequest('SOURCE_NOT_SYNCABLE', 'Diese Quelle hat keinen Sync')
 }
 
+// Integer tail of a chain externalRef (eth-wd:<index>, sol-reward:<acct>:<epoch>);
+// -1 when absent so it never wins the max comparison. Used to pick the incremental
+// cursor by the highest index/epoch rather than by the (coarse, tie-prone) timestamp.
+function refTail(ref: string): number {
+  const n = Number(ref.slice(ref.lastIndexOf(':') + 1))
+  return Number.isFinite(n) ? n : -1
+}
+
 // Persist the wallet's staking rewards as STAKING_REWARD transactions.
-// Idempotent via externalRef (unique + skipDuplicates), incremental from the
-// most recent known reward ref. Price stays empty — the tax report adds
-// the EUR daily price via backfill.
-async function importStakingRewards(source: PortfolioSource): Promise<void> {
+// Idempotent via (sourceId, externalRef) (unique + skipDuplicates), incremental
+// from the highest known reward ref. Price stays empty — the tax report adds the
+// EUR daily price via backfill. Returns warnings (e.g. provider unavailable) so the
+// run is flagged PARTIAL_SYNC instead of silently reporting a full success while
+// staking income is missing.
+async function importStakingRewards(source: PortfolioSource): Promise<string[]> {
+  const provider = getWalletProvider(source.provider)
+  if (!provider.fetchStakingRewards) return []
+  const wallet = await prisma.walletAddress.findUnique({ where: { sourceId: source.id } })
+  if (!wallet) return []
+
+  // Cursor = the highest reward index/epoch seen (integer tail of the externalRef).
+  // Reward timestamps are coarse and tie, so ordering by them is not monotonic.
+  const refs = await prisma.transaction.findMany({
+    where: { sourceId: source.id, externalRef: { not: null } },
+    select: { externalRef: true },
+  })
+  const lastExternalRef = refs.reduce<string | null>((best, { externalRef }) => {
+    if (externalRef === null) return best
+    if (best === null) return externalRef
+    return refTail(externalRef) > refTail(best) ? externalRef : best
+  }, null)
+
+  let rewards
   try {
-    const provider = getWalletProvider(source.provider)
-    if (!provider.fetchStakingRewards) return
-    const wallet = await prisma.walletAddress.findUnique({ where: { sourceId: source.id } })
-    if (!wallet) return
-
-    const last = await prisma.transaction.findFirst({
-      where: { sourceId: source.id, externalRef: { not: null } },
-      orderBy: { timestamp: 'desc' },
-      select: { externalRef: true },
-    })
-    const rewards = await provider.fetchStakingRewards(wallet.address, {
-      lastExternalRef: last?.externalRef ?? null,
-    })
-    if (rewards.length === 0) return
-
-    const assetMap = await resolveAssetsBySymbol(rewards.map((r) => r.symbol))
-    const data = rewards.flatMap((r) => {
-      const asset = assetMap.get(r.symbol.toUpperCase())
-      if (!asset) return []
-      return [
-        {
-          sourceId: source.id,
-          assetId: asset.id,
-          type: 'STAKING_REWARD' as const,
-          quantity: new Prisma.Decimal(r.amount),
-          timestamp: r.timestamp,
-          externalRef: r.externalRef,
-        },
-      ]
-    })
-    if (data.length > 0) await prisma.transaction.createMany({ data, skipDuplicates: true })
+    rewards = await provider.fetchStakingRewards(wallet.address, { lastExternalRef })
   } catch (error) {
-    // Rewards are supplementary information — the balance sync is unaffected by this
-    console.warn(
-      `Staking-Reward-Import für Quelle ${source.id} fehlgeschlagen:`,
-      error instanceof Error ? error.message : error,
-    )
+    if (error instanceof ProviderError) {
+      // Provider failure → rewards incomplete. Nothing is persisted, so the cursor
+      // does not advance; the gap is retried from the same point on the next sync.
+      // Flag the run PARTIAL_SYNC so the user knows staking income may be stale.
+      return [`Staking-Rewards unvollständig (${error.code}) — erneuter Sync nötig`]
+    }
+    throw error
   }
+  if (rewards.length === 0) return []
+
+  const assetMap = await resolveAssetsBySymbol(rewards.map((r) => r.symbol))
+  const data = rewards.flatMap((r) => {
+    const asset = assetMap.get(r.symbol.toUpperCase())
+    if (!asset) return []
+    return [
+      {
+        sourceId: source.id,
+        assetId: asset.id,
+        type: 'STAKING_REWARD' as const,
+        quantity: new Prisma.Decimal(r.amount),
+        timestamp: r.timestamp,
+        externalRef: r.externalRef,
+      },
+    ]
+  })
+  if (data.length > 0) await prisma.transaction.createMany({ data, skipDuplicates: true })
+  return []
 }
 
 // Step 1: validation + create the run (RUNNING). Separated from execution
@@ -200,18 +219,21 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
     // Price errors are not a sync error (the UI then shows older prices)
     await refreshPrices([...new Set([...byKey.values()].map((v) => v.assetId))])
 
-    // On-chain staking rewards as transactions — errors here are not a sync error
-    if (source.type === 'WALLET') await importStakingRewards(source)
+    // On-chain staking rewards as transactions. The balance sync is already
+    // committed, so a provider failure flags the run PARTIAL_SYNC (rewards stale)
+    // rather than aborting; an unexpected (non-provider) error still throws → ERROR.
+    const rewardWarnings = source.type === 'WALLET' ? await importStakingRewards(source) : []
 
-    // Report skipped account types (missing permission) as a partial success
-    const partial = snapshot.warnings.length > 0
+    // Report skipped account types and incomplete rewards as a partial success
+    const warnings = [...snapshot.warnings, ...rewardWarnings]
+    const partial = warnings.length > 0
     const finished = await prisma.syncRun.update({
       where: { id: run.id },
       data: {
         status: 'SUCCESS',
         finishedAt: new Date(),
         errorCode: partial ? 'PARTIAL_SYNC' : null,
-        errorMessage: partial ? snapshot.warnings.join('; ') : null,
+        errorMessage: partial ? warnings.join('; ') : null,
       },
     })
     return toSyncRunDto(finished)

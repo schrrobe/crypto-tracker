@@ -96,6 +96,57 @@ function withdrawalIndexFromExternalRef(ref: string | null): number | null {
   return match ? Number(match[1]) : null
 }
 
+// beaconcha.in caps the number of validators per request — chunk index lists.
+const MAX_VALIDATORS_PER_REQUEST = 100
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
+// Defensive Gwei parse: beaconcha.in returns integer Gwei as a JSON number, but a
+// malformed (float/string/negative) value must not throw and kill the whole import.
+function gweiToBigInt(amount: unknown): bigint | null {
+  if (typeof amount === 'number' && Number.isInteger(amount) && amount >= 0) return BigInt(amount)
+  if (typeof amount === 'string' && /^\d+$/.test(amount)) return BigInt(amount)
+  return null
+}
+
+// Validator indices controlled by a withdrawal address (empty for an ordinary wallet).
+async function fetchValidatorIndices(address: string): Promise<number[]> {
+  let validators: Array<{ validatorindex: number }>
+  try {
+    validators = await beaconchain<Array<{ validatorindex: number }>>(
+      `/validator/withdrawalCredentials/${address}`,
+    )
+  } catch (e) {
+    // 400/404 = no validator association for this address — an ordinary wallet
+    if (e instanceof ProviderError && e.code === 'PROVIDER_ERROR') return []
+    throw e
+  }
+  return (validators ?? []).map((v) => v.validatorindex).filter((v) => Number.isInteger(v))
+}
+
+// Sum of the validators' current balances (Gwei) for a withdrawal address — the
+// staked ETH principal that eth_getBalance never sees.
+async function fetchValidatorBalanceGwei(address: string): Promise<bigint> {
+  const indices = await fetchValidatorIndices(address)
+  if (indices.length === 0) return 0n
+  let total = 0n
+  for (const group of chunk(indices, MAX_VALIDATORS_PER_REQUEST)) {
+    const data = await beaconchain<
+      Array<{ balance: number }> | { balance: number }
+    >(`/validator/${group.join(',')}`)
+    const rows = Array.isArray(data) ? data : [data]
+    for (const v of rows) {
+      const g = gweiToBigInt(v.balance)
+      if (g !== null) total += g
+    }
+  }
+  return total
+}
+
 export const ethereumProvider: WalletProvider = {
   kind: 'wallet',
   id: 'ETHEREUM',
@@ -125,6 +176,21 @@ export const ethereumProvider: WalletProvider = {
         meta: { contract: token.contract },
       })
     }
+
+    // Staked ETH principal lives on the beacon chain, not in eth_getBalance — with a
+    // beaconcha.in key, surface it as an EARN holding so the portfolio is not
+    // undervalued (mirrors Solana counting natively-staked SOL into the SOL position).
+    if (env.BEACONCHAIN_API_KEY) {
+      try {
+        const stakedGwei = await fetchValidatorBalanceGwei(address)
+        if (stakedGwei > 0n) {
+          balances.push({ symbol: 'ETH', amount: fromBaseUnits(stakedGwei, 9), accountType: 'EARN' })
+        }
+      } catch {
+        // beaconcha.in unavailable → omit the staked-ETH holding this sync rather
+        // than failing the core balance sync; it reappears on the next good sync.
+      }
+    }
     return balances
   },
 
@@ -140,34 +206,54 @@ export const ethereumProvider: WalletProvider = {
     // without a key there are no validator rewards; the balance sync is unaffected
     if (!env.BEACONCHAIN_API_KEY) return []
 
-    let validators: Array<{ validatorindex: number }>
-    try {
-      validators = await beaconchain<Array<{ validatorindex: number }>>(
-        `/validator/withdrawalCredentials/${address}`,
-      )
-    } catch (e) {
-      // 400/404 = no validator association for this address — an ordinary wallet
-      if (e instanceof ProviderError && e.code === 'PROVIDER_ERROR') return []
-      throw e
-    }
-    const indices = (validators ?? []).map((v) => v.validatorindex).filter((v) => Number.isInteger(v))
+    const indices = await fetchValidatorIndices(address)
     if (indices.length === 0) return []
 
-    const withdrawals = await beaconchain<
-      Array<{ epoch: number; amount: number; withdrawalindex: number; address: string }>
-    >(`/validator/${indices.join(',')}/withdrawals`)
-
     const lastIndex = withdrawalIndexFromExternalRef(sinceHint.lastExternalRef)
-    return (withdrawals ?? [])
+
+    // beaconcha.in returns withdrawals newest-first in a bounded page. Page through
+    // them (and chunk the validator list) so a long validator history is not silently
+    // truncated — stop once a page is short or already entirely at/below the cursor.
+    type Withdrawal = { epoch: number; amount: number; withdrawalindex: number; address: string }
+    const PAGE = 100
+    const collected: Withdrawal[] = []
+    for (const group of chunk(indices, MAX_VALIDATORS_PER_REQUEST)) {
+      for (let offset = 0; ; offset += PAGE) {
+        const page =
+          (await beaconchain<Withdrawal[]>(
+            `/validator/${group.join(',')}/withdrawals?limit=${PAGE}&offset=${offset}`,
+          )) ?? []
+        collected.push(...page)
+        if (page.length < PAGE) break
+        if (lastIndex !== null && page.every((w) => w.withdrawalindex <= lastIndex)) break
+      }
+    }
+
+    const fresh = collected
       .filter((w) => lastIndex === null || w.withdrawalindex > lastIndex)
-      .filter((w) => BigInt(w.amount) < PRINCIPAL_THRESHOLD_GWEI)
+      // ≥ 8 ETH = principal repayment (full exit), not a taxable reward. Edge case: a
+      // slashed validator's final sub-8-ETH withdrawal would be misread as a reward —
+      // rare; cross-checking validator exit status is deferred (documented gap).
+      .filter((w) => {
+        const g = gweiToBigInt(w.amount)
+        return g !== null && g < PRINCIPAL_THRESHOLD_GWEI
+      })
       .sort((a, b) => a.withdrawalindex - b.withdrawalindex)
-      .slice(0, MAX_WITHDRAWALS_PER_SYNC)
-      .map((w) => ({
-        symbol: 'ETH',
-        amount: fromBaseUnits(BigInt(w.amount), 9), // Gwei → ETH
-        timestamp: new Date((BEACON_GENESIS_UNIX + w.epoch * SECONDS_PER_EPOCH) * 1000),
-        externalRef: `eth-wd:${w.withdrawalindex}`,
-      }))
+
+    if (fresh.length > MAX_WITHDRAWALS_PER_SYNC) {
+      // Surface the backlog rather than silently dropping it — the rest is imported
+      // on the next sync (the cursor advances to the last imported withdrawalindex).
+      console.warn(
+        `[ethereum] ${address}: ${fresh.length} ausstehende Withdrawals, ` +
+          `kappe auf ${MAX_WITHDRAWALS_PER_SYNC} — Rest folgt im nächsten Sync`,
+      )
+    }
+
+    return fresh.slice(0, MAX_WITHDRAWALS_PER_SYNC).map((w) => ({
+      symbol: 'ETH',
+      amount: fromBaseUnits(gweiToBigInt(w.amount)!, 9), // Gwei → ETH (validated above)
+      timestamp: new Date((BEACON_GENESIS_UNIX + w.epoch * SECONDS_PER_EPOCH) * 1000),
+      externalRef: `eth-wd:${w.withdrawalindex}`,
+    }))
   },
 }

@@ -97,6 +97,22 @@ function epochFromExternalRef(ref: string | null): number | null {
   return match ? Number(match[1]) : null
 }
 
+// Distinguish "retry later" (rate limit / HTTP 5xx / network) from "this epoch is
+// genuinely gone" (RPC json-rpc error for a pruned/too-old epoch). A transient
+// error must NOT let the cursor advance past the epoch — otherwise that epoch's
+// reward is lost forever (it would never be re-queried). Pruned epochs, by
+// contrast, must be skipped forward or one un-retainable epoch would stall every
+// future reward.
+function isTransientRpcError(e: unknown): boolean {
+  if (e instanceof ProviderError) {
+    if (e.code === 'RATE_LIMITED') return true
+    // rpc() wraps HTTP-level failures as "… antwortet mit <status>" (429/5xx/etc.)
+    if (e.code === 'PROVIDER_ERROR' && /antwortet mit \d/.test(e.message)) return true
+    return false // json-rpc error (e.g. pruned epoch) → safely skippable
+  }
+  return true // unknown (e.g. fetch network throw) → treat as transient, never drop
+}
+
 export const solanaProvider: WalletProvider = {
   kind: 'wallet',
   id: 'SOLANA',
@@ -145,7 +161,9 @@ export const solanaProvider: WalletProvider = {
 
   // Inflation rewards of the stake accounts, one query per epoch. Incremental:
   // from the epoch after lastExternalRef; first import limited to REWARD_BACKFILL_EPOCHS.
-  // Epochs that are not retained (RPC pruning) are silently skipped.
+  // Genuinely un-retained epochs (RPC pruning) are skipped forward; transient
+  // failures (rate limit / 5xx) stop the loop so the cursor never jumps a gap —
+  // the caller retries from the same epoch on the next sync (see isTransientRpcError).
   async fetchStakingRewards(
     address: string,
     sinceHint: { lastExternalRef: string | null },
@@ -165,29 +183,35 @@ export const solanaProvider: WalletProvider = {
 
     const rewards: RawStakingReward[] = []
     for (let epoch = fromEpoch; epoch <= lastComplete; epoch += 1) {
-      let results: Array<{ amount: number; effectiveSlot: number } | null>
       try {
-        results = await rpc('getInflationReward', [pubkeys, { epoch }])
-      } catch {
-        continue // epoch not (or no longer) available
-      }
+        const results = await rpc<Array<{ amount: number; effectiveSlot: number } | null>>(
+          'getInflationReward',
+          [pubkeys, { epoch }],
+        )
 
-      // effectiveSlot is the same for all accounts in an epoch → one getBlockTime suffices
-      const first = results.find((r) => r !== null && r.amount > 0)
-      if (!first) continue
-      const blockTime = await rpc<number | null>('getBlockTime', [first.effectiveSlot]).catch(() => null)
-      if (blockTime === null) continue // without a reliable timestamp there is no tax record
-      const timestamp = new Date(blockTime * 1000)
+        // effectiveSlot is the same for all accounts in an epoch → one getBlockTime suffices
+        const first = results.find((r) => r !== null && r.amount > 0)
+        if (!first) continue
+        const blockTime = await rpc<number | null>('getBlockTime', [first.effectiveSlot])
+        if (blockTime === null) continue // no retrievable timestamp (rare for recent epochs) → no tax record
+        const timestamp = new Date(blockTime * 1000)
 
-      results.forEach((r, i) => {
-        if (!r || r.amount <= 0) return
-        rewards.push({
-          symbol: 'SOL',
-          amount: fromBaseUnits(BigInt(r.amount), 9),
-          timestamp,
-          externalRef: `sol-reward:${pubkeys[i]}:${epoch}`,
+        results.forEach((r, i) => {
+          if (!r || r.amount <= 0) return
+          rewards.push({
+            symbol: 'SOL',
+            amount: fromBaseUnits(BigInt(r.amount), 9),
+            timestamp,
+            externalRef: `sol-reward:${pubkeys[i]}:${epoch}`,
+          })
         })
-      })
+      } catch (e) {
+        // Transient (rate limit / 5xx / network): STOP — do not advance the cursor
+        // past this epoch; it is retried on the next sync. Genuinely pruned/too-old
+        // epochs are skipped forward (their history is imported via CSV).
+        if (isTransientRpcError(e)) break
+        continue
+      }
     }
     return rewards
   },

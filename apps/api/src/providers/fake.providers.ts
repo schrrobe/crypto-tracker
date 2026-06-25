@@ -133,8 +133,14 @@ export function fakeWalletProvider(id: ProviderId): WalletProvider {
       return FAKE_WALLET_BALANCES[id] ?? []
     },
     async fetchStakingRewards(address: string) {
-      // Include the address in the ref — externalRef is globally unique (in the real
-      // provider this is handled by the stake-account pubkey or the withdrawal index)
+      // Address marker to simulate a transient reward-provider failure → the sync
+      // must flag PARTIAL_SYNC (rewards stale) without losing the balance sync.
+      if (address.includes('REWARDFAIL')) {
+        throw new ProviderError('RATE_LIMITED', 'Reward-Quelle nicht erreichbar (simuliert)')
+      }
+      // Include the address in the ref so two sources tracking the SAME public
+      // address produce identical refs (real-provider behavior: same stake-account
+      // pubkey / withdrawal index) — exercises the per-source dedupe scope.
       return (FAKE_STAKING_REWARDS[id] ?? []).map((r) => ({
         symbol: r.symbol,
         amount: r.amount,

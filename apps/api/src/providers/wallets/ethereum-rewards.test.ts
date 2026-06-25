@@ -86,4 +86,81 @@ describe('ethereumProvider.fetchStakingRewards (mit API-Key)', () => {
     const rewards = await ethereumProvider.fetchStakingRewards!(ADDRESS, { lastExternalRef: null })
     expect(rewards).toEqual([])
   })
+
+  it('Principal-Grenze: 8 ETH − 1 Gwei = Reward, exakt 8 ETH = Principal', async () => {
+    mockBeaconchain([
+      { status: 'OK', data: [{ validatorindex: 1 }] },
+      {
+        status: 'OK',
+        data: [
+          { epoch: 250_000, amount: 8 * GWEI_PER_ETH - 1, withdrawalindex: 10, address: ADDRESS }, // reward
+          { epoch: 250_000, amount: 8 * GWEI_PER_ETH, withdrawalindex: 11, address: ADDRESS }, // principal
+          { epoch: 250_000, amount: 9 * GWEI_PER_ETH, withdrawalindex: 12, address: ADDRESS }, // principal
+        ],
+      },
+    ])
+    const rewards = await ethereumProvider.fetchStakingRewards!(ADDRESS, { lastExternalRef: null })
+    expect(rewards.map((r) => r.externalRef)).toEqual(['eth-wd:10'])
+  })
+
+  it('paginiert Withdrawals über volle Seiten (kein stilles Abschneiden)', async () => {
+    const page = (from: number, n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        epoch: 250_000,
+        amount: 1_000_000, // 0.001 ETH → Reward
+        withdrawalindex: from + i,
+        address: ADDRESS,
+      }))
+    mockBeaconchain([
+      { status: 'OK', data: [{ validatorindex: 1 }] },
+      { status: 'OK', data: page(1, 100) }, // volle Seite → weiterblättern
+      { status: 'OK', data: page(101, 50) }, // kurze Seite → Ende
+    ])
+    const rewards = await ethereumProvider.fetchStakingRewards!(ADDRESS, { lastExternalRef: null })
+    expect(rewards).toHaveLength(150)
+    expect(rewards[149]?.externalRef).toBe('eth-wd:150')
+  })
+
+  it('beaconcha.in Rate-Limit (429) wirft RATE_LIMITED', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 429, json: async () => ({}) })),
+    )
+    await expect(
+      ethereumProvider.fetchStakingRewards!(ADDRESS, { lastExternalRef: null }),
+    ).rejects.toMatchObject({ code: 'RATE_LIMITED' })
+  })
+
+  it('beaconcha.in Status ≠ OK wirft PROVIDER_ERROR', async () => {
+    mockBeaconchain([
+      { status: 'OK', data: [{ validatorindex: 1 }] },
+      { status: 'ERROR', data: null },
+    ])
+    await expect(
+      ethereumProvider.fetchStakingRewards!(ADDRESS, { lastExternalRef: null }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
+
+  it('404 ohne Validator-Verknüpfung liefert leer (kein Wurf)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) })),
+    )
+    const rewards = await ethereumProvider.fetchStakingRewards!(ADDRESS, { lastExternalRef: null })
+    expect(rewards).toEqual([])
+  })
+
+  it('fetchBalances ergänzt gestaktes ETH als EARN-Holding (A3)', async () => {
+    const fn = vi.fn()
+    const reply = (json: unknown) => fn.mockResolvedValueOnce({ ok: true, status: 200, json: async () => json })
+    reply({ result: '0x29a2241af62c0000' }) // eth_getBalance → 3 ETH
+    for (let i = 0; i < 10; i += 1) reply({ result: '0x' + '0'.repeat(64) }) // 10 ERC-20, alle 0
+    reply({ status: 'OK', data: [{ validatorindex: 1 }] }) // Validator-Index
+    reply({ status: 'OK', data: [{ balance: 32 * GWEI_PER_ETH }] }) // 32 ETH effektiv
+    vi.stubGlobal('fetch', fn)
+
+    const balances = await ethereumProvider.fetchBalances(ADDRESS)
+    expect(balances).toContainEqual({ symbol: 'ETH', amount: '3' })
+    expect(balances).toContainEqual({ symbol: 'ETH', amount: '32', accountType: 'EARN' })
+  })
 })
