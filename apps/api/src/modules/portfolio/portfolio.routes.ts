@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { historyRangesFor, portfolioScopeQuerySchema } from '@crypto-tracker/shared'
 import { requireAuth } from '../../middleware/auth.middleware'
 import { getPlan, requirePro } from '../../middleware/plan.middleware'
@@ -49,8 +50,28 @@ const historyQuerySchema = z.object({
   portfolioId: z.string().uuid().optional(),
 })
 
+// Per-user limiter: /history fans out to up to 10 live CoinGecko market_chart
+// calls on a cold cache against a single shared demo key. Without this a logged-in
+// user cycling range/currency could exhaust the upstream quota for everyone.
+// Keyed by userId (requireAuth runs first), so one noisy account can't starve others.
+const historyLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 40,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  // Keyed by userId (requireAuth guarantees it). IP fallback is dead-code defense;
+  // routed through ipKeyGenerator for correct IPv6 subnet normalization.
+  keyGenerator: (req) => req.userId ?? ipKeyGenerator(req.ip ?? 'anonymous'),
+  handler: (_req, res) => {
+    res
+      .status(429)
+      .json({ error: { code: 'RATE_LIMITED', message: 'Zu viele Anfragen, bitte kurz warten.' } })
+  },
+})
+
 portfolioRoutes.get(
   '/history',
+  historyLimiter,
   validate(historyQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { range, currency, portfolioId } = req.query as unknown as z.infer<typeof historyQuerySchema>

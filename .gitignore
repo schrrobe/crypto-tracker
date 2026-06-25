@@ -28,3 +28,6 @@ apps/mobile/ios/
 
 # Serena MCP server
 .serena/
+
+# gstack local artifacts (security reports, checkpoints)
+.gstack/

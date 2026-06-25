@@ -109,4 +109,27 @@ describe('Portfolio-Verlauf (Integration)', () => {
       .set(...bearer(user))
       .expect(402)
   })
+
+  it('drosselt nach 40 Anfragen/Minute pro User (429 RATE_LIMITED)', async () => {
+    const user = await registerUser('historyrl')
+    // 40 allowed within the window
+    for (let i = 0; i < 40; i += 1) {
+      await request(app)
+        .get(`${API}/portfolio/history?range=24h&currency=EUR`)
+        .set(...bearer(user))
+        .expect(200)
+    }
+    const blocked = await request(app)
+      .get(`${API}/portfolio/history?range=24h&currency=EUR`)
+      .set(...bearer(user))
+    expect(blocked.status).toBe(429)
+    expect(blocked.body.error.code).toBe('RATE_LIMITED')
+
+    // Limit is per user → a different user is unaffected
+    const other = await registerUser('historyrl2')
+    await request(app)
+      .get(`${API}/portfolio/history?range=24h&currency=EUR`)
+      .set(...bearer(other))
+      .expect(200)
+  })
 })
