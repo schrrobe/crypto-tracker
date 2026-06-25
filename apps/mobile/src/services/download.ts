@@ -12,8 +12,12 @@ const UTF8_BOM = '\ufeff'
 // read as text. Pure numbers \u2014 including signed and German decimal-comma values
 // like "-1234,56" \u2014 are safe and left intact so money/quantity columns stay numeric.
 function neutralizeFormula(s: string): string {
-  if (s === '' || /^[-+]?[\d.,]+$/.test(s)) return s
-  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s
+  // Check the trimmed value: some apps strip leading whitespace before
+  // evaluating, so " =cmd" is as dangerous as "=cmd". Pure numbers (incl.
+  // signed / German decimal comma) stay numeric.
+  const t = s.trimStart()
+  if (t === '' || /^[-+]?[\d.,]+$/.test(t)) return s
+  return /^[=+\-@]/.test(t) ? `'${s}` : s
 }
 
 function escapeCell(value: string | number): string {

@@ -34,4 +34,9 @@ describe('buildCsv', () => {
     // Verluste (-1234,56) dürfen NICHT zu Text werden — sonst bricht die Geldspalte
     expect(buildCsv(['x'], [['-1234,56'], ['+5'], ['0,00']])).toBe('x\r\n-1234,56\r\n+5\r\n0,00')
   })
+
+  it('entschärft auch Formeln mit führendem Whitespace', () => {
+    // " =cmd" wird von manchen Apps getrimmt und dann ausgewertet
+    expect(buildCsv(['x'], [[' =evil()'], [' -5,00']])).toBe("x\r\n' =evil()\r\n -5,00")
+  })
 })
