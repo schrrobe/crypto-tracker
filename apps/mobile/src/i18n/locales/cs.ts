@@ -375,6 +375,8 @@ const cs: MessageSchema = {
       'Tento report je nezávazná výpočetní pomůcka. Předpoklady: FIFO za každý zdroj/peněženku zvlášť (DE, posuzování po peněženkách podle BMF-Schreiben v. 10.05.2022) — propojené převody přenášejí pořizovací náklady, nepropojené výběry je ztrácejí; Altvermögen se spotřebovává jako první (AT); operace krypto-krypto propojené jako směna jsou v AT daňově neutrální (§27b, pořizovací náklady přecházejí s aktivem), v DE jde o prodej — nepropojené směny a přepočet cizích měn nejsou zohledněny. Výnosy z rebase u liquid-staking tokenů (např. stETH) a příjmy MEV/ze spropitného vlastních validátorů nejsou automaticky zachyceny. Pro daňové přiznání si prosím vyžádejte odbornou radu.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: pořízení bez kurzu — použity pořizovací náklady 0 ({count}×)',
+      STAKING_INCOME_PRICE_MISSING:
+        '{symbol}: odměna za staking bez kurzu — nezahrnuta do příjmu ze stakingu ({count}×). Vygenerujte report znovu pro doplnění denních kurzů',
       MISSING_DISPOSAL_PRICE: '{symbol}: prodej bez zjistitelného kurzu — nezahrnuto v součtech ({count}×)',
       SOLD_MORE_THAN_ACQUIRED: '{symbol}: prodáno více, než bylo evidováno pořízeno — nepokrytá část se základem 0 ({count}×)',
       WITHDRAWAL_REMOVED_LOTS:

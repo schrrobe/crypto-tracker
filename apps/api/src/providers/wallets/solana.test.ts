@@ -230,4 +230,22 @@ describe('solanaProvider.fetchStakingRewards', () => {
     // kein Zeitstempel → kein Eintrag; Epoche 700 wird beim nächsten Sync erneut versucht
     expect(rewards).toEqual([])
   })
+
+  it('bricht bei fehlender Blockzeit (null) ab statt die Epoche still zu überspringen', async () => {
+    const fn = vi.fn()
+    fn.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ result: stakeAccountsResponse() }) })
+    fn.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ result: { epoch: 703 } }) }) // → 700..702
+    fn.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ result: [{ amount: 50_000_000, effectiveSlot: 300000000 }] }) })
+    fn.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ result: null }) }) // getBlockTime → null
+    vi.stubGlobal('fetch', fn)
+
+    const rewards = await solanaProvider.fetchStakingRewards!(
+      '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
+      { lastExternalRef: `sol-reward:${STAKE_ACC}:699` },
+    )
+    // Epoche 700 wird zurückgestellt, NICHT zu 701/702 übersprungen
+    expect(rewards).toEqual([])
+    // getProgramAccounts, getEpochInfo, infl@700, blockTime@700(null) → 4; 701/702 nie abgefragt
+    expect(fn).toHaveBeenCalledTimes(4)
+  })
 })

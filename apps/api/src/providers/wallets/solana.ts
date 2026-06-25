@@ -125,6 +125,10 @@ export const solanaProvider: WalletProvider = {
     const balanceResult = await rpc<{ value: number }>('getBalance', [address])
 
     const stakeAccounts = await fetchStakeAccounts(address)
+    // account.lamports = delegated stake + accrued rewards + rent-exempt reserve.
+    // The reserve is intentionally included: it is recoverable (refunded when the
+    // stake account is deactivated and closed), so it is part of net worth — this
+    // is a portfolio value, not a spendable-balance, view.
     const stakedLamports = stakeAccounts.reduce((sum, acc) => sum + acc.lamports, 0n)
 
     const balances: RawBalance[] = [
@@ -193,7 +197,11 @@ export const solanaProvider: WalletProvider = {
         const first = results.find((r) => r !== null && r.amount > 0)
         if (!first) continue
         const blockTime = await rpc<number | null>('getBlockTime', [first.effectiveSlot])
-        if (blockTime === null) continue // no retrievable timestamp (rare for recent epochs) → no tax record
+        // No timestamp → cannot make a tax record. Treat like a transient stop
+        // (break, NOT continue): the cursor must not advance past this epoch, or its
+        // reward would be lost forever. Earlier epochs in this batch already persist;
+        // this epoch is retried on the next sync. Rare for recent (in-window) slots.
+        if (blockTime === null) break
         const timestamp = new Date(blockTime * 1000)
 
         results.forEach((r, i) => {

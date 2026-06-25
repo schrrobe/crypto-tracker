@@ -12,6 +12,13 @@ import { ethereumProvider } from './ethereum'
 
 const ADDRESS = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
 const GWEI_PER_ETH = 1_000_000_000
+// Active validator: withdrawableepoch is a far-future sentinel → no withdrawal is principal
+const ACTIVE = Number.MAX_SAFE_INTEGER
+// /validator/{indices} details response marking the given validators as active
+const activeDetails = (...idx: number[]) => ({
+  status: 'OK',
+  data: idx.map((validatorindex) => ({ validatorindex, balance: 32 * GWEI_PER_ETH, withdrawableepoch: ACTIVE })),
+})
 
 function mockBeaconchain(responses: Array<{ status: string; data: unknown }>) {
   const fn = vi.fn()
@@ -101,6 +108,40 @@ describe('ethereumProvider.fetchStakingRewards (mit API-Key)', () => {
     ])
     const rewards = await ethereumProvider.fetchStakingRewards!(ADDRESS, { lastExternalRef: null })
     expect(rewards.map((r) => r.externalRef)).toEqual(['eth-wd:10'])
+  })
+
+  it('Pectra: Skim > 8 ETH vor Exit bleibt Reward, Auszahlung ab withdrawableepoch = Principal', async () => {
+    mockBeaconchain([
+      { status: 'OK', data: [{ validatorindex: 50 }] },
+      {
+        status: 'OK',
+        data: [
+          // 12-ETH-Skim VOR dem Exit — die alte 8-ETH-Heuristik hätte ihn fälschlich verworfen
+          { epoch: 250_000, amount: 12 * GWEI_PER_ETH, withdrawalindex: 7001, validatorindex: 50, address: ADDRESS },
+          // Auszahlung ab withdrawableepoch = Principal
+          { epoch: 260_000, amount: 2000 * GWEI_PER_ETH, withdrawalindex: 7002, validatorindex: 50, address: ADDRESS },
+        ],
+      },
+      { status: 'OK', data: [{ validatorindex: 50, balance: 0, withdrawableepoch: 260_000 }] },
+    ])
+    const rewards = await ethereumProvider.fetchStakingRewards!(ADDRESS, { lastExternalRef: null })
+    expect(rewards.map((r) => r.externalRef)).toEqual(['eth-wd:7001'])
+    expect(rewards[0]?.amount).toBe('12')
+  })
+
+  it('nutzt den Slot-Zeitstempel statt Epochen-Start, wenn vorhanden', async () => {
+    const slot = 250_000 * 32 + 17 // konkreter Slot innerhalb der Epoche
+    mockBeaconchain([
+      { status: 'OK', data: [{ validatorindex: 9 }] },
+      {
+        status: 'OK',
+        data: [{ epoch: 250_000, slot, amount: 1_000_000, withdrawalindex: 8001, validatorindex: 9, address: ADDRESS }],
+      },
+      activeDetails(9),
+    ])
+    const rewards = await ethereumProvider.fetchStakingRewards!(ADDRESS, { lastExternalRef: null })
+    // Beacon genesis 1606824023 + slot × 12 s (genauer als Epochen-Start)
+    expect(rewards[0]?.timestamp.getTime()).toBe((1606824023 + slot * 12) * 1000)
   })
 
   it('paginiert Withdrawals über volle Seiten (kein stilles Abschneiden)', async () => {

@@ -375,6 +375,8 @@ const pl: MessageSchema = {
       'Ten raport to niewiążąca pomoc obliczeniowa. Założenia: FIFO osobno dla każdego źródła/portfela (DE, ujęcie portfelowe zgodnie z BMF-Schreiben v. 10.05.2022) — połączone transfery przenoszą koszt nabycia, niepołączone wypłaty go tracą; Altvermögen jest zużywane w pierwszej kolejności (AT); operacje krypto-krypto połączone jako wymiana są w AT neutralne podatkowo (§27b, koszt nabycia przechodzi razem z aktywem), w DE stanowią zbycie — niepołączone wymiany oraz przeliczanie walut obcych nie są uwzględnione. Dochody z rebase tokenów liquid stakingu (np. stETH) oraz przychody MEV/z napiwków własnych walidatorów nie są rejestrowane automatycznie. Przy zeznaniu podatkowym skorzystaj z porady specjalisty.',
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: '{symbol}: nabycie bez kursu — przyjęto koszt nabycia 0 ({count}×)',
+      STAKING_INCOME_PRICE_MISSING:
+        '{symbol}: nagroda za staking bez kursu — nieuwzględniona w dochodzie ze stakingu ({count}×). Wygeneruj raport ponownie, aby uzupełnić kursy dzienne',
       MISSING_DISPOSAL_PRICE: '{symbol}: zbycie bez możliwego do ustalenia kursu — nieuwzględnione w sumach ({count}×)',
       SOLD_MORE_THAN_ACQUIRED: '{symbol}: zbyto więcej, niż zarejestrowano nabyć — niepokryta część z bazą 0 ({count}×)',
       WITHDRAWAL_REMOVED_LOTS:

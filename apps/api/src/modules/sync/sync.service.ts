@@ -85,7 +85,9 @@ async function importStakingRewards(source: PortfolioSource): Promise<string[]> 
   // Cursor = the highest reward index/epoch seen (integer tail of the externalRef).
   // Reward timestamps are coarse and tie, so ordering by them is not monotonic.
   const refs = await prisma.transaction.findMany({
-    where: { sourceId: source.id, externalRef: { not: null } },
+    // Only reward refs drive the cursor — a non-reward txn with a higher-tailed
+    // externalRef (e.g. a future import scheme) must not poison fromEpoch/lastIndex.
+    where: { sourceId: source.id, type: 'STAKING_REWARD', externalRef: { not: null } },
     select: { externalRef: true },
   })
   const lastExternalRef = refs.reduce<string | null>((best, { externalRef }) => {

@@ -375,6 +375,8 @@ const fr: MessageSchema = {
       "Ce rapport est une aide au calcul sans valeur contractuelle. Hypothèses : FIFO par source/portefeuille (DE, approche par portefeuille selon le BMF-Schreiben v. 10.05.2022) — les transferts liés transmettent le coût d'acquisition, les retraits non liés le perdent ; l'Altvermögen est consommé en premier (AT) ; les opérations crypto-crypto liées comme échange sont fiscalement neutres en AT (§27b, le coût d'acquisition est reporté), en DE une cession — les échanges non liés et la conversion de devises étrangères ne sont pas pris en compte. Les revenus de rebase des jetons de liquid staking (p. ex. stETH) et les revenus MEV/de pourboires de vos propres validateurs ne sont pas saisis automatiquement. Pour la déclaration fiscale, veuillez consulter un professionnel.",
     warnings: {
       UNKNOWN_ACQUISITION_BASIS: "{symbol} : acquisition sans cours — coût d'acquisition de 0 retenu ({count}×)",
+      STAKING_INCOME_PRICE_MISSING:
+        '{symbol} : récompense de staking sans cours — non comptée dans le revenu de staking ({count}×). Régénérez le rapport pour récupérer les cours journaliers',
       MISSING_DISPOSAL_PRICE: '{symbol} : cession sans cours déterminable — non incluse dans les totaux ({count}×)',
       SOLD_MORE_THAN_ACQUIRED: "{symbol} : plus de cessions que d'acquisitions enregistrées — part non couverte avec une base de 0 ({count}×)",
       WITHDRAWAL_REMOVED_LOTS:
