@@ -65,7 +65,7 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
     throw new ProviderError('RATE_LIMITED', 'Ethereum-RPC Rate-Limit erreicht, bitte später erneut')
   }
   if (!res.ok) {
-    throw new ProviderError('PROVIDER_ERROR', `Ethereum-RPC antwortet mit ${res.status}`)
+    throw new ProviderError('PROVIDER_ERROR', `Ethereum-RPC antwortet mit ${res.status}`, res.status)
   }
   const json = (await res.json()) as RpcResponse<T>
   if (json.error) {
@@ -87,7 +87,7 @@ async function beaconchain<T>(path: string): Promise<T> {
     throw new ProviderError('RATE_LIMITED', 'beaconcha.in Rate-Limit erreicht, bitte später erneut')
   }
   if (!res.ok) {
-    throw new ProviderError('PROVIDER_ERROR', `beaconcha.in antwortet mit ${res.status}`)
+    throw new ProviderError('PROVIDER_ERROR', `beaconcha.in antwortet mit ${res.status}`, res.status)
   }
   const json = (await res.json()) as { status: string; data: T }
   if (json.status !== 'OK') {
@@ -126,8 +126,11 @@ async function fetchValidatorIndices(address: string): Promise<number[]> {
       `/validator/withdrawalCredentials/${address}`,
     )
   } catch (e) {
-    // 400/404 = no validator association for this address — an ordinary wallet
-    if (e instanceof ProviderError && e.code === 'PROVIDER_ERROR') return []
+    // Only 400/404 means "no validator association for this address" (ordinary
+    // wallet) → empty list. Any other failure (5xx, rate limit, malformed status)
+    // must propagate so the sync surfaces PARTIAL_SYNC instead of silently treating
+    // a provider outage as a wallet with no validators.
+    if (e instanceof ProviderError && (e.status === 400 || e.status === 404)) return []
     throw e
   }
   return (validators ?? []).map((v) => v.validatorindex).filter((v) => Number.isInteger(v))

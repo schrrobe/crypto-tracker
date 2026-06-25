@@ -5,7 +5,7 @@ import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import { decryptSecret } from '../../lib/crypto'
 import { getExchangeProvider, getWalletProvider } from '../../providers/provider.registry'
-import { ProviderError, type RawBalance, type RawPosition } from '../../providers/provider.types'
+import { ProviderError, type RawBalance, type RawPosition, type RawStakingReward } from '../../providers/provider.types'
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { getOwnedSource } from '../sources/sources.service'
@@ -98,18 +98,33 @@ async function importStakingRewards(source: PortfolioSource): Promise<string[]> 
 
   let rewards
   try {
-    rewards = await provider.fetchStakingRewards(wallet.address, { lastExternalRef })
+    // Bound the provider call by the same timeout as the balance sync so a stalled
+    // RPC can't leave the run stuck in RUNNING (withTimeout rejects with ProviderError).
+    rewards = await withTimeout(
+      provider.fetchStakingRewards(wallet.address, { lastExternalRef }),
+      FETCH_TIMEOUT_MS,
+    )
   } catch (error) {
     if (error instanceof ProviderError) {
-      // Provider failure → rewards incomplete. Nothing is persisted, so the cursor
-      // does not advance; the gap is retried from the same point on the next sync.
-      // Flag the run PARTIAL_SYNC so the user knows staking income may be stale.
+      // A truncated import carries the rewards collected before it stopped — persist
+      // them so progress isn't lost, then still flag PARTIAL_SYNC. A full failure
+      // carries none; nothing is persisted and the cursor does not advance, so the
+      // gap is retried from the same point on the next sync.
+      if (error.partialRewards && error.partialRewards.length > 0) {
+        await persistRewards(source, error.partialRewards)
+      }
       return [`Staking-Rewards unvollständig (${error.code}) — erneuter Sync nötig`]
     }
     throw error
   }
   if (rewards.length === 0) return []
+  await persistRewards(source, rewards)
+  return []
+}
 
+// Persist staking rewards as STAKING_REWARD transactions. Idempotent via
+// (sourceId, externalRef) (unique + skipDuplicates); unmapped symbols are skipped.
+async function persistRewards(source: PortfolioSource, rewards: RawStakingReward[]): Promise<void> {
   const assetMap = await resolveAssetsBySymbol(rewards.map((r) => r.symbol))
   const data = rewards.flatMap((r) => {
     const asset = assetMap.get(r.symbol.toUpperCase())
@@ -126,7 +141,6 @@ async function importStakingRewards(source: PortfolioSource): Promise<string[]> 
     ]
   })
   if (data.length > 0) await prisma.transaction.createMany({ data, skipDuplicates: true })
-  return []
 }
 
 // Step 1: validation + create the run (RUNNING). Separated from execution

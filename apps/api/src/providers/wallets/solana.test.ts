@@ -202,15 +202,19 @@ describe('solanaProvider.fetchStakingRewards', () => {
     // epoch 702 würde hier liegen — darf nicht abgefragt werden
     vi.stubGlobal('fetch', fn)
 
-    const rewards = await solanaProvider.fetchStakingRewards!(
-      '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
-      { lastExternalRef: `sol-reward:${STAKE_ACC}:699` },
-    )
-
-    // nur die Epoche vor dem transienten Fehler — der Cursor rückt nicht über 701 hinaus
-    expect(rewards).toEqual([
-      { symbol: 'SOL', amount: '0.05', timestamp: new Date(1709251200 * 1000), externalRef: `sol-reward:${STAKE_ACC}:700` },
-    ])
+    // Truncated import → wirft eine partielle Fehlermeldung, die die schon
+    // gesammelte Epoche 700 trägt (der Sync persistiert sie und meldet PARTIAL_SYNC).
+    // Der Cursor rückt nicht über 701 hinaus.
+    await expect(
+      solanaProvider.fetchStakingRewards!('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', {
+        lastExternalRef: `sol-reward:${STAKE_ACC}:699`,
+      }),
+    ).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      partialRewards: [
+        { symbol: 'SOL', amount: '0.05', timestamp: new Date(1709251200 * 1000), externalRef: `sol-reward:${STAKE_ACC}:700` },
+      ],
+    })
     // getProgramAccounts, getEpochInfo, infl@700, blockTime@700, infl@701(429) → 5; 702 nie abgefragt
     expect(fn).toHaveBeenCalledTimes(5)
   })
@@ -223,12 +227,13 @@ describe('solanaProvider.fetchStakingRewards', () => {
     fn.mockResolvedValueOnce({ ok: false, status: 429, json: async () => ({}) }) // getBlockTime 429
     vi.stubGlobal('fetch', fn)
 
-    const rewards = await solanaProvider.fetchStakingRewards!(
-      '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
-      { lastExternalRef: `sol-reward:${STAKE_ACC}:699` },
-    )
-    // kein Zeitstempel → kein Eintrag; Epoche 700 wird beim nächsten Sync erneut versucht
-    expect(rewards).toEqual([])
+    // getBlockTime-Rate-Limit → partieller Fehler ohne gesammelte Rewards; Epoche 700
+    // wird beim nächsten Sync erneut versucht (Cursor rückt nicht vor).
+    await expect(
+      solanaProvider.fetchStakingRewards!('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', {
+        lastExternalRef: `sol-reward:${STAKE_ACC}:699`,
+      }),
+    ).rejects.toMatchObject({ code: 'RATE_LIMITED', partialRewards: [] })
   })
 
   it('bricht bei fehlender Blockzeit (null) ab statt die Epoche still zu überspringen', async () => {
@@ -239,12 +244,13 @@ describe('solanaProvider.fetchStakingRewards', () => {
     fn.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ result: null }) }) // getBlockTime → null
     vi.stubGlobal('fetch', fn)
 
-    const rewards = await solanaProvider.fetchStakingRewards!(
-      '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
-      { lastExternalRef: `sol-reward:${STAKE_ACC}:699` },
-    )
-    // Epoche 700 wird zurückgestellt, NICHT zu 701/702 übersprungen
-    expect(rewards).toEqual([])
+    // Fehlende Blockzeit → partieller Fehler (PROVIDER_ERROR), Epoche 700 wird
+    // zurückgestellt, NICHT zu 701/702 übersprungen
+    await expect(
+      solanaProvider.fetchStakingRewards!('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', {
+        lastExternalRef: `sol-reward:${STAKE_ACC}:699`,
+      }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_ERROR', partialRewards: [] })
     // getProgramAccounts, getEpochInfo, infl@700, blockTime@700(null) → 4; 701/702 nie abgefragt
     expect(fn).toHaveBeenCalledTimes(4)
   })

@@ -52,7 +52,7 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
     throw new ProviderError('RATE_LIMITED', 'Solana-RPC Rate-Limit erreicht, bitte später erneut')
   }
   if (!res.ok) {
-    throw new ProviderError('PROVIDER_ERROR', `Solana-RPC antwortet mit ${res.status}`)
+    throw new ProviderError('PROVIDER_ERROR', `Solana-RPC antwortet mit ${res.status}`, res.status)
   }
   const json = (await res.json()) as RpcResponse<T>
   if (json.error) {
@@ -103,12 +103,26 @@ function epochFromExternalRef(ref: string | null): number | null {
 // reward is lost forever (it would never be re-queried). Pruned epochs, by
 // contrast, must be skipped forward or one un-retainable epoch would stall every
 // future reward.
+// HTTP statuses worth retrying — everything else (esp. 4xx) is terminal for the request.
+const RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504])
+
+// A genuinely un-retainable epoch (RPC long-term-storage pruning / too-old slot).
+// These never reappear, so the cursor must skip forward; older history is imported
+// via CSV. Matched by message because JSON-RPC error codes vary across RPC vendors.
+function isPrunedEpochError(e: ProviderError): boolean {
+  return /prun|not found|older|cleaned up|skipped|missing|not available/i.test(e.message)
+}
+
 function isTransientRpcError(e: unknown): boolean {
   if (e instanceof ProviderError) {
     if (e.code === 'RATE_LIMITED') return true
-    // rpc() wraps HTTP-level failures as "… antwortet mit <status>" (429/5xx/etc.)
-    if (e.code === 'PROVIDER_ERROR' && /antwortet mit \d/.test(e.message)) return true
-    return false // json-rpc error (e.g. pruned epoch) → safely skippable
+    // HTTP-level failure (rpc() attaches the status): only explicitly retryable
+    // statuses are transient; a 4xx is terminal and must not stall the loop forever.
+    if (e.status !== undefined) return RETRYABLE_HTTP_STATUS.has(e.status)
+    // JSON-RPC application error (no HTTP status): skip only known pruned/too-old
+    // epochs; any other JSON-RPC error stops the loop (treated transient) so its
+    // reward is never silently lost.
+    return !isPrunedEpochError(e)
   }
   return true // unknown (e.g. fetch network throw) → treat as transient, never drop
 }
@@ -186,6 +200,10 @@ export const solanaProvider: WalletProvider = {
     )
 
     const rewards: RawStakingReward[] = []
+    // Set when the loop stops early (truncated import). We throw afterwards carrying
+    // the rewards collected so far so the sync persists them AND flags PARTIAL_SYNC —
+    // a clean run returns normally and is reported as a full success.
+    let stop: { code: ProviderError['code']; status?: number; message: string } | null = null
     for (let epoch = fromEpoch; epoch <= lastComplete; epoch += 1) {
       try {
         const results = await rpc<Array<{ amount: number; effectiveSlot: number } | null>>(
@@ -201,7 +219,10 @@ export const solanaProvider: WalletProvider = {
         // (break, NOT continue): the cursor must not advance past this epoch, or its
         // reward would be lost forever. Earlier epochs in this batch already persist;
         // this epoch is retried on the next sync. Rare for recent (in-window) slots.
-        if (blockTime === null) break
+        if (blockTime === null) {
+          stop = { code: 'PROVIDER_ERROR', message: `Blockzeit fehlt für Epoche ${epoch}` }
+          break
+        }
         const timestamp = new Date(blockTime * 1000)
 
         results.forEach((r, i) => {
@@ -217,9 +238,21 @@ export const solanaProvider: WalletProvider = {
         // Transient (rate limit / 5xx / network): STOP — do not advance the cursor
         // past this epoch; it is retried on the next sync. Genuinely pruned/too-old
         // epochs are skipped forward (their history is imported via CSV).
-        if (isTransientRpcError(e)) break
+        if (isTransientRpcError(e)) {
+          stop = {
+            code: e instanceof ProviderError ? e.code : 'PROVIDER_ERROR',
+            status: e instanceof ProviderError ? e.status : undefined,
+            message: e instanceof Error ? e.message : String(e),
+          }
+          break
+        }
         continue
       }
+    }
+    // Truncated import → surface as a partial failure (carrying what we collected)
+    // so the sync flags PARTIAL_SYNC instead of mistaking it for a complete success.
+    if (stop) {
+      throw new ProviderError(stop.code, `Solana-Rewards unvollständig: ${stop.message}`, stop.status, rewards)
     }
     return rewards
   },
