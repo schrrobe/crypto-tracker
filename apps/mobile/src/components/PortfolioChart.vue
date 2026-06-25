@@ -3,9 +3,9 @@
     <ion-card-header class="header">
       <ion-card-subtitle>{{ $t('dashboard.history') }}</ion-card-subtitle>
       <span
-        v-if="deltaPercent !== null"
+        v-if="deltaPercent !== null && points.length >= 2"
         class="delta amount"
-        :class="deltaPercent >= 0 ? 'gain' : 'loss'"
+        :class="deltaClass"
         data-testid="chart-delta"
       >
         {{ formatDelta(deltaPercent) }}
@@ -13,7 +13,11 @@
     </ion-card-header>
     <ion-card-content>
       <div v-if="loading" class="chart-loading"><ion-spinner name="crescent" /></div>
-      <template v-else>
+      <div v-else-if="error" class="chart-error" data-testid="chart-error">
+        <p class="muted">{{ $t('dashboard.historyError') }}</p>
+        <ion-button size="small" fill="outline" @click="load">{{ $t('common.retry') }}</ion-button>
+      </div>
+      <template v-else-if="points.length >= 2">
         <svg viewBox="0 0 300 90" class="chart" preserveAspectRatio="none">
           <path :d="areaPath" class="area" />
           <path :d="linePath" class="line" fill="none" />
@@ -23,8 +27,11 @@
           <span>{{ formatCurrency(lastValue, currency) }}</span>
         </div>
       </template>
+      <div v-else class="chart-empty" data-testid="chart-empty">
+        <p class="muted">{{ $t('dashboard.historyEmpty') }}</p>
+      </div>
 
-      <ion-segment :value="range" class="ranges" @ionChange="onRangeChange($event.detail.value as HistoryRange)">
+      <ion-segment :value="range" class="ranges" @ionChange="onRangeChange($event)">
         <ion-segment-button value="24h" data-testid="chart-range-24h">
           <ion-label>{{ $t('dashboard.range24h') }}</ion-label>
         </ion-segment-button>
@@ -35,12 +42,18 @@
           <ion-label>{{ $t('dashboard.range30d') }}</ion-label>
         </ion-segment-button>
         <ion-segment-button value="1y" data-testid="chart-range-1y">
-          <ion-label>{{ $t('dashboard.range1y') }}{{ auth.isPro ? '' : ' 🔒' }}</ion-label>
+          <ion-label>
+            {{ $t('dashboard.range1y') }}
+            <ion-icon v-if="!auth.isPro" :icon="lockClosed" class="lock" aria-hidden="true" />
+          </ion-label>
         </ion-segment-button>
       </ion-segment>
 
       <p v-if="excludedAssets > 0" class="muted">
         {{ $t('dashboard.historyExcluded', { n: excludedAssets }) }}
+      </p>
+      <p v-if="!loading && !error && points.length >= 2" class="muted">
+        {{ $t('dashboard.historyNote') }}
       </p>
     </ion-card-content>
   </ion-card>
@@ -48,16 +61,19 @@
 
 <script setup lang="ts">
 import {
+  IonButton,
   IonCard,
   IonCardContent,
   IonCardHeader,
   IonCardSubtitle,
+  IonIcon,
   IonLabel,
   IonSegment,
   IonSegmentButton,
   IonSpinner,
 } from '@ionic/vue'
-import { computed, ref, watch } from 'vue'
+import { lockClosed } from 'ionicons/icons'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { HistoryRange, PortfolioHistoryDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
 import { usePortfoliosStore } from '../stores/portfolios.store'
@@ -74,11 +90,15 @@ const range = ref<HistoryRange>('24h')
 const points = ref<PortfolioHistoryDto['points']>([])
 const excludedAssets = ref(0)
 const loading = ref(false)
+const error = ref(false)
 
-const visible = computed(() => props.hasHoldings && (loading.value || points.value.length >= 2))
+// Visible whenever the user has holdings: render loading / error / chart / empty
+// inside. Never silently vanish — an all-excluded portfolio still gets a message.
+const visible = computed(() => props.hasHoldings)
 
 async function load() {
   loading.value = true
+  error.value = false
   try {
     const res = await api.get<PortfolioHistoryDto>(
       `/portfolio/history?range=${range.value}&currency=${props.currency}${usePortfoliosStore().scopeQuery('&')}`,
@@ -87,15 +107,25 @@ async function load() {
     excludedAssets.value = res.excludedAssets
   } catch {
     points.value = []
+    excludedAssets.value = 0
+    error.value = true
   } finally {
     loading.value = false
   }
 }
 
-function onRangeChange(value: HistoryRange) {
+function onRangeChange(ev: CustomEvent) {
+  const value = ev.detail.value as HistoryRange
   // 1-year history is Pro — free users get the paywall instead of the range
   if (value === '1y' && !auth.isPro) {
     openPaywall()
+    // Ionic leaves the tapped (locked) button checked even though `range` never
+    // changes. Reset the segment back to the active range so the switcher does
+    // not lie about which range the chart is showing.
+    const el = ev.target as (EventTarget & { value: string }) | null
+    nextTick(() => {
+      if (el) el.value = range.value
+    })
     return
   }
   range.value = value
@@ -122,12 +152,23 @@ const deltaPercent = computed(() => {
   return ((last - first) / first) * 100
 })
 
+// Treat sub-0.05 % moves as flat: a genuinely unchanged range must not render as
+// a green "+0.0 %" gain (or a red loss). Threshold matches the 1-decimal display.
+const deltaClass = computed(() => {
+  if (deltaPercent.value === null) return ''
+  if (deltaPercent.value >= 0.05) return 'gain'
+  if (deltaPercent.value <= -0.05) return 'loss'
+  return 'flat'
+})
+
 function formatDelta(value: number): string {
   const formatted = new Intl.NumberFormat(intlLocale(), {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(Math.abs(value))
-  return `${value >= 0 ? '+' : '−'}${formatted} %`
+  if (value >= 0.05) return `+${formatted} %`
+  if (value <= -0.05) return `−${formatted} %`
+  return `${formatted} %`
 }
 
 // Scale to viewBox 300×90 with a 4 % value buffer top/bottom
@@ -167,6 +208,14 @@ const areaPath = computed(() =>
 .delta.loss {
   color: var(--app-color-loss);
 }
+.delta.flat {
+  color: var(--ion-color-medium);
+}
+.lock {
+  font-size: 0.85em;
+  vertical-align: middle;
+  margin-left: 3px;
+}
 .chart {
   width: 100%;
   height: 90px;
@@ -177,6 +226,16 @@ const areaPath = computed(() =>
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.chart-error,
+.chart-empty {
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
 }
 .line {
   stroke: var(--ion-color-primary);
