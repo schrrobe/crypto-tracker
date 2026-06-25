@@ -3,7 +3,7 @@
     <ion-card-header class="header">
       <ion-card-subtitle>{{ $t('dashboard.history') }}</ion-card-subtitle>
       <span
-        v-if="deltaPercent !== null"
+        v-if="deltaPercent !== null && points.length >= 2"
         class="delta amount"
         :class="deltaClass"
         data-testid="chart-delta"
