@@ -187,6 +187,7 @@ const cs: MessageSchema = {
     deleteTitle: 'Smazat „{label}"?',
     deleteMessage: 'Všechna aktiva tohoto zdroje budou odstraněna.',
     renameTitle: 'Přejmenovat zdroj',
+    renameFailed: 'Přejmenování selhalo',
     importHistory: 'Historie CSV importů',
     transactions: 'Transakce',
     typeExchange: 'Burza',

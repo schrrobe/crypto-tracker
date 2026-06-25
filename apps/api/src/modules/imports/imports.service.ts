@@ -8,7 +8,9 @@ import {
   applyTransactionMapping,
   type BalanceMapping,
   type TransactionMapping,
+  type TransactionMappingOptions,
 } from '../../csv/csv.mapper'
+import { normalizeKrakenAsset } from '../../providers/exchanges/kraken'
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { computeNetBalances } from '../transactions/tx-net-balance'
@@ -45,6 +47,7 @@ export async function uploadCsv(
 ): Promise<CsvUploadResponse> {
   const pid = await resolvePortfolioId(userId, portfolioId)
   const { headers, rows } = parseCsv(file.buffer.toString('utf8'))
+  const { mapping, preset } = suggestMappingWithPreset(headers, kind)
 
   const source = await prisma.portfolioSource.create({
     data: {
@@ -61,14 +64,13 @@ export async function uploadCsv(
       filename: file.originalname,
       kind,
       status: 'PENDING_MAPPING',
+      preset, // persisted so confirm parses deterministically, no header re-detection
       rawPreview: { headers, rows: rows.slice(0, PREVIEW_ROWS) },
       rawRows: rows,
       totalRows: rows.length,
     },
     include: { source: { select: { label: true } } },
   })
-
-  const { mapping, preset } = suggestMappingWithPreset(headers, kind)
 
   // Active duplicate detection: exchange either chosen explicitly (covers all 11)
   // or detected via preset (KRAKEN/BITPANDA = ProviderId). If an API source for the
@@ -137,7 +139,12 @@ export async function confirmMapping(
   }
 
   if (record.kind === 'TRANSACTIONS') {
-    return confirmTransactionImport(record, rows, mapping as TransactionMapping)
+    // Preset was detected and persisted at upload time → deterministic parsing
+    // (Kraken: signed amounts, XXBT/ZEUR codes), not coupled to header re-detection.
+    // Legacy rows uploaded before the preset column existed have preset=NULL → fall
+    // back to re-detecting from headers so they still confirm with the right parser.
+    const preset = record.preset ?? suggestMappingWithPreset(headers, record.kind).preset
+    return confirmTransactionImport(record, rows, mapping as TransactionMapping, preset)
   }
 
   const { valid, errors } = applyBalanceMapping(rows, mapping)
@@ -184,8 +191,17 @@ async function confirmTransactionImport(
   record: ImportWithSource,
   rows: Array<Record<string, string>>,
   mapping: TransactionMapping,
+  preset: string | null = null,
 ): Promise<CsvImportDto> {
-  const { valid, errors } = applyTransactionMapping(rows, mapping)
+  // Kraken ledgers store signed amounts (outflows negative), legacy asset codes
+  // (XXBT/ZEUR) and a direction-neutral "trade" type — the fiat/fee leg of each
+  // trade is dropped (normalizeKrakenAsset → null). Other formats keep the
+  // generic positive-amount/type-from-column parsing.
+  const options: TransactionMappingOptions =
+    preset === 'KRAKEN'
+      ? { signedQuantity: true, normalizeSymbol: (rawSymbol) => normalizeKrakenAsset(rawSymbol)?.symbol ?? null }
+      : {}
+  const { valid, errors } = applyTransactionMapping(rows, mapping, options)
 
   const assetMap = await resolveAssetsBySymbol(valid.map((r) => r.symbol))
   const netInput: Array<{ assetId: string; type: typeof valid[number]['type']; quantity: Prisma.Decimal }> = []

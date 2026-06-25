@@ -49,9 +49,9 @@ describe('solanaProvider', () => {
 
     expect(balances).toContainEqual({ symbol: 'SOL', amount: '2.5' })
     expect(balances).toContainEqual({ symbol: 'USDC', amount: '12.5', meta: { mint: USDC_MINT } })
-    // Unknown mint → short form as symbol, stays unmapped (no price)
+    // Unknown mint → short form as symbol (6+6 base58 chars), stays unmapped (no price)
     expect(balances).toContainEqual({
-      symbol: 'So11…1112',
+      symbol: 'So1111…111112',
       amount: '7',
       meta: { mint: UNKNOWN_MINT },
     })

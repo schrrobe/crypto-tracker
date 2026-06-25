@@ -372,6 +372,9 @@ model CsvImport {
   filename      String
   kind          ImportKind
   status        ImportStatus    @default(PENDING_MAPPING)
+  // Detected export preset (KRAKEN/BITPANDA) at upload time. Persisted so confirm
+  // applies preset-specific parsing deterministically instead of re-detecting.
+  preset        String?
   columnMapping Json?
   rawPreview    Json
   rawRows       Json?
@@ -389,6 +392,10 @@ model SyncRun {
   sourceId     String
   status       SyncStatus
   startedAt    DateTime        @default(now())
+  // Liveness lease: set when an executor claims the run, then bumped periodically
+  // while it works. A fresh heartbeat means a live executor owns the run (blocks a
+  // second start); a stale/null heartbeat means crashed or not-yet-claimed.
+  heartbeatAt  DateTime?
   finishedAt   DateTime?
   errorCode    String?
   errorMessage String?

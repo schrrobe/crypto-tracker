@@ -9,10 +9,22 @@ import { ProviderError, type RawBalance, type RawPosition } from '../../provider
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { getOwnedSource } from '../sources/sources.service'
-import { enqueueSyncRun, isQueueEnabled } from './sync.queue'
+import { enqueueSyncRun, isQueueEnabled, pingRedis } from './sync.queue'
 import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 const RUNNING_STALE_MS = 2 * 60 * 1000
+// Liveness lease tuning. A claimed run bumps its heartbeat every HEARTBEAT_INTERVAL_MS;
+// it counts as alive (and blocks a second start) until the heartbeat is older than
+// HEARTBEAT_STALE_MS — 3× the interval, so a couple of missed beats are tolerated
+// before a run is treated as crashed.
+const HEARTBEAT_INTERVAL_MS = 15 * 1000
+const HEARTBEAT_STALE_MS = 45 * 1000
+// Reaper threshold is deliberately MUCH larger than RUNNING_STALE_MS: the latter
+// only gates whether a *new* run may start, the former declares a run truly dead.
+// A slow-but-alive sync (many sources, slow provider) can legitimately run past
+// 2 min — reaping it then would race a live executeSyncRun. 30 min is safely
+// beyond any real sync (each provider call is capped at FETCH_TIMEOUT_MS).
+const REAP_STALE_MS = 30 * 60 * 1000
 const FETCH_TIMEOUT_MS = 30 * 1000
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -117,15 +129,63 @@ export async function startSyncRun(userId: string, sourceId: string): Promise<Sy
     throw AppError.badRequest('SOURCE_NOT_SYNCABLE', 'Nur Exchange- und Wallet-Quellen können synchronisiert werden')
   }
 
-  const running = await prisma.syncRun.findFirst({
-    where: { sourceId, status: 'RUNNING', startedAt: { gt: new Date(Date.now() - RUNNING_STALE_MS) } },
+  // Atomic running-lock: a row-level lock on the source serializes concurrent
+  // sync starts, so the read-then-create below can't race two RUNNING runs into
+  // existence (the previous plain check was a TOCTOU window — two parallel
+  // requests both passed it and double-fetched the provider). A RUNNING run only
+  // blocks while it is provably alive — either a live executor is bumping its
+  // heartbeat, or it was just created and a worker hasn't claimed it yet. A run
+  // whose executor crashed (stale/missing heartbeat) does NOT block: this is the
+  // durable liveness signal that lets a legitimately long sync keep its lock past
+  // RUNNING_STALE_MS without leaving a crashed run blocking forever.
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "PortfolioSource" WHERE id = ${sourceId} FOR UPDATE`
+    const now = Date.now()
+    const running = await tx.syncRun.findFirst({
+      where: {
+        sourceId,
+        status: 'RUNNING',
+        OR: [
+          // Claimed and actively beating → a live executor owns this source.
+          { heartbeatAt: { gt: new Date(now - HEARTBEAT_STALE_MS) } },
+          // Created but not yet claimed by a worker (queue pickup delay).
+          { heartbeatAt: null, startedAt: { gt: new Date(now - RUNNING_STALE_MS) } },
+        ],
+      },
+    })
+    if (running) {
+      throw AppError.conflict('SYNC_ALREADY_RUNNING', 'Für diese Quelle läuft bereits ein Sync')
+    }
+    const run = await tx.syncRun.create({ data: { sourceId, status: 'RUNNING' } })
+    return toSyncRunDto(run)
   })
-  if (running) {
-    throw AppError.conflict('SYNC_ALREADY_RUNNING', 'Für diese Quelle läuft bereits ein Sync')
-  }
+}
 
-  const run = await prisma.syncRun.create({ data: { sourceId, status: 'RUNNING' } })
-  return toSyncRunDto(run)
+// Reaper: a RUNNING run whose process was killed (worker OOM/SIGKILL) can never
+// set itself to ERROR — executeSyncRun's catch only runs in a live process.
+// Such runs would stay RUNNING forever (the stale window only gates NEW runs,
+// it never reaps the orphan). This marks them ERROR/STALE. Called as a
+// repeatable worker job.
+export async function reapStaleRuns(): Promise<{ reaped: number }> {
+  const cutoff = new Date(Date.now() - REAP_STALE_MS)
+  const result = await prisma.syncRun.updateMany({
+    // Reap only runs that are both old AND show no recent heartbeat. A live but
+    // slow sync keeps bumping its heartbeat, so it is never reaped out from under
+    // a running executor; only crashed/orphaned runs (frozen or never-set
+    // heartbeat) past the conservative window are marked ERROR.
+    where: {
+      status: 'RUNNING',
+      startedAt: { lt: cutoff },
+      OR: [{ heartbeatAt: null }, { heartbeatAt: { lt: cutoff } }],
+    },
+    data: {
+      status: 'ERROR',
+      finishedAt: new Date(),
+      errorCode: 'STALE',
+      errorMessage: 'Sync wurde nicht abgeschlossen (Prozess beendet?)',
+    },
+  })
+  return { reaped: result.count }
 }
 
 // Step 2: execute the run — deliberately without an Express dependency (runs inline
@@ -140,8 +200,33 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
   if (!run) throw AppError.notFound('SyncRun nicht gefunden')
   if (run.status !== 'RUNNING') return toSyncRunDto(run)
 
+  // Atomic claim: exactly one executor may run the side effects for a given runId.
+  // The guarded updateMany matches only a run that is unclaimed or whose previous
+  // executor died (stale heartbeat); a live competing executor leaves a fresh
+  // heartbeat, so its claim matches 0 rows and it no-ops. This closes the window
+  // where a lost enqueue ACK (inline fallback + a worker pickup) could otherwise
+  // execute the same run twice.
+  const claim = await prisma.syncRun.updateMany({
+    where: {
+      id: runId,
+      status: 'RUNNING',
+      OR: [{ heartbeatAt: null }, { heartbeatAt: { lt: new Date(Date.now() - HEARTBEAT_STALE_MS) } }],
+    },
+    data: { heartbeatAt: new Date() },
+  })
+  if (claim.count === 0) return toSyncRunDto(run) // a live executor already owns this run
+
   const source = run.source
   const sourceId = source.id
+
+  // Keep the lease alive so a slow-but-healthy sync isn't mistaken for crashed.
+  // A failed bump is non-fatal — the staleness window tolerates missed beats.
+  const heartbeat = setInterval(() => {
+    void prisma.syncRun
+      .updateMany({ where: { id: runId, status: 'RUNNING' }, data: { heartbeatAt: new Date() } })
+      .catch(() => {})
+  }, HEARTBEAT_INTERVAL_MS)
+  if (typeof heartbeat.unref === 'function') heartbeat.unref() // never keep the process alive
 
   try {
     const snapshot = await fetchSnapshotForSource(source)
@@ -226,6 +311,8 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
       },
     })
     return toSyncRunDto(finished)
+  } finally {
+    clearInterval(heartbeat)
   }
 }
 
@@ -244,8 +331,23 @@ export async function requestSync(
   if (!isQueueEnabled()) {
     return { run: await syncSource(userId, sourceId), queued: false }
   }
+  // Verify Redis is reachable BEFORE creating the RUNNING run. Otherwise a dead
+  // Redis would leave a RUNNING run that never gets executed and never marked
+  // ERROR (the frontend would poll it until its 60s timeout). On a dead queue we
+  // deliberately fall back to inline execution.
+  try {
+    await pingRedis()
+  } catch {
+    return { run: await syncSource(userId, sourceId), queued: false }
+  }
   const run = await startSyncRun(userId, sourceId)
-  await enqueueSyncRun(run.id)
+  try {
+    await enqueueSyncRun(run.id)
+  } catch {
+    // Redis died in the race between ping and add — the RUNNING run already
+    // exists, so execute it inline here instead of leaving it orphaned.
+    return { run: await executeSyncRun(run.id), queued: false }
+  }
   return { run, queued: true }
 }
 

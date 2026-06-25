@@ -1,5 +1,6 @@
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
+import { prisma } from '../lib/prisma'
 import { API, app, bearer, createExchangeSource, createManualSource, registerUser } from './helpers'
 
 // FAKE_PROVIDERS (Kraken = spot-only fake): sync returns 0.1 BTC + 2 ETH ·
@@ -105,5 +106,82 @@ describe('Sync-Split: startSyncRun / executeSyncRun', () => {
 
     const holdings = await request(app).get(`${API}/holdings`).set(...bearer(user))
     expect(holdings.body.holdings.length).toBeGreaterThan(0)
+  })
+})
+
+// Liveness lease: a fresh heartbeat means a live executor owns the run. A second
+// executor must no-op (no duplicate side effects) and a second start must be blocked
+// even past RUNNING_STALE_MS — only a stale/missing heartbeat frees the source.
+describe('Sync-Lease (Heartbeat)', () => {
+  it('executeSyncRun no-opt, wenn ein lebender Executor den Run hält (frischer Heartbeat)', async () => {
+    const { executeSyncRun } = await import('../modules/sync/sync.service')
+    const user = await registerUser('lease-claim')
+    const source = await createExchangeSource(user, 'Lease Exchange')
+
+    // Simulate a live executor that has already claimed the run.
+    const owned = await prisma.syncRun.create({
+      data: { sourceId: source.id, status: 'RUNNING', heartbeatAt: new Date() },
+    })
+
+    const result = await executeSyncRun(owned.id)
+    expect(result.status).toBe('RUNNING') // claim matched 0 rows → no-op
+    expect(result.finishedAt).toBeNull()
+
+    // No side effects ran: holdings were not written by the losing executor.
+    const holdings = await request(app).get(`${API}/holdings`).set(...bearer(user))
+    expect(holdings.body.holdings).toHaveLength(0)
+  })
+
+  it('ein langer Run mit frischem Heartbeat blockiert einen zweiten Start, ein toter (alter Heartbeat) nicht', async () => {
+    const { startSyncRun } = await import('../modules/sync/sync.service')
+    const user = await registerUser('lease-gate')
+    const source = await createExchangeSource(user, 'Long Sync')
+
+    // Older than RUNNING_STALE_MS (2 min) but still actively beating → alive.
+    const alive = await prisma.syncRun.create({
+      data: {
+        sourceId: source.id,
+        status: 'RUNNING',
+        startedAt: new Date(Date.now() - 10 * 60 * 1000),
+        heartbeatAt: new Date(),
+      },
+    })
+    await expect(startSyncRun(user.userId, source.id)).rejects.toMatchObject({ code: 'SYNC_ALREADY_RUNNING' })
+
+    // Heartbeat goes stale (executor crashed) → the source frees up for a new run.
+    await prisma.syncRun.update({
+      where: { id: alive.id },
+      data: { heartbeatAt: new Date(Date.now() - 5 * 60 * 1000) },
+    })
+    const restarted = await startSyncRun(user.userId, source.id)
+    expect(restarted.status).toBe('RUNNING')
+  })
+})
+
+// A worker crash (OOM/SIGKILL) can leave a run RUNNING forever — executeSyncRun's
+// catch only runs in a live process. The reaper marks such orphans ERROR/STALE.
+describe('Stale-Run-Reaper', () => {
+  it('markiert hängende RUNNING-Runs als ERROR/STALE, lässt frische in Ruhe', async () => {
+    const { reapStaleRuns } = await import('../modules/sync/sync.service')
+    const user = await registerUser('reaper')
+    const source = await createExchangeSource(user, 'Reaper Exchange')
+
+    const stale = await prisma.syncRun.create({
+      data: { sourceId: source.id, status: 'RUNNING', startedAt: new Date(Date.now() - 60 * 60 * 1000) },
+    })
+    const fresh = await prisma.syncRun.create({
+      data: { sourceId: source.id, status: 'RUNNING' },
+    })
+
+    const result = await reapStaleRuns()
+    expect(result.reaped).toBeGreaterThanOrEqual(1)
+
+    const reaped = await prisma.syncRun.findUnique({ where: { id: stale.id } })
+    expect(reaped?.status).toBe('ERROR')
+    expect(reaped?.errorCode).toBe('STALE')
+    expect(reaped?.finishedAt).not.toBeNull()
+
+    const untouched = await prisma.syncRun.findUnique({ where: { id: fresh.id } })
+    expect(untouched?.status).toBe('RUNNING')
   })
 })

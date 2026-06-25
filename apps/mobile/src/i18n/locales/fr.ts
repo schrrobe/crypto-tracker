@@ -187,6 +187,7 @@ const fr: MessageSchema = {
     deleteTitle: 'Supprimer « {label} » ?',
     deleteMessage: 'Tous les avoirs de cette source seront supprimés.',
     renameTitle: 'Renommer la source',
+    renameFailed: 'Échec du renommage',
     importHistory: 'Historique des imports CSV',
     transactions: 'Transactions',
     typeExchange: 'Plateforme',

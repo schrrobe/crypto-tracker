@@ -26,25 +26,43 @@ function getQueue(): Queue {
   return queue
 }
 
-// Liveness check for Redis (admin health endpoint). Uses a short-lived Queue
-// and its underlying client's PING, then closes it — does not touch the worker.
+const PING_TIMEOUT_MS = 2000
+
+// Liveness check for Redis (admin health endpoint + sync-request preflight).
+// Reuses the cached queue's client — no per-call connection churn — and caps the
+// wait so a black-holed Redis host can't hang the caller for ~ioredis connectTimeout
+// (~10s). On timeout it rejects; callers treat that as "Redis unavailable".
 export async function pingRedis(): Promise<void> {
   if (!env.REDIS_URL) throw new Error('REDIS_URL nicht gesetzt')
-  const q = new Queue(SYNC_QUEUE_NAME, { connection: redisConnection() })
-  try {
+  const ping = (async () => {
     // bullmq's client type omits ping(); it exists on the underlying ioredis client.
-    const client = (await q.client) as unknown as { ping(): Promise<string> }
+    const client = (await getQueue().client) as unknown as { ping(): Promise<string> }
     await client.ping()
-  } finally {
-    await q.close()
-  }
+  })()
+  ping.catch(() => {}) // swallow late rejection after a timeout to avoid unhandledRejection
+  await Promise.race([
+    ping,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Redis-PING Timeout nach ${PING_TIMEOUT_MS}ms`)), PING_TIMEOUT_MS),
+    ),
+  ])
 }
 
 export async function enqueueSyncRun(runId: string): Promise<void> {
   await getQueue().add(
     'sync-run',
     { runId },
-    // No auto-retry: executeSyncRun writes provider errors into the run itself
-    { attempts: 1, removeOnComplete: 100, removeOnFail: 100 },
+    // Provider errors (rate limit, bad key) are written INTO the run and do not
+    // throw, so they never trigger a retry — they surface to the user as-is.
+    // attempts/backoff only matter for infrastructure throws (DB blip, transient
+    // crash): executeSyncRun is idempotent on a still-RUNNING run, so re-running
+    // is safe. jobId = runId deduplicates accidental double-enqueue of one run.
+    {
+      jobId: runId,
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5000 },
+      removeOnComplete: 100,
+      removeOnFail: 100,
+    },
   )
 }
