@@ -29,20 +29,22 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
   // Active announcements the user has not dismissed (by id:updatedAt) on this device.
   const visible = computed(() => active.value.filter((a) => !dismissed.value.includes(keyOf(a))))
 
-  // Single-flight guard, mode-aware. interval + resume + visibilitychange +
+  // Single-flight guard, per-kind. interval + resume + visibilitychange +
   // watch(immediate) can fire near-simultaneously; collapse overlapping loads of
-  // the SAME mode into one request. A different-mode call (auth transition:
-  // 'active' ↔ 'public') is NOT collapsed, and a resolved result is discarded if
-  // its mode is no longer the latest requested — otherwise an in-flight authed
-  // fetch could land non-public announcements after the user logged out.
-  type LoadMode = 'active' | 'public'
-  let inFlight: Promise<void> | null = null
-  let inFlightMode: LoadMode | null = null
-  let latestMode: LoadMode | null = null
+  // the SAME kind into one request. The two kinds ('active' authed / 'public'
+  // pre-login) get independent slots so an auth transition starts a fresh fetch
+  // without colliding. A request-sequence number discards a resolved result that
+  // a later call (or reset/logout) superseded — so an in-flight authed fetch
+  // can't land non-public announcements after logout.
+  type LoadKind = 'active' | 'public'
+  const inFlight: Partial<Record<LoadKind, Promise<void>>> = {}
+  let requestSeq = 0
 
   // Drop dismissed keys that no longer match any active announcement's current
   // key (announcement deleted, or edited so its key changed). Prevents the
-  // localStorage list from growing without bound.
+  // localStorage list from growing without bound. Only runs after an AUTHED load
+  // — the public subset is partial, so pruning against it would wrongly delete
+  // dismissals for non-public announcements.
   function pruneDismissed(): void {
     const live = new Set(active.value.map(keyOf))
     const kept = dismissed.value.filter((k) => live.has(k))
@@ -52,40 +54,49 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
     }
   }
 
-  function run(mode: LoadMode, fetcher: () => Promise<AnnouncementDto[]>): Promise<void> {
-    latestMode = mode
-    if (inFlight && inFlightMode === mode) return inFlight
-    inFlightMode = mode
-    inFlight = (async () => {
-      const result = await fetcher()
-      // Discard if a later call switched mode (e.g. logout while authed fetch ran).
-      if (latestMode !== mode) return
-      active.value = result
-      pruneDismissed()
+  function run(kind: LoadKind, fetcher: () => Promise<AnnouncementDto[]>, prune: boolean): Promise<void> {
+    if (inFlight[kind]) return inFlight[kind]!
+    const seq = ++requestSeq
+    const tracked: Promise<void> = (async () => {
+      const next = await fetcher()
+      if (seq !== requestSeq) return // superseded by a later load or reset()
+      active.value = next
+      if (prune) pruneDismissed()
     })().finally(() => {
-      inFlight = null
-      inFlightMode = null
+      // Only clear the slot if THIS promise still owns it (a newer same-kind
+      // request may have replaced it).
+      if (inFlight[kind] === tracked) delete inFlight[kind]
     })
-    return inFlight
+    inFlight[kind] = tracked
+    return tracked
   }
 
-  // Authed: all active announcements.
+  // Authed: all active announcements. Prunes dismissals against the full set.
   function loadActive(): Promise<void> {
-    return run('active', async () => (await api.get<{ announcements: AnnouncementDto[] }>('/announcements/active')).announcements)
+    return run(
+      'active',
+      async () => (await api.get<{ announcements: AnnouncementDto[] }>('/announcements/active')).announcements,
+      true,
+    )
   }
 
   // Pre-login: public announcements only. Plain fetch, NO bearer / NO 401-refresh
-  // pipeline (a missing session must not trigger a refresh). Fails closed.
+  // pipeline (a missing session must not trigger a refresh). Fails closed. Does
+  // NOT prune — the public subset can't see private dismissals.
   function loadPublic(): Promise<void> {
-    return run('public', async () => {
-      try {
-        const res = await fetch(`${apiBaseUrl()}/announcements/public`)
-        if (!res.ok) return []
-        return ((await res.json()) as { announcements: AnnouncementDto[] }).announcements
-      } catch {
-        return []
-      }
-    })
+    return run(
+      'public',
+      async () => {
+        try {
+          const res = await fetch(`${apiBaseUrl()}/announcements/public`)
+          if (!res.ok) return []
+          return ((await res.json()) as { announcements: AnnouncementDto[] }).announcements
+        } catch {
+          return []
+        }
+      },
+      false,
+    )
   }
 
   function dismiss(a: AnnouncementDto): void {
@@ -96,7 +107,9 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
   }
 
   // Clear fetched data on logout; keep dismissed ids (they are per-device).
+  // Bump the sequence so any in-flight authed fetch is discarded on resolve.
   function reset(): void {
+    requestSeq++
     active.value = []
   }
 

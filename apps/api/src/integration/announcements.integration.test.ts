@@ -94,7 +94,10 @@ describe('Announcements (Integration)', () => {
     const admin = await registerUser('ann-partial-admin', 'FREE')
     await makeAdmin(admin)
     const id = await createAnnouncement(admin, { messages: { de: 'unverändert' }, startsAt: '2099-01-01T00:00:00.000Z' })
-    await request(app).patch(`${API}/admin/announcements/${id}`).set(...bearer(admin)).send({ active: false })
+    const patch = await request(app).patch(`${API}/admin/announcements/${id}`).set(...bearer(admin)).send({ active: false })
+    // assert the PATCH actually applied — otherwise the field checks pass even if it no-ops
+    expect(patch.status).toBe(200)
+    expect(patch.body.announcement.active).toBe(false)
     const row = await prisma.announcement.findUnique({ where: { id } })
     expect((row?.messages as Record<string, string>).de).toBe('unverändert')
     expect(row?.startsAt?.toISOString()).toBe('2099-01-01T00:00:00.000Z')

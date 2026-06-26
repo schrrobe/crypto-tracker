@@ -61,6 +61,9 @@ onMounted(() => {
   watch(
     () => store.visible.length,
     async () => {
+      // v-if recreates the stack element each show cycle; drop the previous
+      // (now-detached) observation before observing the new node to avoid leaks.
+      ro?.disconnect()
       await nextTick()
       if (stackEl.value) ro?.observe(stackEl.value)
       setOffset(stackEl.value?.offsetHeight ?? 0)
@@ -116,10 +119,11 @@ onBeforeUnmount(() => {
 }
 .msg {
   flex: 1;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  /* Do NOT clamp: this banner is the only surface that renders the incident /
+     maintenance text, so the full message must be readable. The stack caps its
+     own height (max-height: 40vh) and scrolls if a notice is very long. */
+  white-space: pre-line;
+  word-break: break-word;
 }
 .close {
   flex: none;

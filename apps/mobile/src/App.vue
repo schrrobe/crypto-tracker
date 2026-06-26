@@ -32,23 +32,26 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 // subset (incident/maintenance banner on the login screen). The store collapses
 // overlapping calls and fails closed; a failed refetch keeps prior banners.
 function refresh(): void {
-  if (auth.user) {
-    void announcements.loadActive().catch((e) => console.warn('[announcements] load failed', e))
-  } else {
-    // Clear any authed banners synchronously on logout so non-public broadcasts
-    // can't linger on the login screen until the public fetch resolves.
-    announcements.reset()
-    void announcements.loadPublic().catch((e) => console.warn('[announcements] load failed', e))
-  }
+  const load = auth.user ? announcements.loadActive() : announcements.loadPublic()
+  void load.catch((e) => console.warn('[announcements] load failed', e))
 }
 
 function onVisible(): void {
   if (document.visibilityState === 'visible') refresh()
 }
 
-// Refetch on every session transition (restore, login, logout) so the banner
-// reflects the current auth state immediately.
-watch(() => auth.user, () => refresh(), { immediate: true })
+// Refetch on every session transition (restore, login, logout). Clear authed
+// banners ONLY on the logout transition (user → null) so non-public broadcasts
+// can't linger on the login screen — not on every logged-out poll, which would
+// blank the public banner and flicker.
+watch(
+  () => auth.user,
+  (user, prev) => {
+    if (!user && prev) announcements.reset()
+    refresh()
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   applyStoredTheme()
@@ -63,8 +66,12 @@ onMounted(() => {
   // api.client reports triggered Pro gates (402) → open the paywall
   window.addEventListener('plan:upgrade', () => openPaywall())
   // Keep broadcasts fresh while the app is open + on foreground (covers Capacitor
-  // resume, which raises visibilitychange).
-  pollTimer = setInterval(refresh, POLL_MS)
+  // resume, which raises visibilitychange). Skip ticks while hidden — onVisible
+  // already refreshes on foreground, so polling a backgrounded tab just burns
+  // network/battery.
+  pollTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') refresh()
+  }, POLL_MS)
   document.addEventListener('visibilitychange', onVisible)
 })
 

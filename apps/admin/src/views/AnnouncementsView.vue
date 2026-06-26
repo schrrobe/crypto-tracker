@@ -294,14 +294,24 @@ function edit(a: AdminAnnouncementDto): void {
 }
 
 async function toggleActive(a: AdminAnnouncementDto): Promise<void> {
-  await adminApi.updateAnnouncement(a.id, { active: !a.active })
-  await reload()
+  error.value = ''
+  try {
+    await adminApi.updateAnnouncement(a.id, { active: !a.active })
+    await reload()
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Aktualisieren fehlgeschlagen'
+  }
 }
 
 async function remove(id: string): Promise<void> {
   if (!confirm('Ankündigung wirklich löschen?')) return
-  await adminApi.deleteAnnouncement(id)
-  await reload()
+  error.value = ''
+  try {
+    await adminApi.deleteAnnouncement(id)
+    await reload()
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Löschen fehlgeschlagen'
+  }
 }
 
 onMounted(reload)

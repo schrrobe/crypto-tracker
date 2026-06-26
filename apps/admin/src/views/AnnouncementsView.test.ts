@@ -75,7 +75,7 @@ describe('AnnouncementsView', () => {
     expect(api.announcements).toHaveBeenCalledTimes(2) // initial + reload
   })
 
-  it('loads a row into the form for editing', async () => {
+  it('loads a row into the form and saves the edit via PATCH', async () => {
     const w = mountView()
     await flushPromises()
     const editBtn = w.findAll('button').find((b) => b.text() === 'Bearbeiten')!
@@ -83,6 +83,16 @@ describe('AnnouncementsView', () => {
     await flushPromises()
     expect(w.text()).toContain('Ankündigung bearbeiten')
     expect((w.findAll('textarea')[0]!.element as HTMLTextAreaElement).value).toBe('API gestört')
+
+    // change the default-locale message and submit — guards the PATCH wiring
+    await w.findAll('textarea')[0]!.setValue('API gestört (Update)')
+    const saveBtn = w.findAll('button').find((b) => b.text() === 'Speichern')!
+    await saveBtn.trigger('click')
+    await flushPromises()
+    expect(api.updateAnnouncement).toHaveBeenCalledTimes(1)
+    const [id, payload] = api.updateAnnouncement.mock.calls[0]!
+    expect(id).toBe('1')
+    expect(payload).toMatchObject({ level: 'ERROR', messages: { de: 'API gestört (Update)' }, defaultLocale: 'de' })
   })
 
   it('toggles active state via update', async () => {
