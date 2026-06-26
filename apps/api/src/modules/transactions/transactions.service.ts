@@ -104,9 +104,27 @@ async function getOrCreateManualTxSource(userId: string, portfolioId: string) {
 async function recomputeHoldings(sourceId: string): Promise<void> {
   const txs = await prisma.transaction.findMany({
     where: { sourceId },
-    select: { assetId: true, type: true, quantity: true },
+    select: {
+      assetId: true,
+      type: true,
+      quantity: true,
+      feeAmount: true,
+      currency: true,
+      asset: { select: { symbol: true } },
+    },
   })
-  const holdings = computeNetBalances(txs)
+  const { holdings } = computeNetBalances(
+    txs.map((t) => ({
+      assetId: t.assetId,
+      type: t.type,
+      quantity: t.quantity,
+      fee: t.feeAmount,
+      // Only subtract when the fee currency is explicitly the asset itself; the
+      // fee currency is otherwise unknown, and assuming "asset" would wrongly
+      // subtract fiat fees.
+      feeInAsset: !!t.feeAmount && !!t.currency && t.currency === t.asset.symbol,
+    })),
+  )
   await prisma.$transaction([
     prisma.holding.deleteMany({ where: { sourceId } }),
     prisma.holding.createMany({

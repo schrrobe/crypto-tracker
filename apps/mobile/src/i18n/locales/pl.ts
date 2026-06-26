@@ -11,6 +11,7 @@ const pl: MessageSchema = {
     loadFailed: 'Nie udało się wczytać danych',
     toggleBalances: 'Pokaż/ukryj salda',
     back: 'Wstecz',
+    edit: 'Edytuj',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -171,6 +172,7 @@ const pl: MessageSchema = {
     mapSearch: 'Szukaj w CoinGecko…',
     mapEmpty: 'Brak wyników',
     mapFailed: 'Przypisanie nie powiodło się',
+    mapHint: 'Wybierz pasującą monetę CoinGecko, aby ten aktyw uzyskał cenę.',
   },
   sync: {
     running: 'synchronizacja…',
@@ -178,9 +180,13 @@ const pl: MessageSchema = {
     csv: 'CSV',
     never: 'nigdy nie synchronizowano',
     error: 'Błąd: {message}',
+    errorTitle: 'Błąd synchronizacji',
   },
   sources: {
     syncAll: 'Wszystkie',
+    syncOne: 'Synchronizuj',
+    rename: 'Zmień nazwę',
+    connected: 'Połączono „{label}”',
     empty: 'Brak połączonych źródeł.',
     connectSource: 'Połącz źródło',
     keyPreview: 'Klucz {preview}',
@@ -255,6 +261,9 @@ const pl: MessageSchema = {
     title: 'Import CSV',
     intro:
       'Wgraj plik CSV ze swoimi aktywami (kolumny np. „Coin" i „Ilość"). W następnym kroku potwierdzisz przypisanie kolumn.',
+    introTransactions:
+      'Prześlij plik CSV z transakcjami (kupna, sprzedaże, wpłaty/wypłaty). Obliczymy z nich saldo netto dla każdej monety. W następnym kroku potwierdzisz przypisanie kolumn.',
+    chooseFile: 'Wybierz plik',
     doubleCountHint:
       'Nie importuj pliku CSV z giełdy już połączonej przez API — w przeciwnym razie aktywa zostaną policzone podwójnie. Importy można w każdej chwili usunąć w „Historii importów CSV".',
     labelOptional: 'Nazwa (opcjonalnie)',
@@ -267,12 +276,17 @@ const pl: MessageSchema = {
     presetDetected: 'Wykryto eksport {provider} — kolumny zostały wstępnie przypisane.',
     duplicateExchange:
       'Uwaga: „{source}" jest już połączone z {provider} przez API. Ten import policzyłby aktywa podwójnie — anuluj lub usuń potem jedno z dwóch źródeł.',
+    duplicateCsv:
+      'Uwaga: ten plik wygląda identycznie jak wcześniejszy import („{source}") w tym portfelu. Ponowny import policzyłby aktywa podwójnie — anuluj lub usuń potem jedno z dwóch źródeł.',
     symbolColumn: 'Kolumna symbolu',
     quantityColumn: 'Kolumna ilości',
     run: 'Importuj',
     importFailed: 'Import nie powiódł się',
     result: 'Zaimportowano {imported} z {total} wierszy',
     errorRowsTitle: 'Błędne wiersze (niezaimportowane):',
+    warningsTitle: 'Uwagi:',
+    noticeNonPositiveNet:
+      'Aktywo {symbol}: saldo netto ≤ 0 (więcej sprzedaży niż zakupów — niepełna historia?) — nie zaimportowano jako stan',
     errorLine: 'Wiersz {line}: {error}',
     kindBalances: 'Salda',
     kindTransactions: 'Transakcje',
@@ -437,6 +451,7 @@ const pl: MessageSchema = {
     PROVIDER_NOT_IMPLEMENTED: 'Ten dostawca nie jest jeszcze dostępny',
     ASSET_ALREADY_MAPPED: 'To aktywo ma już przypisaną cenę',
     COINGECKO_ID_TAKEN: 'To ID CoinGecko jest już przypisane do innego aktywa',
+    COINGECKO_SYMBOL_MISMATCH: 'Wybrany coin CoinGecko nie pasuje do symbolu tego aktywa',
     SOURCE_HAS_TRANSACTIONS:
       'Aktywa tego źródła są obliczane na podstawie transakcji — edytuj transakcje',
     TRANSFER_LINK_TYPES_INVALID: 'Transfer łączy dokładnie jedną wypłatę z jedną wpłatą',

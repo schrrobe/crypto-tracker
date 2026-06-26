@@ -11,6 +11,7 @@ const ru: MessageSchema = {
     loadFailed: 'Не удалось загрузить данные',
     toggleBalances: 'Показать/скрыть суммы',
     back: 'Назад',
+    edit: 'Изменить',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -171,6 +172,7 @@ const ru: MessageSchema = {
     mapSearch: 'Поиск на CoinGecko…',
     mapEmpty: 'Ничего не найдено',
     mapFailed: 'Не удалось сопоставить',
+    mapHint: 'Выберите подходящую монету CoinGecko, чтобы у актива появилась цена.',
   },
   sync: {
     running: 'синхронизация…',
@@ -178,9 +180,13 @@ const ru: MessageSchema = {
     csv: 'CSV',
     never: 'ещё не синхронизировано',
     error: 'Ошибка: {message}',
+    errorTitle: 'Ошибка синхронизации',
   },
   sources: {
     syncAll: 'Все',
+    syncOne: 'Синхронизировать',
+    rename: 'Переименовать',
+    connected: '«{label}» подключён',
     empty: 'Источники ещё не подключены.',
     connectSource: 'Подключить источник',
     keyPreview: 'Ключ {preview}',
@@ -255,6 +261,9 @@ const ru: MessageSchema = {
     title: 'CSV-импорт',
     intro:
       'Загрузите CSV со своими активами (столбцы, напр. «Coin» и «Количество»). На следующем шаге вы подтвердите сопоставление столбцов.',
+    introTransactions:
+      'Загрузите CSV со своими транзакциями (покупки, продажи, ввод/вывод). Мы рассчитаем чистый баланс по каждой монете. На следующем шаге вы подтвердите сопоставление столбцов.',
+    chooseFile: 'Выбрать файл',
     doubleCountHint:
       'Не импортируйте CSV с биржи, уже подключённой через API — иначе активы будут учтены дважды. Импорты можно в любой момент удалить в «Истории импортов CSV».',
     labelOptional: 'Название (необязательно)',
@@ -267,12 +276,17 @@ const ru: MessageSchema = {
     presetDetected: 'Обнаружен экспорт {provider} — столбцы предзаполнены.',
     duplicateExchange:
       'Внимание: «{source}» уже подключён к {provider} через API. Этот импорт учтёт активы дважды — отмените или затем удалите один из двух источников.',
+    duplicateCsv:
+      'Внимание: этот файл идентичен более раннему импорту («{source}») в этом портфеле. Повторный импорт учтёт активы дважды — отмените или затем удалите один из двух источников.',
     symbolColumn: 'Столбец символа',
     quantityColumn: 'Столбец количества',
     run: 'Импортировать',
     importFailed: 'Импорт не удался',
     result: 'Импортировано {imported} из {total} строк',
     errorRowsTitle: 'Ошибочные строки (не импортированы):',
+    warningsTitle: 'Примечания:',
+    noticeNonPositiveNet:
+      'Актив {symbol}: чистый баланс ≤ 0 (продаж больше, чем покупок — неполная история?) — не импортировано как остаток',
     errorLine: 'Строка {line}: {error}',
     kindBalances: 'Балансы',
     kindTransactions: 'Транзакции',
@@ -437,6 +451,7 @@ const ru: MessageSchema = {
     PROVIDER_NOT_IMPLEMENTED: 'Этот провайдер пока недоступен',
     ASSET_ALREADY_MAPPED: 'Этому активу уже назначена цена',
     COINGECKO_ID_TAKEN: 'Этот CoinGecko ID уже назначен другому активу',
+    COINGECKO_SYMBOL_MISMATCH: 'Выбранная монета CoinGecko не соответствует символу этого актива',
     SOURCE_HAS_TRANSACTIONS:
       'Активы этого источника рассчитываются из транзакций — отредактируйте транзакции',
     TRANSFER_LINK_TYPES_INVALID: 'Перевод связывает ровно один вывод с одним пополнением',

@@ -9,6 +9,7 @@ const de = {
     loadFailed: 'Daten konnten nicht geladen werden',
     toggleBalances: 'Beträge ein-/ausblenden',
     back: 'Zurück',
+    edit: 'Bearbeiten',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -170,6 +171,7 @@ const de = {
     mapSearch: 'Auf CoinGecko suchen…',
     mapEmpty: 'Keine Treffer',
     mapFailed: 'Zuordnen fehlgeschlagen',
+    mapHint: 'Wähle den passenden CoinGecko-Coin, damit dieses Asset einen Preis erhält.',
   },
   sync: {
     running: 'synchronisiert…',
@@ -177,9 +179,13 @@ const de = {
     csv: 'CSV',
     never: 'nie synchronisiert',
     error: 'Fehler: {message}',
+    errorTitle: 'Sync-Fehler',
   },
   sources: {
     syncAll: 'Alle',
+    syncOne: 'Synchronisieren',
+    rename: 'Umbenennen',
+    connected: '„{label}“ verbunden',
     empty: 'Noch keine Quellen verbunden.',
     connectSource: 'Quelle verbinden',
     keyPreview: 'Key {preview}',
@@ -254,6 +260,9 @@ const de = {
     title: 'CSV-Import',
     intro:
       'Lade eine CSV mit deinen Beständen hoch (Spalten z.B. „Coin" und „Menge"). Im nächsten Schritt bestätigst du die Spalten-Zuordnung.',
+    introTransactions:
+      'Lade eine CSV mit deinen Transaktionen hoch (Käufe, Verkäufe, Ein-/Auszahlungen). Wir berechnen daraus den Nettobestand je Coin. Im nächsten Schritt bestätigst du die Spalten-Zuordnung.',
+    chooseFile: 'Datei wählen',
     doubleCountHint:
       'Importiere keine CSV einer Börse, die du bereits per API verbunden hast — sonst werden Bestände doppelt gezählt. Importe lassen sich jederzeit unter „CSV-Import-Historie" wieder löschen.',
     labelOptional: 'Bezeichnung (optional)',
@@ -266,12 +275,17 @@ const de = {
     presetDetected: '{provider}-Export erkannt — Spalten sind vorbelegt.',
     duplicateExchange:
       'Achtung: „{source}" ist bereits per API mit {provider} verbunden. Dieser Import würde die Bestände doppelt zählen — brich ab oder lösche danach eine der beiden Quellen.',
+    duplicateCsv:
+      'Achtung: Diese Datei gleicht einem früheren Import („{source}") in diesem Portfolio. Ein erneuter Import würde die Bestände doppelt zählen — brich ab oder lösche danach eine der beiden Quellen.',
     symbolColumn: 'Symbol-Spalte',
     quantityColumn: 'Mengen-Spalte',
     run: 'Importieren',
     importFailed: 'Import fehlgeschlagen',
     result: '{imported} von {total} Zeilen importiert',
     errorRowsTitle: 'Fehlerhafte Zeilen (nicht importiert):',
+    warningsTitle: 'Hinweise:',
+    noticeNonPositiveNet:
+      'Asset {symbol}: Nettobestand ≤ 0 (mehr Verkäufe als Käufe — unvollständige Historie?) — nicht als Bestand übernommen',
     errorLine: 'Zeile {line}: {error}',
     kindBalances: 'Bestände',
     kindTransactions: 'Transaktionen',
@@ -436,6 +450,7 @@ const de = {
     PROVIDER_NOT_IMPLEMENTED: 'Dieser Anbieter ist noch nicht verfügbar',
     ASSET_ALREADY_MAPPED: 'Dieses Asset hat bereits ein Preis-Mapping',
     COINGECKO_ID_TAKEN: 'Diese CoinGecko-ID ist bereits einem Asset zugeordnet',
+    COINGECKO_SYMBOL_MISMATCH: 'Das gewählte CoinGecko-Coin passt nicht zum Symbol dieses Assets',
     SOURCE_HAS_TRANSACTIONS:
       'Bestände dieser Quelle werden aus Transaktionen berechnet — bitte die Transaktionen bearbeiten',
     TRANSFER_LINK_TYPES_INVALID: 'Ein Transfer verknüpft genau eine Auszahlung mit einer Einzahlung',

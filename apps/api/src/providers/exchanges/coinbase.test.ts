@@ -84,6 +84,15 @@ describe('coinbaseProvider.fetchBalances', () => {
     ])
   })
 
+  it('wirft PROVIDER_ERROR statt Teildaten, wenn der Cursor sich wiederholt', async () => {
+    // Same cursor returned twice with has_next=true → server loops the same page.
+    mockFetch([
+      { body: { accounts: [account('BTC', 'ACCOUNT_TYPE_CRYPTO', '1')], has_next: true, cursor: 'stuck' } },
+      { body: { accounts: [account('BTC', 'ACCOUNT_TYPE_CRYPTO', '1')], has_next: true, cursor: 'stuck' } },
+    ])
+    await expect(coinbaseProvider.fetchBalances(CREDS)).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
+
   it('wirft INVALID_API_KEY bei kaputtem PEM ohne API-Call', async () => {
     const fn = mockFetch([])
     await expect(
