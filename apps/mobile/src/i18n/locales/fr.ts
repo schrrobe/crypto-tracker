@@ -11,6 +11,7 @@ const fr: MessageSchema = {
     loadFailed: 'Impossible de charger les données',
     toggleBalances: 'Afficher/masquer les montants',
     back: 'Retour',
+    edit: 'Modifier',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -168,6 +169,7 @@ const fr: MessageSchema = {
     mapSearch: 'Rechercher sur CoinGecko…',
     mapEmpty: 'Aucun résultat',
     mapFailed: 'Échec de l\'association',
+    mapHint: 'Choisissez la crypto CoinGecko correspondante pour que cet actif obtienne un prix.',
   },
   sync: {
     running: 'synchronisation…',
@@ -175,9 +177,13 @@ const fr: MessageSchema = {
     csv: 'CSV',
     never: 'jamais synchronisé',
     error: 'Erreur : {message}',
+    errorTitle: 'Erreur de synchronisation',
   },
   sources: {
     syncAll: 'Tout',
+    syncOne: 'Synchroniser',
+    rename: 'Renommer',
+    connected: '« {label} » connecté',
     empty: 'Aucune source connectée.',
     connectSource: 'Connecter une source',
     keyPreview: 'Clé {preview}',
@@ -251,6 +257,9 @@ const fr: MessageSchema = {
     title: 'Import CSV',
     intro:
       'Téléversez un CSV avec vos avoirs (colonnes p. ex. « Coin » et « Quantité »). Vous confirmerez la correspondance des colonnes à l\'étape suivante.',
+    introTransactions:
+      'Téléversez un CSV avec vos transactions (achats, ventes, dépôts/retraits). Nous calculons le solde net par crypto. Vous confirmerez la correspondance des colonnes à l\'étape suivante.',
+    chooseFile: 'Choisir un fichier',
     doubleCountHint:
       "N'importe pas de CSV d'une plateforme déjà connectée via API — sinon les avoirs sont comptés deux fois. Les imports peuvent être supprimés à tout moment dans « Historique des imports CSV ».",
     labelOptional: 'Nom (optionnel)',
@@ -271,6 +280,7 @@ const fr: MessageSchema = {
     importFailed: "Échec de l'import",
     result: '{imported} lignes sur {total} importées',
     errorRowsTitle: 'Lignes invalides (non importées) :',
+    warningsTitle: 'Remarques :',
     errorLine: 'Ligne {line} : {error}',
     kindBalances: 'Soldes',
     kindTransactions: 'Transactions',

@@ -9,6 +9,7 @@ const de = {
     loadFailed: 'Daten konnten nicht geladen werden',
     toggleBalances: 'Beträge ein-/ausblenden',
     back: 'Zurück',
+    edit: 'Bearbeiten',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -167,6 +168,7 @@ const de = {
     mapSearch: 'Auf CoinGecko suchen…',
     mapEmpty: 'Keine Treffer',
     mapFailed: 'Zuordnen fehlgeschlagen',
+    mapHint: 'Wähle den passenden CoinGecko-Coin, damit dieses Asset einen Preis erhält.',
   },
   sync: {
     running: 'synchronisiert…',
@@ -174,9 +176,13 @@ const de = {
     csv: 'CSV',
     never: 'nie synchronisiert',
     error: 'Fehler: {message}',
+    errorTitle: 'Sync-Fehler',
   },
   sources: {
     syncAll: 'Alle',
+    syncOne: 'Synchronisieren',
+    rename: 'Umbenennen',
+    connected: '„{label}“ verbunden',
     empty: 'Noch keine Quellen verbunden.',
     connectSource: 'Quelle verbinden',
     keyPreview: 'Key {preview}',
@@ -250,6 +256,9 @@ const de = {
     title: 'CSV-Import',
     intro:
       'Lade eine CSV mit deinen Beständen hoch (Spalten z.B. „Coin" und „Menge"). Im nächsten Schritt bestätigst du die Spalten-Zuordnung.',
+    introTransactions:
+      'Lade eine CSV mit deinen Transaktionen hoch (Käufe, Verkäufe, Ein-/Auszahlungen). Wir berechnen daraus den Nettobestand je Coin. Im nächsten Schritt bestätigst du die Spalten-Zuordnung.',
+    chooseFile: 'Datei wählen',
     doubleCountHint:
       'Importiere keine CSV einer Börse, die du bereits per API verbunden hast — sonst werden Bestände doppelt gezählt. Importe lassen sich jederzeit unter „CSV-Import-Historie" wieder löschen.',
     labelOptional: 'Bezeichnung (optional)',
@@ -270,6 +279,7 @@ const de = {
     importFailed: 'Import fehlgeschlagen',
     result: '{imported} von {total} Zeilen importiert',
     errorRowsTitle: 'Fehlerhafte Zeilen (nicht importiert):',
+    warningsTitle: 'Hinweise:',
     errorLine: 'Zeile {line}: {error}',
     kindBalances: 'Bestände',
     kindTransactions: 'Transaktionen',

@@ -11,6 +11,7 @@ const en: MessageSchema = {
     loadFailed: 'Data could not be loaded',
     toggleBalances: 'Show/hide balances',
     back: 'Back',
+    edit: 'Edit',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -168,6 +169,7 @@ const en: MessageSchema = {
     mapSearch: 'Search on CoinGecko…',
     mapEmpty: 'No results',
     mapFailed: 'Mapping failed',
+    mapHint: 'Pick the matching CoinGecko coin so this asset gets a price.',
   },
   sync: {
     running: 'syncing…',
@@ -175,9 +177,13 @@ const en: MessageSchema = {
     csv: 'CSV',
     never: 'never synced',
     error: 'Error: {message}',
+    errorTitle: 'Sync error',
   },
   sources: {
     syncAll: 'All',
+    syncOne: 'Sync',
+    rename: 'Rename',
+    connected: '"{label}" connected',
     empty: 'No sources connected yet.',
     connectSource: 'Connect a source',
     keyPreview: 'Key {preview}',
@@ -251,6 +257,9 @@ const en: MessageSchema = {
     title: 'CSV import',
     intro:
       'Upload a CSV with your holdings (columns such as "Coin" and "Amount"). You will confirm the column mapping in the next step.',
+    introTransactions:
+      'Upload a CSV with your transactions (buys, sells, deposits/withdrawals). We compute the net balance per coin from them. You will confirm the column mapping in the next step.',
+    chooseFile: 'Choose file',
     doubleCountHint:
       "Don't import a CSV from an exchange you've already connected via API — otherwise balances are counted twice. You can delete imports anytime under \"CSV import history\".",
     labelOptional: 'Name (optional)',
@@ -271,6 +280,7 @@ const en: MessageSchema = {
     importFailed: 'Import failed',
     result: '{imported} of {total} rows imported',
     errorRowsTitle: 'Invalid rows (not imported):',
+    warningsTitle: 'Notes:',
     errorLine: 'Line {line}: {error}',
     kindBalances: 'Balances',
     kindTransactions: 'Transactions',

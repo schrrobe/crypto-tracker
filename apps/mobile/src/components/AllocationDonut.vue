@@ -4,7 +4,8 @@
       <ion-card-subtitle>{{ $t('dashboard.allocation') }}</ion-card-subtitle>
     </ion-card-header>
     <ion-card-content class="donut-wrap">
-      <svg viewBox="0 0 42 42" class="donut" role="img">
+      <svg viewBox="0 0 42 42" class="donut" role="img" :aria-label="ariaLabel">
+        <title>{{ ariaLabel }}</title>
         <circle
           v-for="segment in segments"
           :key="segment.label"
@@ -73,6 +74,15 @@ const segments = computed(() => {
     return segment
   })
 })
+
+// Accessible text alternative: the SVG arcs are color-only, so screen readers
+// and color-blind users rely on this label (mirrors the visible legend).
+const ariaLabel = computed(
+  () =>
+    `${t('dashboard.allocation')}: ${segments.value
+      .map((s) => `${s.label} ${formatPercent(s.percent)}`)
+      .join(', ')}`,
+)
 </script>
 
 <style scoped>
@@ -90,7 +100,9 @@ const segments = computed(() => {
   margin: 0;
   padding: 0;
   font-size: 0.85em;
-  flex: 1;
+  /* cap width so the symbol and its percent stay associated on wide viewports */
+  flex: 1 1 auto;
+  max-width: 280px;
 }
 .legend li {
   display: flex;

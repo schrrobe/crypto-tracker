@@ -23,7 +23,6 @@
       <template v-else-if="portfolio.holdings.length > 0">
       <ion-list v-for="group in groupedHoldings" :key="group.type" inset :data-testid="`holdings-group-${group.type}`">
         <ion-list-header>
-          <ion-label>{{ $t(`holdings.accountType.${group.type}`) }}</ion-label>
           <ion-badge :color="badgeColor(group.type)" :data-testid="`holding-badge-${group.type}`">
             {{ $t(`holdings.accountType.${group.type}`) }}
           </ion-badge>
@@ -45,6 +44,8 @@
             <ion-button
               v-if="holding.valueEur === null && holding.asset.coingeckoId === null"
               color="warning"
+              :aria-label="$t('holdings.mapPrice')"
+              :title="$t('holdings.mapPrice')"
               :data-testid="`holding-map-${holding.asset.symbol}`"
               @click="openMapping(holding)"
             >
@@ -52,6 +53,8 @@
             </ion-button>
             <ion-button
               v-if="holding.sourceType === 'MANUAL'"
+              :aria-label="$t('common.edit')"
+              :title="$t('common.edit')"
               :data-testid="`holding-edit-${holding.asset.symbol}`"
               @click="openEdit(holding)"
             >
@@ -60,6 +63,8 @@
             <ion-button
               v-if="holding.sourceType === 'MANUAL'"
               color="danger"
+              :aria-label="$t('common.delete')"
+              :title="$t('common.delete')"
               :data-testid="`holding-delete-${holding.asset.symbol}`"
               @click="confirmDelete(holding)"
             >
@@ -97,7 +102,11 @@
       </template>
 
       <div v-else class="empty" data-testid="holdings-empty">
+        <ion-icon :icon="walletOutline" class="empty-icon" />
         <p>{{ $t('holdings.empty') }}</p>
+        <ion-button fill="outline" data-testid="add-holding-empty" @click="openAdd">
+          {{ $t('holdings.addHolding') }}
+        </ion-button>
       </div>
 
       <ion-fab slot="fixed" vertical="bottom" horizontal="end">
@@ -150,6 +159,7 @@ import {
   informationCircleOutline,
   pricetagOutline,
   trashOutline,
+  walletOutline,
 } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -277,6 +287,11 @@ onIonViewWillEnter(() => {
   text-align: center;
   margin-top: 48px;
   color: var(--ion-color-medium);
+}
+.empty-icon {
+  font-size: 48px;
+  color: var(--ion-color-medium);
+  margin-bottom: 8px;
 }
 .amount.negative {
   color: var(--app-color-loss, #dc2626);

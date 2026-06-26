@@ -13,7 +13,7 @@
     <ion-content class="ion-padding">
       <!-- Step 1: Upload -->
       <template v-if="step === 'upload'">
-        <p class="hint">{{ $t('csv.intro') }}</p>
+        <p class="hint">{{ kind === 'TRANSACTIONS' ? $t('csv.introTransactions') : $t('csv.intro') }}</p>
         <ion-text color="warning">
           <p class="hint" data-testid="csv-double-count-hint">⚠ {{ $t('csv.doubleCountHint') }}</p>
         </ion-text>
@@ -49,13 +49,18 @@
             </ion-select-option>
           </ion-select>
         </ion-item>
+        <!-- Native input hidden; an Ionic button triggers it so the control matches the rest of the UI -->
         <input
+          ref="fileInput"
           type="file"
           accept=".csv,text/csv"
-          class="file-input"
+          class="file-input-hidden"
           data-testid="csv-file"
           @change="onFileSelected"
         />
+        <ion-button expand="block" fill="outline" data-testid="csv-choose-file" @click="fileInput?.click()">
+          {{ file ? file.name : $t('csv.chooseFile') }}
+        </ion-button>
         <ion-text v-if="error" color="danger"><p class="error" data-testid="csv-error">{{ error }}</p></ion-text>
         <ion-button
           expand="block"
@@ -192,20 +197,31 @@
 
       <!-- Step 3: Result -->
       <template v-else>
-        <ion-text :color="result?.status === 'COMPLETED' ? 'success' : 'danger'">
+        <ion-text :color="resultColor">
           <h2 data-testid="csv-result">
             {{ $t('csv.result', { imported: result?.importedRows, total: result?.totalRows }) }}
           </h2>
         </ion-text>
 
-        <template v-if="(result?.errorRows.length ?? 0) > 0">
+        <!-- Real parse/validation errors (an actual row failed) -->
+        <template v-if="resultErrors.length > 0">
           <p class="hint">{{ $t('csv.errorRowsTitle') }}</p>
           <ion-list inset data-testid="csv-error-rows">
-            <ion-item v-for="row in result?.errorRows" :key="row.line">
+            <ion-item v-for="row in resultErrors" :key="`e-${row.line}`">
               <ion-label>
                 <h3>{{ $t('csv.errorLine', { line: row.line, error: row.error }) }}</h3>
                 <p>{{ row.raw }}</p>
               </ion-label>
+            </ion-item>
+          </ion-list>
+        </template>
+
+        <!-- Non-row notices (e.g. an asset that netted to <= 0): a warning, not a failed row -->
+        <template v-if="resultWarnings.length > 0">
+          <p class="hint">{{ $t('csv.warningsTitle') }}</p>
+          <ion-list inset data-testid="csv-warning-rows">
+            <ion-item v-for="(row, i) in resultWarnings" :key="`w-${i}`">
+              <ion-label class="ion-text-wrap"><h3>{{ row.error }}</h3></ion-label>
             </ion-item>
           </ion-list>
         </template>
@@ -236,7 +252,7 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { EXCHANGE_PROVIDERS, type CsvImportDto, type CsvUploadResponse } from '@crypto-tracker/shared'
 import { apiErrorMessage } from '../../../services/errors'
 import { PROVIDER_LABELS } from '../../../services/provider-labels'
@@ -265,6 +281,16 @@ const result = ref<CsvImportDto | null>(null)
 const error = ref('')
 const uploading = ref(false)
 const importing = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+
+// Row failures (line > 0) are real errors; line 0 entries are notices (e.g. an
+// asset that netted to <= 0) and must not look like failed rows.
+const resultErrors = computed(() => (result.value?.errorRows ?? []).filter((r) => r.line > 0))
+const resultWarnings = computed(() => (result.value?.errorRows ?? []).filter((r) => r.line === 0))
+const resultColor = computed(() => {
+  if (result.value?.status !== 'COMPLETED') return 'danger'
+  return resultErrors.value.length > 0 ? 'warning' : 'success'
+})
 
 watch(
   () => props.isOpen,
@@ -355,9 +381,8 @@ function finish() {
   margin: 8px 4px;
   font-size: 0.9em;
 }
-.file-input {
-  display: block;
-  margin: 16px 4px;
+.file-input-hidden {
+  display: none;
 }
 .preview-wrap {
   overflow-x: auto;

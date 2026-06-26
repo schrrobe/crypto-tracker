@@ -11,6 +11,7 @@ const ru: MessageSchema = {
     loadFailed: 'Не удалось загрузить данные',
     toggleBalances: 'Показать/скрыть суммы',
     back: 'Назад',
+    edit: 'Изменить',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -168,6 +169,7 @@ const ru: MessageSchema = {
     mapSearch: 'Поиск на CoinGecko…',
     mapEmpty: 'Ничего не найдено',
     mapFailed: 'Не удалось сопоставить',
+    mapHint: 'Выберите подходящую монету CoinGecko, чтобы у актива появилась цена.',
   },
   sync: {
     running: 'синхронизация…',
@@ -175,9 +177,13 @@ const ru: MessageSchema = {
     csv: 'CSV',
     never: 'ещё не синхронизировано',
     error: 'Ошибка: {message}',
+    errorTitle: 'Ошибка синхронизации',
   },
   sources: {
     syncAll: 'Все',
+    syncOne: 'Синхронизировать',
+    rename: 'Переименовать',
+    connected: '«{label}» подключён',
     empty: 'Источники ещё не подключены.',
     connectSource: 'Подключить источник',
     keyPreview: 'Ключ {preview}',
@@ -251,6 +257,9 @@ const ru: MessageSchema = {
     title: 'CSV-импорт',
     intro:
       'Загрузите CSV со своими активами (столбцы, напр. «Coin» и «Количество»). На следующем шаге вы подтвердите сопоставление столбцов.',
+    introTransactions:
+      'Загрузите CSV со своими транзакциями (покупки, продажи, ввод/вывод). Мы рассчитаем чистый баланс по каждой монете. На следующем шаге вы подтвердите сопоставление столбцов.',
+    chooseFile: 'Выбрать файл',
     doubleCountHint:
       'Не импортируйте CSV с биржи, уже подключённой через API — иначе активы будут учтены дважды. Импорты можно в любой момент удалить в «Истории импортов CSV».',
     labelOptional: 'Название (необязательно)',
@@ -271,6 +280,7 @@ const ru: MessageSchema = {
     importFailed: 'Импорт не удался',
     result: 'Импортировано {imported} из {total} строк',
     errorRowsTitle: 'Ошибочные строки (не импортированы):',
+    warningsTitle: 'Примечания:',
     errorLine: 'Строка {line}: {error}',
     kindBalances: 'Балансы',
     kindTransactions: 'Транзакции',
