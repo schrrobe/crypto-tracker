@@ -9,6 +9,7 @@
       </ion-toolbar>
     </ion-header>
     <ion-content class="ion-padding">
+      <p class="hint">{{ $t('holdings.mapHint') }}</p>
       <ion-searchbar
         :debounce="250"
         :placeholder="$t('holdings.mapSearch')"
@@ -31,20 +32,21 @@
         </ion-item>
       </ion-list>
       <p v-if="searched && results.length === 0" class="hint">{{ $t('holdings.mapEmpty') }}</p>
-
+    </ion-content>
+    <ion-footer class="ion-padding">
       <ion-text v-if="error" color="danger">
         <p class="error" data-testid="mapping-error">{{ error }}</p>
       </ion-text>
-
       <ion-button
         expand="block"
         :disabled="!selected || saving"
         data-testid="mapping-save"
         @click="save"
       >
-        {{ $t('common.save') }}
+        <ion-spinner v-if="saving" name="crescent" />
+        <span v-else>{{ $t('common.save') }}</span>
       </ion-button>
-    </ion-content>
+    </ion-footer>
   </ion-modal>
 </template>
 
@@ -53,12 +55,14 @@ import {
   IonButton,
   IonButtons,
   IonContent,
+  IonFooter,
   IonHeader,
   IonItem,
   IonLabel,
   IonList,
   IonModal,
   IonSearchbar,
+  IonSpinner,
   IonText,
   IonTitle,
   IonToolbar,

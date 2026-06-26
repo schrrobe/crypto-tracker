@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { krakenProvider, krakenSignature, normalizeKrakenAsset } from './kraken'
+import { krakenProvider, krakenSignature, nextKrakenNonce, normalizeKrakenAsset } from './kraken'
+import { mockFetch } from './__test-helpers'
 
 // Realistic Kraken balance response (POST /0/private/Balance)
 const BALANCE_FIXTURE = {
@@ -13,12 +14,6 @@ const BALANCE_FIXTURE = {
     ADA: '0.00000000', // zero balance → skipped
     KFEE: '155.00', // fee credits → skipped
   },
-}
-
-function mockFetch(status: number, body: unknown) {
-  const fn = vi.fn(async () => ({ ok: status >= 200 && status < 300, status, json: async () => body }))
-  vi.stubGlobal('fetch', fn)
-  return fn
 }
 
 afterEach(() => vi.unstubAllGlobals())
@@ -38,9 +33,21 @@ describe('krakenSignature', () => {
   })
 })
 
+describe('nextKrakenNonce', () => {
+  it('liefert streng monoton steigende Werte, auch bei gleicher Millisekunde', () => {
+    // same wall-clock ms for every call → must still strictly increase
+    const a = nextKrakenNonce(1_700_000_000_000)
+    const b = nextKrakenNonce(1_700_000_000_000)
+    const c = nextKrakenNonce(1_700_000_000_000)
+    expect(BigInt(b)).toBeGreaterThan(BigInt(a))
+    expect(BigInt(c)).toBeGreaterThan(BigInt(b))
+  })
+})
+
 describe('normalizeKrakenAsset', () => {
   it('übersetzt Kraken-Altcodes (Spot)', () => {
     expect(normalizeKrakenAsset('XXBT')).toEqual({ symbol: 'BTC', accountType: 'SPOT' })
+    expect(normalizeKrakenAsset('XBT')).toEqual({ symbol: 'BTC', accountType: 'SPOT' })
     expect(normalizeKrakenAsset('XETH')).toEqual({ symbol: 'ETH', accountType: 'SPOT' })
     expect(normalizeKrakenAsset('XXDG')).toEqual({ symbol: 'DOGE', accountType: 'SPOT' })
     expect(normalizeKrakenAsset('SOL')).toEqual({ symbol: 'SOL', accountType: 'SPOT' })
@@ -51,6 +58,9 @@ describe('normalizeKrakenAsset', () => {
     expect(normalizeKrakenAsset('SOL.S')).toEqual({ symbol: 'SOL', accountType: 'EARN' })
     expect(normalizeKrakenAsset('XBT.M')).toEqual({ symbol: 'BTC', accountType: 'MARGIN' })
     expect(normalizeKrakenAsset('ETH2')).toEqual({ symbol: 'ETH', accountType: 'EARN' })
+    // .F = Auto-Earn → EARN, .B = Bonded (tradable) → SPOT
+    expect(normalizeKrakenAsset('USDT.F')).toEqual({ symbol: 'USDT', accountType: 'EARN' })
+    expect(normalizeKrakenAsset('XBT.B')).toEqual({ symbol: 'BTC', accountType: 'SPOT' })
   })
 
   it('überspringt Fiat und Fee-Credits', () => {
@@ -58,6 +68,19 @@ describe('normalizeKrakenAsset', () => {
     expect(normalizeKrakenAsset('ZUSD')).toBeNull()
     expect(normalizeKrakenAsset('EUR')).toBeNull()
     expect(normalizeKrakenAsset('KFEE')).toBeNull()
+  })
+
+  it('reicht unbekannte Codes deterministisch durch, ohne sie auf ein falsches bekanntes Symbol zu mappen', () => {
+    // Regression guard for CSO-L1: an unknown code must never silently resolve
+    // to a *different* known asset (no wrong market). It is passed through
+    // verbatim → downstream creates an explicit unmapped asset (no price).
+    expect(normalizeKrakenAsset('FOOBAR')).toEqual({ symbol: 'FOOBAR', accountType: 'SPOT' })
+    // deterministic: same input → same output, every call
+    expect(normalizeKrakenAsset('FOOBAR')).toEqual(normalizeKrakenAsset('FOOBAR'))
+    // an unknown code never collides onto a mapped symbol like BTC/ETH
+    expect(normalizeKrakenAsset('FOOBAR')!.symbol).not.toBe('BTC')
+    // staking suffix on an unknown base still derives the account type, not the symbol
+    expect(normalizeKrakenAsset('FOOBAR.S')).toEqual({ symbol: 'FOOBAR', accountType: 'EARN' })
   })
 })
 
@@ -86,6 +109,13 @@ describe('krakenProvider.fetchBalances', () => {
     expect(headers['API-Key']).toBe('test-key')
     expect(headers['API-Sign']).toMatch(/^[A-Za-z0-9+/=]+$/)
     expect(String(init.body)).toMatch(/^nonce=\d+$/)
+
+    // Wiring-KAT: the sent signature must equal the pure function applied to the
+    // exact path/body/nonce that went over the wire — fails if the wrapper signs
+    // the wrong path, body, or a different nonce than the request carries.
+    const body = String(init.body)
+    const nonce = body.match(/^nonce=(\d+)$/)![1]!
+    expect(headers['API-Sign']).toBe(krakenSignature('/0/private/Balance', body, nonce, CREDS.apiSecret))
   })
 
   it('mappt Auth-Fehler auf INVALID_API_KEY', async () => {
@@ -100,6 +130,20 @@ describe('krakenProvider.fetchBalances', () => {
 
   it('mappt sonstige Kraken-Fehler auf PROVIDER_ERROR', async () => {
     mockFetch(200, { error: ['EService:Unavailable'] })
+    await expect(krakenProvider.fetchBalances(CREDS)).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
+
+  it('klassifiziert Auth-Fehler auch bei non-2xx-Status über den Body', async () => {
+    // 401 carrying the Kraken error envelope must map to INVALID_API_KEY,
+    // not the status-only PROVIDER_ERROR fallback
+    mockFetch(401, { error: ['EAPI:Invalid key'] })
+    await expect(krakenProvider.fetchBalances(CREDS)).rejects.toMatchObject({ code: 'INVALID_API_KEY' })
+  })
+
+  it('wirft ProviderError statt TypeError bei JSON-Body ohne error-Feld', async () => {
+    // malformed/gateway body: valid JSON object but no error[] → must not throw
+    // a raw TypeError on json.error.length
+    mockFetch(502, { message: 'Bad Gateway' })
     await expect(krakenProvider.fetchBalances(CREDS)).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
   })
 })

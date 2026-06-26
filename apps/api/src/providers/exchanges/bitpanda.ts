@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from '../http'
 import {
   ProviderError,
   type ExchangeCredentials,
@@ -20,7 +21,7 @@ interface BitpandaWallet {
 }
 
 async function fetchBitpandaBalances(creds: ExchangeCredentials): Promise<RawBalance[]> {
-  const res = await fetch(`${BASE_URL}/wallets`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/wallets`, {
     headers: { 'X-Api-Key': creds.apiKey },
   })
   if (res.status === 401 || res.status === 403) {

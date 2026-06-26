@@ -177,9 +177,17 @@ export interface MappingSuggestionDto {
 }
 
 export interface ImportErrorRow {
-  line: number
-  raw: string
+  // Present for row-level errors (1-based, incl. header). Absent for file-level
+  // notices (`kind: 'notice'`) that aren't tied to a single row.
+  line?: number
+  raw?: string
+  // German fallback text (server texts stay German). The frontend prefers `code`
+  // (a stable i18n key) + `params` when present, falling back to `error`.
   error: string
+  code?: string
+  params?: Record<string, string | number>
+  // 'notice' = file-level message (e.g. an asset that netted to <= 0), not a row error.
+  kind?: 'notice'
 }
 
 export interface CsvImportDto {
@@ -209,6 +217,9 @@ export interface CsvUploadResponse {
   // provider of the detected duplicate exchange — used to display the name in the
   // warning (covers all exchanges, not just the preset ones).
   duplicateExchangeProvider: (typeof EXCHANGE_PROVIDERS)[number] | null
+  // label of an earlier CSV import with identical file content in the same
+  // portfolio — otherwise null. Warns about double counting the same file.
+  duplicateCsvSource: string | null
 }
 
 export type HistoryRange = '24h' | '7d' | '30d' | '1y'

@@ -11,6 +11,7 @@ const fr: MessageSchema = {
     loadFailed: 'Impossible de charger les données',
     toggleBalances: 'Afficher/masquer les montants',
     back: 'Retour',
+    edit: 'Modifier',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -171,6 +172,7 @@ const fr: MessageSchema = {
     mapSearch: 'Rechercher sur CoinGecko…',
     mapEmpty: 'Aucun résultat',
     mapFailed: 'Échec de l\'association',
+    mapHint: 'Choisissez la crypto CoinGecko correspondante pour que cet actif obtienne un prix.',
   },
   sync: {
     running: 'synchronisation…',
@@ -178,9 +180,13 @@ const fr: MessageSchema = {
     csv: 'CSV',
     never: 'jamais synchronisé',
     error: 'Erreur : {message}',
+    errorTitle: 'Erreur de synchronisation',
   },
   sources: {
     syncAll: 'Tout',
+    syncOne: 'Synchroniser',
+    rename: 'Renommer',
+    connected: '« {label} » connecté',
     empty: 'Aucune source connectée.',
     connectSource: 'Connecter une source',
     keyPreview: 'Clé {preview}',
@@ -255,6 +261,9 @@ const fr: MessageSchema = {
     title: 'Import CSV',
     intro:
       'Téléversez un CSV avec vos avoirs (colonnes p. ex. « Coin » et « Quantité »). Vous confirmerez la correspondance des colonnes à l\'étape suivante.',
+    introTransactions:
+      'Téléversez un CSV avec vos transactions (achats, ventes, dépôts/retraits). Nous calculons le solde net par crypto. Vous confirmerez la correspondance des colonnes à l\'étape suivante.',
+    chooseFile: 'Choisir un fichier',
     doubleCountHint:
       "N'importe pas de CSV d'une plateforme déjà connectée via API — sinon les avoirs sont comptés deux fois. Les imports peuvent être supprimés à tout moment dans « Historique des imports CSV ».",
     labelOptional: 'Nom (optionnel)',
@@ -267,12 +276,17 @@ const fr: MessageSchema = {
     presetDetected: 'Export {provider} détecté — les colonnes sont préremplies.',
     duplicateExchange:
       "Attention : « {source} » est déjà connecté à {provider} via API. Cet import compterait les avoirs deux fois — annulez, ou supprimez ensuite l'une des deux sources.",
+    duplicateCsv:
+      "Attention : ce fichier semble identique à un import précédent (« {source} ») dans ce portefeuille. Le réimporter compterait les avoirs deux fois — annulez, ou supprimez ensuite l'une des deux sources.",
     symbolColumn: 'Colonne symbole',
     quantityColumn: 'Colonne quantité',
     run: 'Importer',
     importFailed: "Échec de l'import",
     result: '{imported} lignes sur {total} importées',
     errorRowsTitle: 'Lignes invalides (non importées) :',
+    warningsTitle: 'Remarques :',
+    noticeNonPositiveNet:
+      'Actif {symbol} : solde net ≤ 0 (plus de ventes que d’achats — historique incomplet ?) — non importé comme avoir',
     errorLine: 'Ligne {line} : {error}',
     kindBalances: 'Soldes',
     kindTransactions: 'Transactions',
@@ -438,6 +452,7 @@ const fr: MessageSchema = {
     PROVIDER_NOT_IMPLEMENTED: 'Ce fournisseur n\'est pas encore disponible',
     ASSET_ALREADY_MAPPED: 'Cet actif a déjà une association de prix',
     COINGECKO_ID_TAKEN: 'Cet identifiant CoinGecko est déjà associé à un autre actif',
+    COINGECKO_SYMBOL_MISMATCH: 'Le coin CoinGecko choisi ne correspond pas au symbole de cet actif',
     SOURCE_HAS_TRANSACTIONS:
       'Les avoirs de cette source sont calculés à partir des transactions — veuillez modifier les transactions',
     TRANSFER_LINK_TYPES_INVALID: 'Un transfert lie exactement un retrait à un dépôt',

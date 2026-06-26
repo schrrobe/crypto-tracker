@@ -1,11 +1,16 @@
 import jwt from 'jsonwebtoken'
 import { randomBytes } from 'node:crypto'
+import { fetchWithTimeout } from '../http'
 import {
   ProviderError,
   type ExchangeCredentials,
   type ExchangeProvider,
   type RawBalance,
 } from '../provider.types'
+
+// Safety bound: stop paginating after this many pages (250 accounts each) even if
+// the API keeps returning has_next — guards against a stuck/repeating cursor.
+const MAX_PAGES = 50
 
 // Coinbase Advanced Trade API with CDP keys: apiKey = key name
 // ("organizations/{org}/apiKeys/{key}"), apiSecret = EC private key (PEM, ES256).
@@ -61,8 +66,15 @@ async function fetchCoinbaseBalances(creds: ExchangeCredentials): Promise<RawBal
   const privateKey = normalizePrivateKey(creds.apiSecret)
 
   const balances: RawBalance[] = []
+  const seenCursors = new Set<string>()
   let cursor = ''
+  let pages = 0
   do {
+    if (++pages > MAX_PAGES) {
+      // A real account set fits within MAX_PAGES; exceeding it means the cursor
+      // never terminates — fail instead of returning silently truncated balances.
+      throw new ProviderError('PROVIDER_ERROR', 'Coinbase: Pagination-Limit überschritten')
+    }
     let token: string
     try {
       token = buildCoinbaseJwt(creds.apiKey, privateKey, 'GET', ACCOUNTS_PATH)
@@ -71,7 +83,7 @@ async function fetchCoinbaseBalances(creds: ExchangeCredentials): Promise<RawBal
     }
 
     const query = `limit=250${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
-    const res = await fetch(`https://${HOST}${ACCOUNTS_PATH}?${query}`, {
+    const res = await fetchWithTimeout(`https://${HOST}${ACCOUNTS_PATH}?${query}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (res.status === 401 || res.status === 403) {
@@ -88,7 +100,14 @@ async function fetchCoinbaseBalances(creds: ExchangeCredentials): Promise<RawBal
         if (Number(amount) > 0) balances.push({ symbol: account.currency.toUpperCase(), amount })
       }
     }
-    cursor = data.has_next ? data.cursor : ''
+    const next = data.has_next ? data.cursor : ''
+    if (next && (next === cursor || seenCursors.has(next))) {
+      // Repeated cursor → the server is looping the same page; continuing would
+      // append duplicate balances until MAX_PAGES. Fail rather than inflate.
+      throw new ProviderError('PROVIDER_ERROR', 'Coinbase: Pagination hängt (Cursor wiederholt sich)')
+    }
+    if (next) seenCursors.add(next)
+    cursor = next
   } while (cursor)
 
   return balances

@@ -175,6 +175,7 @@
 
 <script setup lang="ts">
 import {
+  toastController,
   IonAccordion,
   IonAccordionGroup,
   IonButton,
@@ -324,7 +325,15 @@ async function save() {
   error.value = ''
   saving.value = true
   try {
+    const sourceLabel = label.value.trim()
     await sourcesStore.create(buildInput())
+    const toast = await toastController.create({
+      message: t('sources.connected', { label: sourceLabel }),
+      duration: 2000,
+      color: 'success',
+      position: 'bottom',
+    })
+    await toast.present()
     emit('created')
     emit('close')
   } catch (e) {

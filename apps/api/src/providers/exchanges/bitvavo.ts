@@ -37,6 +37,15 @@ interface BitvavoError {
 // Bitvavo is a EUR exchange — fiat is not tracked in V1
 const SKIP = new Set(['EUR'])
 
+// Bitvavo returns standard tickers (no legacy aliases like Kraken's XXBT), so
+// normalization is just casing + fiat skip. Pure and exported so the skip set
+// is testable in isolation, separate from the HTTP client. Uppercase before
+// the SKIP check so case-varied fiat ("eur") never leaks as a holding.
+export function normalizeBitvavoAsset(symbol: string): string | null {
+  const upper = symbol.toUpperCase()
+  return SKIP.has(upper) ? null : upper
+}
+
 async function fetchBitvavoBalances(creds: ExchangeCredentials): Promise<RawBalance[]> {
   if (!creds.apiSecret) throw new ProviderError('INVALID_API_KEY', 'Bitvavo: API-Secret fehlt')
   const timestamp = Date.now().toString()
@@ -63,11 +72,12 @@ async function fetchBitvavoBalances(creds: ExchangeCredentials): Promise<RawBala
   const entries = (await res.json()) as BitvavoBalanceEntry[]
   const balances: RawBalance[] = []
   for (const entry of entries) {
-    if (SKIP.has(entry.symbol)) continue
+    const symbol = normalizeBitvavoAsset(entry.symbol)
+    if (!symbol) continue
     // available and inOrder as separate entries — the SyncService sums
     // identical symbols via Decimal (no float in the provider layer)
     for (const amount of [entry.available, entry.inOrder]) {
-      if (Number(amount) > 0) balances.push({ symbol: entry.symbol.toUpperCase(), amount })
+      if (Number(amount) > 0) balances.push({ symbol, amount })
     }
   }
   return balances

@@ -11,6 +11,7 @@ const cs: MessageSchema = {
     loadFailed: 'Data se nepodařilo načíst',
     toggleBalances: 'Zobrazit/skrýt částky',
     back: 'Zpět',
+    edit: 'Upravit',
   },
   auth: {
     appTitle: 'Crypto Tracker',
@@ -171,6 +172,7 @@ const cs: MessageSchema = {
     mapSearch: 'Hledat na CoinGecko…',
     mapEmpty: 'Žádné výsledky',
     mapFailed: 'Přiřazení se nezdařilo',
+    mapHint: 'Vyberte odpovídající minci CoinGecko, aby tento aktiv získal cenu.',
   },
   sync: {
     running: 'synchronizuje se…',
@@ -178,9 +180,13 @@ const cs: MessageSchema = {
     csv: 'CSV',
     never: 'nikdy nesynchronizováno',
     error: 'Chyba: {message}',
+    errorTitle: 'Chyba synchronizace',
   },
   sources: {
     syncAll: 'Vše',
+    syncOne: 'Synchronizovat',
+    rename: 'Přejmenovat',
+    connected: '„{label}“ připojeno',
     empty: 'Zatím žádné připojené zdroje.',
     connectSource: 'Připojit zdroj',
     keyPreview: 'Klíč {preview}',
@@ -255,6 +261,9 @@ const cs: MessageSchema = {
     title: 'CSV import',
     intro:
       'Nahrajte CSV se svými aktivy (sloupce např. „Coin" a „Množství"). V dalším kroku potvrdíte přiřazení sloupců.',
+    introTransactions:
+      'Nahrajte CSV se svými transakcemi (nákupy, prodeje, vklady/výběry). Spočítáme z nich čistý zůstatek pro každou minci. V dalším kroku potvrdíte přiřazení sloupců.',
+    chooseFile: 'Vybrat soubor',
     doubleCountHint:
       'Neimportuj CSV z burzy, kterou jsi už připojil přes API — jinak se zůstatky započítají dvakrát. Importy lze kdykoli smazat v „Historii CSV importů".',
     labelOptional: 'Název (volitelné)',
@@ -267,12 +276,17 @@ const cs: MessageSchema = {
     presetDetected: 'Rozpoznán export {provider} — sloupce jsou předvyplněny.',
     duplicateExchange:
       'Pozor: „{source}" je už připojeno k {provider} přes API. Tento import by započítal zůstatky dvakrát — zruš, nebo poté smaž jeden ze dvou zdrojů.',
+    duplicateCsv:
+      'Pozor: tento soubor je shodný s dřívějším importem („{source}") v tomto portfoliu. Opětovný import by započítal zůstatky dvakrát — zruš, nebo poté smaž jeden ze dvou zdrojů.',
     symbolColumn: 'Sloupec symbolu',
     quantityColumn: 'Sloupec množství',
     run: 'Importovat',
     importFailed: 'Import se nezdařil',
     result: 'Importováno {imported} z {total} řádků',
     errorRowsTitle: 'Chybné řádky (neimportováno):',
+    warningsTitle: 'Poznámky:',
+    noticeNonPositiveNet:
+      'Aktivum {symbol}: čistý zůstatek ≤ 0 (více prodejů než nákupů — neúplná historie?) — neimportováno jako zůstatek',
     errorLine: 'Řádek {line}: {error}',
     kindBalances: 'Zůstatky',
     kindTransactions: 'Transakce',
@@ -438,6 +452,7 @@ const cs: MessageSchema = {
     PROVIDER_NOT_IMPLEMENTED: 'Tento poskytovatel zatím není k dispozici',
     ASSET_ALREADY_MAPPED: 'Toto aktivum už má přiřazenou cenu',
     COINGECKO_ID_TAKEN: 'Toto CoinGecko ID je už přiřazeno jinému aktivu',
+    COINGECKO_SYMBOL_MISMATCH: 'Vybraný CoinGecko coin neodpovídá symbolu tohoto aktiva',
     SOURCE_HAS_TRANSACTIONS:
       'Aktiva tohoto zdroje se počítají z transakcí — upravte prosím transakce',
     TRANSFER_LINK_TYPES_INVALID: 'Převod propojuje právě jeden výběr s jedním vkladem',

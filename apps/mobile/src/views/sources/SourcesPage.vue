@@ -7,7 +7,7 @@
         </ion-buttons>
         <ion-title>{{ $t('tabs.sources') }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button data-testid="open-csv-import" @click="csvWizardOpen = true">
+          <ion-button :aria-label="$t('csv.title')" :title="$t('csv.title')" data-testid="open-csv-import" @click="csvWizardOpen = true">
             <ion-icon :icon="documentAttachOutline" slot="icon-only" />
           </ion-button>
           <ion-button
@@ -44,16 +44,20 @@
             <ion-button
               v-if="isSyncable(source)"
               :disabled="sourcesStore.syncing.has(source.id)"
+              :aria-label="$t('sources.syncOne')"
+              :title="$t('sources.syncOne')"
               :data-testid="`source-sync-${source.label}`"
               @click="sync(source)"
             >
               <ion-icon :icon="syncOutline" slot="icon-only" />
             </ion-button>
-            <ion-button :data-testid="`source-rename-${source.label}`" @click="promptRename(source)">
+            <ion-button :aria-label="$t('sources.rename')" :title="$t('sources.rename')" :data-testid="`source-rename-${source.label}`" @click="promptRename(source)">
               <ion-icon :icon="createOutline" slot="icon-only" />
             </ion-button>
             <ion-button
               color="danger"
+              :aria-label="$t('common.delete')"
+              :title="$t('common.delete')"
               :data-testid="`source-delete-${source.label}`"
               @click="confirmDelete(source)"
             >
@@ -64,31 +68,35 @@
       </ion-list>
 
       <div v-else class="empty" data-testid="sources-empty">
+        <ion-icon :icon="linkOutline" class="empty-icon" />
         <p>{{ $t('sources.empty') }}</p>
         <ion-button fill="outline" data-testid="add-source-empty" @click="modalOpen = true">
           {{ $t('sources.connectSource') }}
         </ion-button>
       </div>
 
-      <ion-button
-        expand="block"
-        fill="clear"
-        size="small"
-        router-link="/tabs/sources/imports"
-        data-testid="open-import-history"
-      >
-        {{ $t('sources.importHistory') }}
-      </ion-button>
+      <!-- History / transactions are empty until a source exists — hide the dead links -->
+      <template v-if="sourcesStore.sources.length > 0">
+        <ion-button
+          expand="block"
+          fill="clear"
+          size="small"
+          router-link="/tabs/sources/imports"
+          data-testid="open-import-history"
+        >
+          {{ $t('sources.importHistory') }}
+        </ion-button>
 
-      <ion-button
-        expand="block"
-        fill="clear"
-        size="small"
-        router-link="/tabs/sources/transactions"
-        data-testid="open-transactions"
-      >
-        {{ $t('sources.transactions') }}
-      </ion-button>
+        <ion-button
+          expand="block"
+          fill="clear"
+          size="small"
+          router-link="/tabs/sources/transactions"
+          data-testid="open-transactions"
+        >
+          {{ $t('sources.transactions') }}
+        </ion-button>
+      </template>
 
       <ion-fab slot="fixed" vertical="bottom" horizontal="end">
         <ion-fab-button data-testid="add-source" @click="modalOpen = true">
@@ -121,7 +129,7 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { addOutline, createOutline, documentAttachOutline, syncOutline, trashOutline } from 'ionicons/icons'
+import { addOutline, createOutline, documentAttachOutline, linkOutline, syncOutline, trashOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { SourceDto } from '@crypto-tracker/shared'
@@ -286,5 +294,10 @@ onIonViewWillEnter(() => {
   text-align: center;
   margin-top: 48px;
   color: var(--ion-color-medium);
+}
+.empty-icon {
+  font-size: 48px;
+  color: var(--ion-color-medium);
+  margin-bottom: 8px;
 }
 </style>
