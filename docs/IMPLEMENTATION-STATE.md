@@ -26,6 +26,7 @@ bewertet in EUR/USD über CoinGecko.
 | 3 | Sync-Gerüst: AES-256-GCM-Key-Verschlüsselung, Provider-Registry, SyncService (queue-ready, ohne Express-Abhängigkeit), SyncRun-Log | `0ac397a` |
 | 4 | Echte Wallet-Provider: Bitcoin (mempool.space), Solana (JSON-RPC, SPL via Mint-Mapping) — live verifiziert | `663e6dc` |
 | 5 | Kraken (HMAC-SHA512, Known-Answer-Test) + Bitvavo (HMAC-SHA256), Symbol-Normalisierung (XXBT→BTC, ETH2.S→ETH) | `3d40ee1` |
+| 5+ | Härtung: monotoner Kraken-Nonce (`nextKrakenNonce`, kein `Date.now()`-Kollisions-Risiko bei parallelen Syncs), non-2xx-Error-Body-Parsing (Auth→INVALID_API_KEY statt PROVIDER_ERROR) + Guard gegen TypeError bei Body ohne `error[]`, reine `normalizeBitvavoAsset` getrennt vom Client + case-insensitive Fiat-SKIP (beide Provider); Value-KAT (fester Digest) + Wiring-KAT (gesendete Signatur == reine Fn über exakten Pfad/Body/Nonce/Timestamp) für beide Provider, geteilter `mockFetch`-Test-Helper | PR #6 |
 | 6 | Generischer CSV-Import: Upload → Spalten-Mapping (Heuristik de/en) → Fehlerzeilen mit Zeilennummer, Import-Historie | `b477d69` |
 | — | Mehrsprachigkeit: DE/EN/FR/PL/CS/RU (vue-i18n, typgeprüfte Locale-Dateien, lokalisierte Formate) | `f243737` |
 | 7 | Polish: Onboarding-Einstiege, lokalisierte API-Fehler-Codes, Basiswährung EUR/USD, Loading-/Error-States, Spam-Token-Collapse | `acb2142` |
