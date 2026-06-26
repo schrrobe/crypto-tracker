@@ -114,9 +114,13 @@ async function fetchKrakenBalances(creds: ExchangeCredentials): Promise<RawBalan
   // parse the body before the status-only fallback — otherwise a 401 carrying
   // "EAPI:Invalid key" gets misclassified as PROVIDER_ERROR instead of INVALID_API_KEY.
   const json = (await res.json().catch(() => null)) as KrakenResponse | null
-  if (json && json.error.length > 0) throw classifyKrakenError(json.error)
+  // Guard error as an array: a malformed/gateway body like {} or {"message":…}
+  // is a valid JSON object but has no error[], so json.error.length would throw
+  // a raw TypeError before the status fallback. Treat any non-conforming body
+  // as a provider error instead.
+  if (json && Array.isArray(json.error) && json.error.length > 0) throw classifyKrakenError(json.error)
   if (!res.ok) throw new ProviderError('PROVIDER_ERROR', `Kraken antwortet mit ${res.status}`)
-  if (!json) throw new ProviderError('PROVIDER_ERROR', 'Kraken: ungültige Antwort')
+  if (!json || !Array.isArray(json.error)) throw new ProviderError('PROVIDER_ERROR', 'Kraken: ungültige Antwort')
 
   const balances: RawBalance[] = []
   for (const [code, amount] of Object.entries(json.result ?? {})) {

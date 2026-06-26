@@ -139,4 +139,11 @@ describe('krakenProvider.fetchBalances', () => {
     mockFetch(401, { error: ['EAPI:Invalid key'] })
     await expect(krakenProvider.fetchBalances(CREDS)).rejects.toMatchObject({ code: 'INVALID_API_KEY' })
   })
+
+  it('wirft ProviderError statt TypeError bei JSON-Body ohne error-Feld', async () => {
+    // malformed/gateway body: valid JSON object but no error[] → must not throw
+    // a raw TypeError on json.error.length
+    mockFetch(502, { message: 'Bad Gateway' })
+    await expect(krakenProvider.fetchBalances(CREDS)).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
 })
