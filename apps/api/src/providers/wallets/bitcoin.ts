@@ -1,5 +1,6 @@
 import { env } from '../../config/env'
 import { fromBaseUnits } from '../../lib/decimal'
+import { httpJson } from '../http'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
 
 // Bitcoin balance via the mempool.space API (no API key required).
@@ -28,18 +29,33 @@ export const bitcoinProvider: WalletProvider = {
   },
 
   async fetchBalances(address: string): Promise<RawBalance[]> {
-    const res = await fetch(`${env.MEMPOOL_API_URL}/address/${encodeURIComponent(address)}`)
-    if (res.status === 400) {
-      throw new ProviderError('INVALID_ADDRESS', 'Bitcoin-Adresse wurde von mempool.space abgelehnt')
-    }
-    if (res.status === 429) {
-      throw new ProviderError('RATE_LIMITED', 'mempool.space Rate-Limit erreicht, bitte später erneut')
-    }
-    if (!res.ok) {
-      throw new ProviderError('PROVIDER_ERROR', `mempool.space antwortet mit ${res.status}`)
+    // Defense-in-depth: the address is validated on source creation, but never
+    // hand a malformed value to the provider URL (a stored row could predate a
+    // validation change).
+    if (!ADDRESS_RE.test(address)) {
+      throw new ProviderError('INVALID_ADDRESS', 'Ungültige Bitcoin-Adresse')
     }
 
-    const data = (await res.json()) as AddressResponse
+    // httpJson gives us the abort-on-timeout + bounded retry (429/5xx) shared by
+    // all migrated providers; mapStatus keeps mempool's 400 → INVALID_ADDRESS.
+    const data = await httpJson<AddressResponse>(
+      `${env.MEMPOOL_API_URL}/address/${encodeURIComponent(address)}`,
+      {
+        mapStatus: (status) => {
+          if (status === 400) {
+            return new ProviderError('INVALID_ADDRESS', 'Bitcoin-Adresse wurde von mempool.space abgelehnt', status)
+          }
+          if (status === 429) {
+            return new ProviderError('RATE_LIMITED', 'mempool.space Rate-Limit erreicht, bitte später erneut', status)
+          }
+          return new ProviderError('PROVIDER_ERROR', `mempool.space antwortet mit ${status}`, status)
+        },
+      },
+    )
+
+    // funded/spent sums are satoshis. BTC total supply ≈ 2.1e15 sats is below
+    // Number.MAX_SAFE_INTEGER (≈9.007e15), so JSON.parse keeps these exact for any
+    // real address — no lossless-text read needed here (unlike Solana lamports).
     const sats =
       BigInt(data.chain_stats.funded_txo_sum) -
       BigInt(data.chain_stats.spent_txo_sum) +

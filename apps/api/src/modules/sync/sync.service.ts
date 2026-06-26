@@ -27,11 +27,16 @@ const HEARTBEAT_STALE_MS = 45 * 1000
 const REAP_STALE_MS = 30 * 60 * 1000
 const FETCH_TIMEOUT_MS = 30 * 1000
 
+// Coarse outer backstop. Wallet providers migrated onto src/providers/http.ts already
+// abort each request at PROVIDER_TIMEOUT_MS (the real fix for leaked sockets); this
+// race still bounds the not-yet-migrated exchange providers, which use raw fetch. The
+// rejection now carries the TIMEOUT code so the SyncRun distinguishes "we gave up
+// waiting" from a generic provider error.
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new ProviderError('PROVIDER_ERROR', 'Zeitüberschreitung beim Anbieter')), ms),
+      setTimeout(() => reject(new ProviderError('TIMEOUT', 'Zeitüberschreitung beim Anbieter')), ms),
     ),
   ])
 }
