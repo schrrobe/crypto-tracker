@@ -275,7 +275,10 @@ export async function deleteTransaction(userId: string, txId: string): Promise<v
   // empty phantom source would block portfolio deletion (sourceCount > 0) and
   // count against the free source limit. Cascade clears its (already empty) holdings.
   const remaining = await prisma.transaction.count({ where: { sourceId: existing.sourceId } })
-  if (remaining === 0) {
+  // Only auto-clean the auto-managed manual-tx bucket. A user-created MANUAL
+  // source (e.g. a renamed/legacy bucket) must never be deleted out from under
+  // the user just because its last transaction was removed.
+  if (remaining === 0 && existing.source.label === MANUAL_TX_SOURCE_LABEL) {
     await prisma.portfolioSource.delete({ where: { id: existing.sourceId } })
     return
   }

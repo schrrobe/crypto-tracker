@@ -55,7 +55,10 @@ export async function resolvePortfolioIdForWrite(
       'Bitte wähle das Steuersubjekt, zu dem dieser Eintrag gehört',
     )
   }
-  return resolveOrCreateDefault(userId)
+  // Exactly one entity (or none): use the single existing one — which may be a
+  // non-default portfolio — rather than spawning a fresh "Mein Portfolio".
+  const only = await prisma.portfolio.findFirst({ where: { userId } })
+  return only ? only.id : resolveOrCreateDefault(userId)
 }
 
 async function resolveOrCreateDefault(userId: string): Promise<string> {
@@ -151,15 +154,18 @@ export async function deletePortfolio(userId: string, portfolioId: string): Prom
       'Dieses Steuersubjekt enthält noch Quellen. Es ist die vollständige Steuerhistorie und wird nicht automatisch mitgelöscht — bitte zuerst die Quellen entfernen',
     )
   }
-  const total = await prisma.portfolio.count({ where: { userId } })
-  if (total <= 1) {
-    throw AppError.conflict(
-      'PORTFOLIO_LAST',
-      'Das letzte Steuersubjekt kann nicht gelöscht werden — es muss immer eines geben',
-    )
-  }
-
+  // Serialize the last-portfolio check with the delete under a per-user advisory
+  // lock: two concurrent deletes must not both observe total > 1 and wipe the
+  // last tax entity. The count runs inside the locked transaction.
   await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
+    const total = await tx.portfolio.count({ where: { userId } })
+    if (total <= 1) {
+      throw AppError.conflict(
+        'PORTFOLIO_LAST',
+        'Das letzte Steuersubjekt kann nicht gelöscht werden — es muss immer eines geben',
+      )
+    }
     await tx.portfolio.delete({ where: { id: portfolioId } })
     if (portfolio.isDefault) {
       const oldest = await tx.portfolio.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })

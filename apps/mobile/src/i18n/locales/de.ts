@@ -55,7 +55,7 @@ const de = {
     switchedTo: 'Du bist jetzt in: {name}',
     default: 'Standard',
     sourceCount: '{n} Quelle(n)',
-    create: 'Portfolio anlegen',
+    create: 'Steuersubjekt anlegen',
     createTitle: 'Neues Steuersubjekt',
     renameTitle: 'Steuersubjekt umbenennen',
     deleteTitle: '„{label}" löschen?',

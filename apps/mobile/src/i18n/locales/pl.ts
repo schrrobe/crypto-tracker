@@ -56,7 +56,7 @@ const pl: MessageSchema = {
     switchedTo: 'Teraz w: {name}',
     default: 'Domyślne',
     sourceCount: 'Źródła: {n}',
-    create: 'Utwórz portfolio',
+    create: 'Utwórz podmiot podatkowy',
     createTitle: 'Nowy podmiot podatkowy',
     renameTitle: 'Zmień nazwę podmiotu podatkowego',
     deleteTitle: 'Usunąć „{label}"?',

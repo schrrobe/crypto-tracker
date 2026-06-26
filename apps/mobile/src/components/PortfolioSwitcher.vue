@@ -80,7 +80,7 @@ async function switchTo(id: string) {
   useSourcesStore().reset()
   useTransactionsStore().reset()
   useTaxStore().reset()
-  useImportsStore().imports = []
+  useImportsStore().reset()
   emit('switched')
   const toast = await toastController.create({
     message: t('portfolios.switchedTo', { name: target.label }),

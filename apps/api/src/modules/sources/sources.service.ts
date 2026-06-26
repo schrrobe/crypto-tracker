@@ -66,7 +66,7 @@ export async function createSource(userId: string, input: CreateSourceInput): Pr
   // The reserved label belongs to the auto-managed manual-transaction bucket and
   // must not be claimed by a user-created source (would collide on the partial
   // unique index / shadow the auto bucket).
-  if (input.type === 'MANUAL' && input.label === MANUAL_TX_SOURCE_LABEL) {
+  if (input.type === 'MANUAL' && input.label.trim() === MANUAL_TX_SOURCE_LABEL) {
     throw AppError.badRequest(
       'SOURCE_LABEL_RESERVED',
       'Dieser Name ist für die automatische Quelle „Manuelle Transaktionen" reserviert',

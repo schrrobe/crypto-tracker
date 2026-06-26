@@ -56,7 +56,7 @@ const fr: MessageSchema = {
     switchedTo: 'Maintenant dans : {name}',
     default: 'Par défaut',
     sourceCount: '{n} source(s)',
-    create: 'Créer un portfolio',
+    create: 'Créer une entité fiscale',
     createTitle: 'Nouvelle entité fiscale',
     renameTitle: 'Renommer l’entité fiscale',
     deleteTitle: 'Supprimer « {label} » ?',

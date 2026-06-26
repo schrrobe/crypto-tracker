@@ -44,5 +44,9 @@ export const useImportsStore = defineStore('imports', () => {
     imports.value = imports.value.filter((i) => i.id !== importId)
   }
 
-  return { imports, load, upload, confirmMapping, remove }
+  function reset(): void {
+    imports.value = []
+  }
+
+  return { imports, load, upload, confirmMapping, remove, reset }
 })

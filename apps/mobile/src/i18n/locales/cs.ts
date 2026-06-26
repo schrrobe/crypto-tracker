@@ -56,7 +56,7 @@ const cs: MessageSchema = {
     switchedTo: 'Nyní v: {name}',
     default: 'Výchozí',
     sourceCount: 'Zdroje: {n}',
-    create: 'Vytvořit portfolio',
+    create: 'Vytvořit daňový subjekt',
     createTitle: 'Nový daňový subjekt',
     renameTitle: 'Přejmenovat daňový subjekt',
     deleteTitle: 'Smazat „{label}"?',

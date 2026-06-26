@@ -56,7 +56,7 @@ const en: MessageSchema = {
     switchedTo: 'Now in: {name}',
     default: 'Default',
     sourceCount: '{n} source(s)',
-    create: 'Create portfolio',
+    create: 'Create tax entity',
     createTitle: 'New tax entity',
     renameTitle: 'Rename tax entity',
     deleteTitle: 'Delete "{label}"?',

@@ -56,7 +56,7 @@ const ru: MessageSchema = {
     switchedTo: 'Сейчас в: {name}',
     default: 'По умолчанию',
     sourceCount: 'Источников: {n}',
-    create: 'Создать портфель',
+    create: 'Создать налоговый субъект',
     createTitle: 'Новый налоговый субъект',
     renameTitle: 'Переименовать налоговый субъект',
     deleteTitle: 'Удалить «{label}»?',
