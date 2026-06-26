@@ -433,6 +433,7 @@ const ru: MessageSchema = {
     PROVIDER_NOT_IMPLEMENTED: 'Этот провайдер пока недоступен',
     ASSET_ALREADY_MAPPED: 'Этому активу уже назначена цена',
     COINGECKO_ID_TAKEN: 'Этот CoinGecko ID уже назначен другому активу',
+    COINGECKO_SYMBOL_MISMATCH: 'Выбранная монета CoinGecko не соответствует символу этого актива',
     SOURCE_HAS_TRANSACTIONS:
       'Активы этого источника рассчитываются из транзакций — отредактируйте транзакции',
     TRANSFER_LINK_TYPES_INVALID: 'Перевод связывает ровно один вывод с одним пополнением',

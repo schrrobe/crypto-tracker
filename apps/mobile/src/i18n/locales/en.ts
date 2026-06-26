@@ -433,6 +433,7 @@ const en: MessageSchema = {
     PROVIDER_NOT_IMPLEMENTED: 'This provider is not available yet',
     ASSET_ALREADY_MAPPED: 'This asset already has a price mapping',
     COINGECKO_ID_TAKEN: 'This CoinGecko ID is already assigned to another asset',
+    COINGECKO_SYMBOL_MISMATCH: 'The selected CoinGecko coin does not match this asset’s symbol',
     SOURCE_HAS_TRANSACTIONS:
       'Holdings of this source are calculated from transactions — please edit the transactions instead',
     TRANSFER_LINK_TYPES_INVALID: 'A transfer links exactly one withdrawal with one deposit',

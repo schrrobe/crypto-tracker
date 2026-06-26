@@ -81,6 +81,24 @@ export async function searchCoins(query: string): Promise<CoinSearchResult[]> {
   return (json?.coins ?? []).slice(0, 10).map((c) => ({ id: c.id, symbol: c.symbol, name: c.name }))
 }
 
+// Resolve a CoinGecko id to its ticker symbol (uppercased). Used to validate a
+// manual mapping server-side — the client's claimed symbol is never trusted.
+// Returns null when the id is unknown (404).
+export async function fetchCoinSymbol(coingeckoId: string): Promise<string | null> {
+  const id = coingeckoId.trim()
+  if (!id) return null
+  if (env.FAKE_PRICES) {
+    // Mirror the fake searchCoins shape: id "<sym>-coin" → symbol "<sym>".
+    const sym = id.endsWith('-coin') ? id.slice(0, -'-coin'.length) : id.split('-')[0]
+    return sym ? sym.toUpperCase() : null
+  }
+  const json = await cgFetchJson<{ symbol?: string }>(
+    `${BASE}/coins/${encodeURIComponent(id)}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false&sparkline=false`,
+    [404],
+  )
+  return json?.symbol ? json.symbol.toUpperCase() : null
+}
+
 // [timestampMs, price] — as delivered by CoinGecko market_chart
 export type MarketChartPoint = [number, number]
 

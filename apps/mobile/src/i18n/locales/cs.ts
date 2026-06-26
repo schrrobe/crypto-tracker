@@ -433,6 +433,7 @@ const cs: MessageSchema = {
     PROVIDER_NOT_IMPLEMENTED: 'Tento poskytovatel zatím není k dispozici',
     ASSET_ALREADY_MAPPED: 'Toto aktivum už má přiřazenou cenu',
     COINGECKO_ID_TAKEN: 'Toto CoinGecko ID je už přiřazeno jinému aktivu',
+    COINGECKO_SYMBOL_MISMATCH: 'Vybraný CoinGecko coin neodpovídá symbolu tohoto aktiva',
     SOURCE_HAS_TRANSACTIONS:
       'Aktiva tohoto zdroje se počítají z transakcí — upravte prosím transakce',
     TRANSFER_LINK_TYPES_INVALID: 'Převod propojuje právě jeden výběr s jedním vkladem',

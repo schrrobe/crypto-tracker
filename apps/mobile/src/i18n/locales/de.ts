@@ -432,6 +432,7 @@ const de = {
     PROVIDER_NOT_IMPLEMENTED: 'Dieser Anbieter ist noch nicht verfügbar',
     ASSET_ALREADY_MAPPED: 'Dieses Asset hat bereits ein Preis-Mapping',
     COINGECKO_ID_TAKEN: 'Diese CoinGecko-ID ist bereits einem Asset zugeordnet',
+    COINGECKO_SYMBOL_MISMATCH: 'Das gewählte CoinGecko-Coin passt nicht zum Symbol dieses Assets',
     SOURCE_HAS_TRANSACTIONS:
       'Bestände dieser Quelle werden aus Transaktionen berechnet — bitte die Transaktionen bearbeiten',
     TRANSFER_LINK_TYPES_INVALID: 'Ein Transfer verknüpft genau eine Auszahlung mit einer Einzahlung',

@@ -1,13 +1,15 @@
 import { Prisma } from '@prisma/client'
 import { Router } from 'express'
+import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
+import { env } from '../../config/env'
 import { requireAuth } from '../../middleware/auth.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
 import { AppError } from '../../lib/errors'
 import { routeParam } from '../../lib/params'
 import { prisma } from '../../lib/prisma'
-import { searchCoins } from '../../coingecko/coingecko.client'
+import { searchCoins, fetchCoinSymbol } from '../../coingecko/coingecko.client'
 import { refreshPrices } from '../../coingecko/price.service'
 
 export const assetsRoutes = Router()
@@ -57,10 +59,23 @@ assetsRoutes.get(
 
 const mappingSchema = z.object({ coingeckoId: z.string().trim().min(1).max(120) })
 
+// Mapping is a global write (assets are shared) — rate-limit so one account can't
+// sweep many assets. Generous in local/test so the suite isn't throttled.
+const mappingLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: env.APP_ENV === 'local' ? 1000 : 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Zu viele Mapping-Versuche, bitte später erneut' } },
+})
+
 // Mapping takes effect globally (assets are shared across users) — therefore only
 // allowed for previously unmapped assets; existing mappings remain untouchable.
+// The chosen CoinGecko coin's symbol must match the asset symbol (validated
+// server-side) so a user cannot mis-map a shared asset to an unrelated coin.
 assetsRoutes.post(
   '/:id/mapping',
+  mappingLimiter,
   validate(mappingSchema),
   asyncHandler(async (req, res) => {
     const assetId = routeParam(req, 'id')
@@ -72,6 +87,16 @@ assetsRoutes.post(
     const taken = await prisma.asset.findUnique({ where: { coingeckoId: req.body.coingeckoId } })
     if (taken) {
       throw AppError.conflict('COINGECKO_ID_TAKEN', 'Diese CoinGecko-ID ist bereits einem Asset zugeordnet')
+    }
+
+    // Verify the chosen coin actually is this asset: its CoinGecko symbol must
+    // match. Prevents poisoning a globally shared asset with an unrelated coin id.
+    const coinSymbol = await fetchCoinSymbol(req.body.coingeckoId)
+    if (!coinSymbol || coinSymbol !== asset.symbol.toUpperCase()) {
+      throw AppError.badRequest(
+        'COINGECKO_SYMBOL_MISMATCH',
+        'Das gewählte CoinGecko-Coin passt nicht zum Symbol dieses Assets',
+      )
     }
 
     let updated
