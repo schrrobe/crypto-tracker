@@ -41,6 +41,7 @@ describe('krakenSignature', () => {
 describe('normalizeKrakenAsset', () => {
   it('übersetzt Kraken-Altcodes (Spot)', () => {
     expect(normalizeKrakenAsset('XXBT')).toEqual({ symbol: 'BTC', accountType: 'SPOT' })
+    expect(normalizeKrakenAsset('XBT')).toEqual({ symbol: 'BTC', accountType: 'SPOT' })
     expect(normalizeKrakenAsset('XETH')).toEqual({ symbol: 'ETH', accountType: 'SPOT' })
     expect(normalizeKrakenAsset('XXDG')).toEqual({ symbol: 'DOGE', accountType: 'SPOT' })
     expect(normalizeKrakenAsset('SOL')).toEqual({ symbol: 'SOL', accountType: 'SPOT' })

@@ -23,6 +23,9 @@ describe('bitvavoSignature', () => {
   it('berechnet HMAC-SHA256 über timestamp+method+path+body', () => {
     const sig = bitvavoSignature('1548183481067', 'GET', '/v2/balance', '', 'geheim')
     expect(sig).toMatch(/^[0-9a-f]{64}$/)
+    // Known-Answer-Test: fixer Digest gegen feste Eingaben — fängt Algorithmus-
+    // Drift (hex statt base64, vertauschte Komponenten, falscher Hash)
+    expect(sig).toBe('49ae69132ab9d106050aa8fcaed077d662c07e51b4774a11086c2c8626a563cf')
     // deterministic
     expect(bitvavoSignature('1548183481067', 'GET', '/v2/balance', '', 'geheim')).toBe(sig)
     // every component changes the signature
