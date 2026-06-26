@@ -20,6 +20,8 @@ import type {
   FreeTextAnswerListDto,
   SurveyListDto,
   SurveyResultsDto,
+  AdminSurveyDetailDto,
+  SurveyAudienceDto,
   SurveyReminderResultDto,
   UpdateSurveyInput,
   AdminAnnouncementDto,
@@ -107,6 +109,14 @@ export const adminApi = {
   },
 
   surveys: () => api.get<SurveyListDto>('/admin/surveys'),
+  survey: (id: string) => api.get<AdminSurveyDetailDto>(`/admin/surveys/${id}`),
+  surveyAudience: (plans: string[], currencies: string[]) => {
+    const sp = new URLSearchParams()
+    if (plans.length) sp.set('plans', plans.join(','))
+    if (currencies.length) sp.set('currencies', currencies.join(','))
+    const qs = sp.toString()
+    return api.get<SurveyAudienceDto>(`/admin/surveys/audience${qs ? `?${qs}` : ''}`)
+  },
   createSurvey: (input: CreateSurveyInput) => api.post<{ id: string }>('/admin/surveys', input),
   updateSurvey: (id: string, input: UpdateSurveyInput) => api.patch<void>(`/admin/surveys/${id}`, input),
   publishSurvey: (id: string) => api.post<void>(`/admin/surveys/${id}/publish`),

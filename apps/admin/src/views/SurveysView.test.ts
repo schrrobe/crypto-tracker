@@ -29,14 +29,17 @@ const LIST = {
   ],
 }
 
+const push = vi.fn()
+
 function mountView() {
   return mount(SurveysView, {
-    global: { mocks: { $router: { push: vi.fn() } }, stubs: { 'router-link': true } },
+    global: { mocks: { $router: { push } }, stubs: { 'router-link': true } },
   })
 }
 
 describe('SurveysView', () => {
   beforeEach(() => {
+    push.mockReset()
     api.surveys.mockReset().mockResolvedValue(LIST)
     api.publishSurvey.mockReset().mockResolvedValue(undefined)
     api.closeSurvey.mockReset().mockResolvedValue(undefined)
@@ -53,42 +56,102 @@ describe('SurveysView', () => {
     expect(w.text()).toContain('Live-Umfrage')
     expect(w.text()).toContain('Entwurf')
     expect(w.text()).toContain('Veröffentlicht')
-    expect(w.text()).toContain('5')
   })
 
-  it('shows Veröffentlichen only for drafts and publishes + reloads on click', async () => {
+  it('shows a loading skeleton while data is null', () => {
+    api.surveys.mockReturnValue(new Promise(() => {})) // never resolves
+    const w = mountView()
+    expect(w.find('.animate-pulse').exists()).toBe(true)
+  })
+
+  it('shows a response-rate column with pct and count/eligible', async () => {
     const w = mountView()
     await flushPromises()
-    const publishBtn = w.findAll('button').find((b) => b.text() === 'Veröffentlichen')
-    expect(publishBtn).toBeTruthy()
-    await publishBtn!.trigger('click')
+    // draft: 0/100 -> 0%
+    expect(w.text()).toContain('0% · 0/100')
+    // published: 5/12 -> 42%
+    expect(w.text()).toContain('42% · 5/12')
+  })
+
+  it('shows a pre-publish summary in a confirm modal and publishes on confirm', async () => {
+    const w = mountView()
+    await flushPromises()
+    const publishBtn = w.findAll('button').find((b) => b.text() === 'Veröffentlichen')!
+    await publishBtn.trigger('click')
+    await flushPromises()
+    // modal shows the summary
+    expect(w.text()).toContain('Erreicht ~100 Nutzer')
+    expect(w.text()).toContain('Kann danach nicht mehr bearbeitet werden')
+    // confirm inside the dialog
+    const confirmBtn = w.findAll('button').filter((b) => b.text() === 'Veröffentlichen').at(-1)!
+    await confirmBtn.trigger('click')
     await flushPromises()
     expect(api.publishSurvey).toHaveBeenCalledWith('1')
     expect(api.surveys).toHaveBeenCalledTimes(2) // initial + reload
   })
 
+  it('cancelling the publish modal does not publish', async () => {
+    const w = mountView()
+    await flushPromises()
+    await w.findAll('button').find((b) => b.text() === 'Veröffentlichen')!.trigger('click')
+    await flushPromises()
+    await w.findAll('button').find((b) => b.text() === 'Abbrechen')!.trigger('click')
+    await flushPromises()
+    expect(api.publishSurvey).not.toHaveBeenCalled()
+  })
+
+  it('confirms before closing a published survey', async () => {
+    const w = mountView()
+    await flushPromises()
+    const closeBtn = w.findAll('button').find((b) => b.text() === 'Schließen')!
+    await closeBtn.trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Nutzer können dann nicht mehr antworten')
+    const confirmBtn = w.findAll('button').filter((b) => b.text() === 'Schließen').at(-1)!
+    await confirmBtn.trigger('click')
+    await flushPromises()
+    expect(api.closeSurvey).toHaveBeenCalledWith('2')
+  })
+
   it('shows an anonymity badge and targeting summary', async () => {
     const w = mountView()
     await flushPromises()
-    // anonymous badge on the published survey
     expect(w.text()).toContain('anonym')
-    // targeting summary: plan + currency + eligible count, and "Alle" for the untargeted draft
     expect(w.text()).toContain('PRO')
     expect(w.text()).toContain('EUR')
     expect(w.text()).toContain('(12)')
     expect(w.text()).toContain('Alle')
   })
 
-  it('shows Remind button only for PUBLISHED surveys and surfaces the notified count', async () => {
+  it('navigates to the edit route for draft rows', async () => {
+    const w = mountView()
+    await flushPromises()
+    const editBtn = w.findAll('button').find((b) => b.text() === 'Bearbeiten')!
+    await editBtn.trigger('click')
+    expect(push).toHaveBeenCalledWith('/surveys/1/edit')
+  })
+
+  it('shows Remind only for PUBLISHED rows with non-responders and surfaces the notified count', async () => {
     const w = mountView()
     await flushPromises()
     const remindBtns = w.findAll('button').filter((b) => b.text().includes('erinnern'))
-    // only the PUBLISHED survey row has it
     expect(remindBtns).toHaveLength(1)
     await remindBtns[0]!.trigger('click')
     await flushPromises()
     expect(api.remindSurvey).toHaveBeenCalledWith('2')
     expect(w.text()).toContain('4 erinnert')
+  })
+
+  it('hides the Remind button when everyone has responded', async () => {
+    api.surveys.mockResolvedValue({
+      surveys: [
+        { ...LIST.surveys[1], id: '3', responseCount: 12, eligibleCount: 12 },
+      ],
+    })
+    const w = mountView()
+    await flushPromises()
+    const remindBtns = w.findAll('button').filter((b) => b.text().includes('erinnern'))
+    expect(remindBtns).toHaveLength(0)
   })
 
   it('shows a cooldown message when the reminder was skipped', async () => {
@@ -101,14 +164,18 @@ describe('SurveysView', () => {
     expect(w.text()).toContain('Cooldown')
   })
 
-  it('confirms before deleting', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  it('confirms before deleting via a modal (no native confirm)', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm')
     const w = mountView()
     await flushPromises()
-    const delBtn = w.findAll('button').find((b) => b.text() === 'Löschen')
-    await delBtn!.trigger('click')
+    const delBtn = w.findAll('button').find((b) => b.text() === 'Löschen')!
+    await delBtn.trigger('click')
     await flushPromises()
-    expect(confirmSpy).toHaveBeenCalled()
+    expect(w.text()).toContain('Alle Antworten gehen verloren')
+    const confirmBtn = w.findAll('button').filter((b) => b.text() === 'Löschen').at(-1)!
+    await confirmBtn.trigger('click')
+    await flushPromises()
+    expect(confirmSpy).not.toHaveBeenCalled()
     expect(api.deleteSurvey).toHaveBeenCalledWith('1')
     confirmSpy.mockRestore()
   })

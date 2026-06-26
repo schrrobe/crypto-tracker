@@ -2,8 +2,11 @@ import type { Plan } from '@prisma/client'
 import {
   QuestionType,
   SurveyStatus,
+  type AdminSurveyDetailDto,
   type CreateSurveyInput,
   type FreeTextAnswerListDto,
+  type SurveyAudienceDto,
+  type SurveyAudienceQuery,
   type SurveyFreeTextQuery,
   type SurveyListDto,
   type SurveyResultsDto,
@@ -55,6 +58,37 @@ export async function listSurveys(): Promise<SurveyListDto> {
       lastRemindedAt: s.lastRemindedAt?.toISOString() ?? null,
     })),
   }
+}
+
+// Full editable survey for the builder's edit-draft mode.
+export async function getSurveyDetail(surveyId: string): Promise<AdminSurveyDetailDto> {
+  const survey = await prisma.survey.findUnique({
+    where: { id: surveyId },
+    include: { questions: { include: { options: true }, orderBy: { order: 'asc' } } },
+  })
+  if (!survey) throw AppError.notFound('Umfrage nicht gefunden')
+  return {
+    id: survey.id,
+    title: survey.title,
+    description: survey.description,
+    status: survey.status as SurveyStatus,
+    anonymous: survey.anonymous,
+    targetPlans: survey.targetPlans,
+    targetCurrencies: survey.targetCurrencies,
+    questions: survey.questions.map((q) => ({
+      type: q.type as QuestionType,
+      prompt: q.prompt,
+      options: q.options.sort((a, b) => a.order - b.order).map((o) => ({ label: o.label })),
+    })),
+  }
+}
+
+// Live count of users a given targeting selection would reach (builder confidence).
+export async function countAudience(query: SurveyAudienceQuery): Promise<SurveyAudienceDto> {
+  const count = await prisma.user.count({
+    where: eligibleUserWhere({ targetPlans: query.plans as Plan[], targetCurrencies: query.currencies }),
+  })
+  return { count }
 }
 
 async function getSurveyOr404(surveyId: string) {

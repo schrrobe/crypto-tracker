@@ -1,8 +1,10 @@
 import { Router } from 'express'
 import {
   createSurveySchema,
+  surveyAudienceQuerySchema,
   surveyFreeTextQuerySchema,
   updateSurveySchema,
+  type SurveyAudienceQuery,
   type SurveyFreeTextQuery,
 } from '@crypto-tracker/shared'
 import { validate } from '../../middleware/validate.middleware'
@@ -24,6 +26,23 @@ adminSurveysRoutes.post(
   validate(createSurveySchema),
   asyncHandler(async (req, res) => {
     res.status(201).json(await surveys.createSurvey(req.adminUser, req.body))
+  }),
+)
+
+// Registered before any "/:id" route so the literal path is not captured as an id.
+adminSurveysRoutes.get(
+  '/audience',
+  validate(surveyAudienceQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    res.json(await surveys.countAudience(req.query as unknown as SurveyAudienceQuery))
+  }),
+)
+
+// Full editable survey (edit-draft mode). After /audience so the literal wins.
+adminSurveysRoutes.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    res.json(await surveys.getSurveyDetail(routeParam(req, 'id')))
   }),
 )
 

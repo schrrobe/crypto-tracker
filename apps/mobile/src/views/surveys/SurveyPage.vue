@@ -27,10 +27,14 @@
       </template>
 
       <template v-else-if="survey">
-        <div v-if="survey.anonymous" class="ion-padding-horizontal ion-padding-top">
-          <ion-note class="survey-anonymous" data-testid="survey-anonymous-badge">
+        <div class="ion-padding-horizontal ion-padding-top">
+          <ion-note v-if="survey.anonymous" class="survey-anonymous" data-testid="survey-anonymous-badge">
             <ion-icon :icon="lockClosedOutline" aria-hidden="true" />
             <span>{{ $t('surveys.anonymousNote') }}</span>
+          </ion-note>
+          <ion-note v-else class="survey-anonymous" data-testid="survey-identified-badge">
+            <ion-icon :icon="personCircleOutline" aria-hidden="true" />
+            <span>{{ $t('surveys.identifiedNote') }}</span>
           </ion-note>
         </div>
 
@@ -53,6 +57,9 @@
             {{ $t('surveys.progress', { answered: answeredCount, total: survey.questions.length }) }}
           </ion-label>
           <ion-progress-bar :value="progressValue" />
+          <ion-label class="survey-optional-hint" data-testid="survey-optional-hint">
+            {{ $t('surveys.optionalHint') }}
+          </ion-label>
         </div>
 
         <ion-list>
@@ -143,10 +150,11 @@ import {
   IonIcon,
   IonProgressBar,
 } from '@ionic/vue'
-import { checkmarkCircleOutline, lockClosedOutline, documentTextOutline } from 'ionicons/icons'
+import { checkmarkCircleOutline, lockClosedOutline, documentTextOutline, personCircleOutline } from 'ionicons/icons'
 import { useRoute } from 'vue-router'
 import type { SurveyDto } from '@crypto-tracker/shared'
 import { useSurveysStore } from '../../stores/surveys.store'
+import { ApiError } from '../../services/api.client'
 import { apiErrorMessage } from '../../services/errors'
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
 
@@ -234,7 +242,13 @@ async function submit() {
     await surveys.submit(survey.value.id, payload)
     submitted.value = true
   } catch (e) {
-    submitError.value = apiErrorMessage(e, 'surveys.submitFailed')
+    // A duplicate submission is a friendly, expected case — show a clear message
+    // instead of the generic submit-error text used for everything else.
+    if (e instanceof ApiError && e.code === 'SURVEY_ALREADY_SUBMITTED') {
+      submitError.value = t('surveys.alreadySubmitted')
+    } else {
+      submitError.value = apiErrorMessage(e, 'surveys.submitFailed')
+    }
   } finally {
     submitting.value = false
   }
@@ -253,5 +267,11 @@ async function submit() {
   font-size: 0.8125rem;
   color: var(--ion-color-medium);
   margin-bottom: 6px;
+}
+.survey-optional-hint {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--ion-color-medium);
+  margin-top: 6px;
 }
 </style>

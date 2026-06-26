@@ -24,6 +24,7 @@ vi.mock('ionicons/icons', () => ({
   checkmarkCircleOutline: 'icon',
   lockClosedOutline: 'icon',
   documentTextOutline: 'icon',
+  personCircleOutline: 'icon',
 }))
 
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { id: 's1' } }) }))
@@ -40,6 +41,7 @@ vi.mock('../../stores/surveys.store', () => ({
 }))
 
 import SurveyPage from './SurveyPage.vue'
+import { ApiError } from '../../services/api.client'
 
 const SURVEY = {
   id: 's1',
@@ -143,15 +145,18 @@ describe('SurveyPage', () => {
     expect(w.find('[data-testid="survey-thanks"]').exists()).toBe(false)
   })
 
-  it('does not show the anonymity badge for a non-anonymous survey', async () => {
+  it('shows the identified note (not the lock note) for a non-anonymous survey', async () => {
     getSurvey.mockResolvedValue({ ...SURVEY, anonymous: false })
     const w = mountPage()
     await viewEnterCb?.()
     await flushPromises()
     expect(w.find('[data-testid="survey-anonymous-badge"]').exists()).toBe(false)
+    const identified = w.find('[data-testid="survey-identified-badge"]')
+    expect(identified.exists()).toBe(true)
+    expect(identified.text()).toContain('surveys.identifiedNote')
   })
 
-  it('shows the anonymity badge when the survey is anonymous', async () => {
+  it('shows the anonymity badge (not the identified note) when the survey is anonymous', async () => {
     getSurvey.mockResolvedValue({ ...SURVEY, anonymous: true })
     const w = mountPage()
     await viewEnterCb?.()
@@ -159,6 +164,31 @@ describe('SurveyPage', () => {
     const badge = w.find('[data-testid="survey-anonymous-badge"]')
     expect(badge.exists()).toBe(true)
     expect(badge.text()).toContain('surveys.anonymousNote')
+    expect(w.find('[data-testid="survey-identified-badge"]').exists()).toBe(false)
+  })
+
+  it('shows the optional-questions hint near the progress bar', async () => {
+    const w = mountPage()
+    await viewEnterCb?.()
+    await flushPromises()
+    const hint = w.find('[data-testid="survey-optional-hint"]')
+    expect(hint.exists()).toBe(true)
+    expect(hint.text()).toContain('surveys.optionalHint')
+  })
+
+  it('shows a friendly message when the survey was already submitted', async () => {
+    submit.mockRejectedValue(new ApiError('SURVEY_ALREADY_SUBMITTED', 409, 'duplicate'))
+    const w = mountPage()
+    await viewEnterCb?.()
+    await flushPromises()
+    w.get('[data-testid="survey-single-group"]').trigger('ion-change', { detail: { value: 'o1' } })
+    await flushPromises()
+    await w.get('[data-testid="survey-submit"]').trigger('click')
+    await flushPromises()
+    const err = w.find('[data-testid="survey-submit-error"]')
+    expect(err.exists()).toBe(true)
+    expect(err.text()).toContain('surveys.alreadySubmitted')
+    expect(w.find('[data-testid="survey-thanks"]').exists()).toBe(false)
   })
 
   it('shows a progress indicator that reflects answered questions', async () => {

@@ -6,13 +6,15 @@ import type { Plan } from './auth.schema'
 // array means "no restriction on this axis" — so a survey with no targeting at all
 // reaches every (non-suspended) user, preserving the original broadcast behaviour.
 const PLAN_VALUES = ['FREE', 'PRO'] as const
+// The app only supports EUR/USD as a user base currency (see settings), so targeting is
+// constrained to that set rather than free text — a typo'd code can't silently target
+// nobody.
+export const SURVEY_TARGET_CURRENCIES = ['EUR', 'USD'] as const
 export const surveyTargetingSchema = z.object({
   targetPlans: z.array(z.enum(PLAN_VALUES)).max(PLAN_VALUES.length).optional().default([]),
-  // Currency codes are matched case-insensitively against User.baseCurrency; upper-case
-  // here so the stored target and the compared column agree.
   targetCurrencies: z
-    .array(z.string().trim().toUpperCase().min(2).max(10))
-    .max(20)
+    .array(z.enum(SURVEY_TARGET_CURRENCIES))
+    .max(SURVEY_TARGET_CURRENCIES.length)
     .optional()
     .default([]),
 })
@@ -191,4 +193,43 @@ export interface SurveyReminderResultDto {
   // True when the request was within the cooldown window and no reminder was sent.
   skippedCooldown: boolean
   lastRemindedAt: string | null
+}
+
+// Admin: full editable survey (drives the edit-draft form). Mirrors the create input shape
+// plus identifiers/status so the builder can load an existing draft.
+export interface AdminSurveyQuestionDto {
+  type: QuestionType
+  prompt: string
+  options: { label: string }[]
+}
+
+export interface AdminSurveyDetailDto {
+  id: string
+  title: string
+  description: string | null
+  status: SurveyStatus
+  anonymous: boolean
+  targetPlans: Plan[]
+  targetCurrencies: string[]
+  questions: AdminSurveyQuestionDto[]
+}
+
+// Admin: live audience size for a targeting selection (shown in the builder before saving).
+export const surveyAudienceQuerySchema = z.object({
+  // CSV of plan codes; empty/absent = no plan restriction.
+  plans: z
+    .string()
+    .optional()
+    .transform((s) => (s ? s.split(',').map((p) => p.trim()).filter(Boolean) : []))
+    .pipe(z.array(z.enum(PLAN_VALUES)).max(PLAN_VALUES.length)),
+  currencies: z
+    .string()
+    .optional()
+    .transform((s) => (s ? s.split(',').map((c) => c.trim().toUpperCase()).filter(Boolean) : []))
+    .pipe(z.array(z.enum(SURVEY_TARGET_CURRENCIES)).max(SURVEY_TARGET_CURRENCIES.length)),
+})
+export type SurveyAudienceQuery = z.infer<typeof surveyAudienceQuerySchema>
+
+export interface SurveyAudienceDto {
+  count: number
 }

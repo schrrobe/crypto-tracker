@@ -262,4 +262,47 @@ describe('Surveys (Integration)', () => {
     // Everyone who responded answered the single question.
     expect(results.questions[0].answeredCount).toBe(results.responseCount)
   })
+
+  it('Admin-Detail: liefert die editierbare Umfrage inkl. Zielgruppe und Fragen', async () => {
+    const admin = await registerUser('survey-detail-admin', 'PRO')
+    await makeAdmin(admin)
+    const create = await request(app)
+      .post(`${API}/admin/surveys`)
+      .set(...bearer(admin))
+      .send({
+        title: 'Detail',
+        description: 'Beschreibung',
+        anonymous: true,
+        targetPlans: ['PRO'],
+        targetCurrencies: ['EUR'],
+        questions: [{ type: 'SINGLE_CHOICE', prompt: 'A?', options: [{ label: 'A' }, { label: 'B' }] }],
+      })
+    expect(create.status).toBe(201)
+    const detail = await request(app).get(`${API}/admin/surveys/${create.body.id}`).set(...bearer(admin))
+    expect(detail.status).toBe(200)
+    expect(detail.body.title).toBe('Detail')
+    expect(detail.body.anonymous).toBe(true)
+    expect(detail.body.status).toBe('DRAFT')
+    expect(detail.body.targetPlans).toEqual(['PRO'])
+    expect(detail.body.targetCurrencies).toEqual(['EUR'])
+    expect(detail.body.questions[0].options.map((o: { label: string }) => o.label)).toEqual(['A', 'B'])
+  })
+
+  it('Audience: zählt Nutzer im Zielsegment (Untermenge ≤ alle)', async () => {
+    const admin = await registerUser('survey-audience-admin', 'PRO')
+    await makeAdmin(admin)
+    const all = await request(app).get(`${API}/admin/surveys/audience`).set(...bearer(admin))
+    expect(all.status).toBe(200)
+    expect(typeof all.body.count).toBe('number')
+    const pro = await request(app)
+      .get(`${API}/admin/surveys/audience?plans=PRO`)
+      .set(...bearer(admin))
+    expect(pro.status).toBe(200)
+    expect(pro.body.count).toBeLessThanOrEqual(all.body.count)
+    // Invalid plan code is rejected by the query schema.
+    const bad = await request(app)
+      .get(`${API}/admin/surveys/audience?plans=GOLD`)
+      .set(...bearer(admin))
+    expect(bad.status).toBe(400)
+  })
 })
