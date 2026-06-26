@@ -21,15 +21,22 @@ const ADDRESS_FIXTURE = {
   },
 }
 
+// A real-shaped address that passes local validation, so the test exercises the
+// HTTP path rather than short-circuiting on the format check.
+const VALID_ADDRESS = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'
+
+// httpRaw reads res.text(); the mock mirrors fetch's Response (text + headers.get).
+function fetchResult(status: number, body?: unknown) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: () => null },
+    text: async () => (body === undefined ? '' : JSON.stringify(body)),
+  }
+}
+
 function mockFetch(status: number, body?: unknown) {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => ({
-      ok: status >= 200 && status < 300,
-      status,
-      json: async () => body,
-    })),
-  )
+  vi.stubGlobal('fetch', vi.fn(async () => fetchResult(status, body)))
 }
 
 afterEach(() => vi.unstubAllGlobals())
@@ -50,26 +57,60 @@ describe('bitcoinProvider', () => {
     expect(balances).toEqual([{ symbol: 'BTC', amount: '1.25' }])
   })
 
-  it('wirft INVALID_ADDRESS bei HTTP 400', async () => {
+  it('weist eine ungültige Adresse ab, bevor ein Request rausgeht', async () => {
+    const fn = vi.fn()
+    vi.stubGlobal('fetch', fn)
+    await expect(bitcoinProvider.fetchBalances('nicht-gueltig')).rejects.toMatchObject({
+      code: 'INVALID_ADDRESS',
+    })
+    expect(fn).not.toHaveBeenCalled()
+  })
+
+  it('wirft INVALID_ADDRESS bei HTTP 400 (mempool lehnt ab)', async () => {
     mockFetch(400)
-    await expect(bitcoinProvider.fetchBalances('xyz')).rejects.toMatchObject({
+    await expect(bitcoinProvider.fetchBalances(VALID_ADDRESS)).rejects.toMatchObject({
       code: 'INVALID_ADDRESS',
     })
   })
 
   it('wirft RATE_LIMITED bei HTTP 429', async () => {
     mockFetch(429)
-    await expect(bitcoinProvider.fetchBalances('bc1qexample')).rejects.toBeInstanceOf(ProviderError)
+    await expect(bitcoinProvider.fetchBalances(VALID_ADDRESS)).rejects.toBeInstanceOf(ProviderError)
     mockFetch(429)
-    await expect(bitcoinProvider.fetchBalances('bc1qexample')).rejects.toMatchObject({
+    await expect(bitcoinProvider.fetchBalances(VALID_ADDRESS)).rejects.toMatchObject({
       code: 'RATE_LIMITED',
     })
   })
 
   it('wirft PROVIDER_ERROR bei Serverfehlern', async () => {
     mockFetch(503)
-    await expect(bitcoinProvider.fetchBalances('bc1qexample')).rejects.toMatchObject({
+    await expect(bitcoinProvider.fetchBalances(VALID_ADDRESS)).rejects.toMatchObject({
       code: 'PROVIDER_ERROR',
+    })
+  })
+
+  it('wiederholt nach einem transienten 429 und liefert danach die Balance', async () => {
+    const fn = vi.fn()
+    fn.mockResolvedValueOnce(fetchResult(429))
+    fn.mockResolvedValueOnce(fetchResult(200, ADDRESS_FIXTURE))
+    vi.stubGlobal('fetch', fn)
+
+    const balances = await bitcoinProvider.fetchBalances('bc1qexample')
+    expect(balances).toEqual([{ symbol: 'BTC', amount: '1.25' }])
+    expect(fn).toHaveBeenCalledTimes(2)
+  })
+
+  it('wirft TIMEOUT, wenn der Request abbricht', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        const err = new Error('aborted')
+        err.name = 'TimeoutError'
+        throw err
+      }),
+    )
+    await expect(bitcoinProvider.fetchBalances(VALID_ADDRESS)).rejects.toMatchObject({
+      code: 'TIMEOUT',
     })
   })
 })

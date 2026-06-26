@@ -443,6 +443,7 @@ const fr: MessageSchema = {
     ASSET_ALREADY_IN_SOURCE: 'Cet actif est déjà enregistré dans cette source',
     SYNC_ALREADY_RUNNING: 'Une synchronisation est déjà en cours pour cette source',
     RATE_LIMITED: 'Limite de requêtes atteinte — réessayez plus tard',
+    TIMEOUT: 'Le fournisseur n\'a pas répondu à temps — réessayez plus tard',
     CSV_PARSE_ERROR: 'Le CSV n\'a pas pu être lu — au moins deux colonnes avec une ligne d\'en-tête attendues',
     CSV_NO_ROWS: 'Le CSV ne contient aucune ligne de données',
     CSV_TOO_LARGE: 'Le fichier CSV est trop volumineux',

@@ -443,6 +443,7 @@ const pl: MessageSchema = {
     ASSET_ALREADY_IN_SOURCE: 'To aktywo jest już zapisane w tym źródle',
     SYNC_ALREADY_RUNNING: 'Synchronizacja tego źródła już trwa',
     RATE_LIMITED: 'Osiągnięto limit zapytań — spróbuj później',
+    TIMEOUT: 'Dostawca nie odpowiedział na czas — spróbuj później',
     CSV_PARSE_ERROR: 'Nie udało się odczytać CSV — oczekiwano co najmniej dwóch kolumn z wierszem nagłówka',
     CSV_NO_ROWS: 'CSV nie zawiera wierszy danych',
     CSV_TOO_LARGE: 'Plik CSV jest za duży',

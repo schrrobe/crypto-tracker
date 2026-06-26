@@ -443,6 +443,7 @@ const en: MessageSchema = {
     ASSET_ALREADY_IN_SOURCE: 'This asset is already recorded in this source',
     SYNC_ALREADY_RUNNING: 'A sync is already running for this source',
     RATE_LIMITED: 'Rate limit reached — please try again later',
+    TIMEOUT: 'The provider did not respond in time — please try again later',
     CSV_PARSE_ERROR: 'The CSV could not be read — expected at least two columns with a header row',
     CSV_NO_ROWS: 'The CSV contains no data rows',
     CSV_TOO_LARGE: 'The CSV file is too large',

@@ -91,6 +91,10 @@ export class ProviderError extends Error {
       | 'INVALID_ADDRESS'
       | 'RATE_LIMITED'
       | 'PROVIDER_ERROR'
+      // Per-call timeout (the request was aborted after PROVIDER_TIMEOUT_MS). Kept
+      // distinct from PROVIDER_ERROR so a SyncRun can tell "provider down" from
+      // "we gave up waiting".
+      | 'TIMEOUT'
       // Key is valid, but an account-type sub-endpoint (Earn/Margin/Futures) is
       // not enabled — must not abort the overall sync
       | 'ENDPOINT_FORBIDDEN',

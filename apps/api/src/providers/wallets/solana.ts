@@ -1,5 +1,12 @@
-import { env } from '../../config/env'
 import { fromBaseUnits } from '../../lib/decimal'
+import {
+  RETRYABLE_STATUS,
+  bigIntFromJson,
+  bigIntsFromJson,
+  parseRpcEnvelope,
+  solanaRpc,
+  solanaRpcText,
+} from '../http'
 import {
   ProviderError,
   type RawBalance,
@@ -37,28 +44,30 @@ const KNOWN_MINTS: Record<string, string> = {
 // Base58, 32 bytes → 32-44 characters
 const ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
 
-interface RpcResponse<T> {
-  result?: T
-  error?: { code: number; message: string }
-}
+// Read-after-the-fact consistency for a portfolio: every RPC call pins commitment
+// 'finalized' so balances/rewards are deterministic across vendors (the default
+// commitment is vendor-dependent). getBlockTime takes no config object and so is
+// called without commitment.
+const COMMITMENT = 'finalized' as const
 
-async function rpc<T>(method: string, params: unknown[]): Promise<T> {
-  const res = await fetch(env.SOLANA_RPC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  })
-  if (res.status === 429) {
-    throw new ProviderError('RATE_LIMITED', 'Solana-RPC Rate-Limit erreicht, bitte später erneut')
+// Cap on concurrent getBlockTime calls in the reward backfill (S2). Bounded so we
+// don't trade the old serial round-trips for a rate-limit burst.
+const BLOCKTIME_CONCURRENCY = 5
+
+// Resolve fn over items with a bounded number of in-flight calls, preserving
+// input order in the result array.
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let next = 0
+  async function worker(): Promise<void> {
+    while (next < items.length) {
+      const index = next
+      next += 1
+      results[index] = await fn(items[index]!)
+    }
   }
-  if (!res.ok) {
-    throw new ProviderError('PROVIDER_ERROR', `Solana-RPC antwortet mit ${res.status}`, res.status)
-  }
-  const json = (await res.json()) as RpcResponse<T>
-  if (json.error) {
-    throw new ProviderError('PROVIDER_ERROR', `Solana-RPC: ${json.error.message}`)
-  }
-  return json.result as T
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()))
+  return results
 }
 
 interface TokenAccount {
@@ -78,17 +87,41 @@ interface TokenAccount {
 // via the withdrawer authority. account.lamports = delegated stake +
 // rent reserve + accrued rewards.
 async function fetchStakeAccounts(address: string): Promise<Array<{ pubkey: string; lamports: bigint }>> {
-  const result = await rpc<Array<{ pubkey: string; account: { lamports: number } }>>('getProgramAccounts', [
-    STAKE_PROGRAM_ID,
-    {
-      encoding: 'jsonParsed',
-      filters: [
-        { dataSize: STAKE_ACCOUNT_SIZE },
-        { memcmp: { offset: STAKE_WITHDRAWER_OFFSET, bytes: address } },
-      ],
-    },
-  ])
-  return result.map((r) => ({ pubkey: r.pubkey, lamports: BigInt(r.account.lamports) }))
+  // base64 (not jsonParsed): we only need pubkey + lamports, never the parsed stake
+  // layout. An opaque base64 data blob also guarantees the only "lamports" key per
+  // account is the balance — so we can read every value losslessly from the raw
+  // text (a large stake account can exceed 2^53 lamports, which JSON.parse rounds).
+  const text = await solanaRpcText(
+    'getProgramAccounts',
+    [
+      STAKE_PROGRAM_ID,
+      {
+        encoding: 'base64',
+        filters: [
+          { dataSize: STAKE_ACCOUNT_SIZE },
+          { memcmp: { offset: STAKE_WITHDRAWER_OFFSET, bytes: address } },
+        ],
+      },
+    ],
+    { commitment: COMMITMENT },
+  )
+  // parseRpcEnvelope guards both malformed JSON (→ typed code, not a raw
+  // SyntaxError) and non-object 200 bodies (null/primitive would otherwise throw
+  // a TypeError on the .error access below). A 200 whose result is not an array
+  // is a protocol violation — reject it rather than silently reporting no stake.
+  const json = parseRpcEnvelope<Array<{ pubkey: string }>>(text, 'Solana-RPC')
+  if (json.error) {
+    throw new ProviderError('PROVIDER_ERROR', `Solana-RPC: ${json.error.message}`)
+  }
+  if (!Array.isArray(json.result)) {
+    throw new ProviderError('PROVIDER_ERROR', 'Solana-RPC: Stake-Account-Antwort unvollständig')
+  }
+  const accounts = json.result
+  const lamports = bigIntsFromJson(text, 'lamports')
+  if (lamports.length !== accounts.length) {
+    throw new ProviderError('PROVIDER_ERROR', 'Solana-RPC: Stake-Account-Antwort inkonsistent')
+  }
+  return accounts.map((account, i) => ({ pubkey: account.pubkey, lamports: lamports[i]! }))
 }
 
 // Extract the epoch from a reward externalRef (sol-reward:<account>:<epoch>)
@@ -102,9 +135,7 @@ function epochFromExternalRef(ref: string | null): number | null {
 // error must NOT let the cursor advance past the epoch — otherwise that epoch's
 // reward is lost forever (it would never be re-queried). Pruned epochs, by
 // contrast, must be skipped forward or one un-retainable epoch would stall every
-// future reward.
-// HTTP statuses worth retrying — everything else (esp. 4xx) is terminal for the request.
-const RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504])
+// future reward. The retryable HTTP set is shared with the http helper (RETRYABLE_STATUS).
 
 // A genuinely un-retainable epoch (RPC long-term-storage pruning / too-old slot).
 // These never reappear, so the cursor must skip forward; older history is imported
@@ -116,9 +147,11 @@ function isPrunedEpochError(e: ProviderError): boolean {
 function isTransientRpcError(e: unknown): boolean {
   if (e instanceof ProviderError) {
     if (e.code === 'RATE_LIMITED') return true
-    // HTTP-level failure (rpc() attaches the status): only explicitly retryable
+    // A TIMEOUT (aborted request) is transient — retry on the next sync.
+    if (e.code === 'TIMEOUT') return true
+    // HTTP-level failure (solanaRpc attaches the status): only explicitly retryable
     // statuses are transient; a 4xx is terminal and must not stall the loop forever.
-    if (e.status !== undefined) return RETRYABLE_HTTP_STATUS.has(e.status)
+    if (e.status !== undefined) return RETRYABLE_STATUS.has(e.status)
     // JSON-RPC application error (no HTTP status): skip only known pruned/too-old
     // epochs; any other JSON-RPC error stops the loop (treated transient) so its
     // reward is never silently lost.
@@ -136,7 +169,22 @@ export const solanaProvider: WalletProvider = {
   },
 
   async fetchBalances(address: string, options?: { includeUnknownTokens?: boolean }): Promise<RawBalance[]> {
-    const balanceResult = await rpc<{ value: number }>('getBalance', [address])
+    // Defense-in-depth: never POST a malformed address to the RPC (a stored row
+    // could predate a validation change). Validated on source creation too.
+    if (!ADDRESS_RE.test(address)) {
+      throw new ProviderError('INVALID_ADDRESS', 'Ungültige Solana-Adresse')
+    }
+
+    // getBalance.value is lamports and can exceed 2^53 for a whale/exchange
+    // account (> ~9M SOL), where JSON.parse would round it. Read it losslessly
+    // from the raw response text as a BigInt. The application-error case (200 body
+    // with an `error`) is handled the same way solanaRpc would.
+    const balanceText = await solanaRpcText('getBalance', [address], { commitment: COMMITMENT })
+    const balanceEnvelope = parseRpcEnvelope<unknown>(balanceText, 'Solana-RPC')
+    if (balanceEnvelope.error) {
+      throw new ProviderError('PROVIDER_ERROR', `Solana-RPC: ${balanceEnvelope.error.message}`)
+    }
+    const liquidLamports = bigIntFromJson(balanceText, 'value')
 
     const stakeAccounts = await fetchStakeAccounts(address)
     // account.lamports = delegated stake + accrued rewards + rent-exempt reserve.
@@ -146,14 +194,14 @@ export const solanaProvider: WalletProvider = {
     const stakedLamports = stakeAccounts.reduce((sum, acc) => sum + acc.lamports, 0n)
 
     const balances: RawBalance[] = [
-      { symbol: 'SOL', amount: fromBaseUnits(BigInt(balanceResult.value) + stakedLamports, 9) },
+      { symbol: 'SOL', amount: fromBaseUnits(liquidLamports + stakedLamports, 9) },
     ]
 
-    const tokenResult = await rpc<{ value: TokenAccount[] }>('getTokenAccountsByOwner', [
-      address,
-      { programId: TOKEN_PROGRAM_ID },
-      { encoding: 'jsonParsed' },
-    ])
+    const tokenResult = await solanaRpc<{ value: TokenAccount[] }>(
+      'getTokenAccountsByOwner',
+      [address, { programId: TOKEN_PROGRAM_ID }, { encoding: 'jsonParsed' }],
+      { commitment: COMMITMENT },
+    )
 
     // Multiple token accounts can hold the same mint → sum in base units
     const byMint = new Map<string, { raw: bigint; decimals: number }>()
@@ -190,11 +238,16 @@ export const solanaProvider: WalletProvider = {
     address: string,
     sinceHint: { lastExternalRef: string | null },
   ): Promise<RawStakingReward[]> {
+    // Same defense-in-depth as fetchBalances: never send a malformed address
+    // (a stored row could predate a validation change) into the backfill RPCs.
+    if (!ADDRESS_RE.test(address)) {
+      throw new ProviderError('INVALID_ADDRESS', 'Ungültige Solana-Adresse')
+    }
     const stakeAccounts = await fetchStakeAccounts(address)
     if (stakeAccounts.length === 0) return []
     const pubkeys = stakeAccounts.map((s) => s.pubkey)
 
-    const epochInfo = await rpc<{ epoch: number }>('getEpochInfo', [])
+    const epochInfo = await solanaRpc<{ epoch: number }>('getEpochInfo', [], { commitment: COMMITMENT })
     // Rewards for epoch E are credited at the start of E+1 → last completed = E−1
     const lastComplete = epochInfo.epoch - 1
     const lastKnown = epochFromExternalRef(sinceHint.lastExternalRef)
@@ -203,45 +256,42 @@ export const solanaProvider: WalletProvider = {
       0,
     )
 
-    const rewards: RawStakingReward[] = []
-    // Set when the loop stops early (truncated import). We throw afterwards carrying
-    // the rewards collected so far so the sync persists them AND flags PARTIAL_SYNC —
-    // a clean run returns normally and is reported as a full success.
+    // Set when a pass stops early (truncated import). We throw afterwards carrying the
+    // rewards collected so far so the sync persists them AND flags PARTIAL_SYNC — a
+    // clean run returns normally and is reported as a full success.
     let stop: { code: ProviderError['code']; status?: number; message: string } | null = null
+
+    // Phase 1 — inflation rewards, one query per epoch, STRICTLY SEQUENTIAL. This is the
+    // cursor-critical pass: stop at the first transient failure so the cursor never
+    // advances past a gap (pruned/too-old epochs are skipped forward). Block times are
+    // resolved afterwards in a batch (S2); they are not cursor-critical here because a
+    // missing block time truncates back to the contiguous prefix in phase 2.
+    interface PendingEpoch {
+      epoch: number
+      effectiveSlot: number
+      entries: Array<{ pubkey: string; amountLamports: bigint }>
+    }
+    const pending: PendingEpoch[] = []
     for (let epoch = fromEpoch; epoch <= lastComplete; epoch += 1) {
       try {
-        const results = await rpc<Array<{ amount: number; effectiveSlot: number } | null>>(
+        // retries:0 — the reward loop has its own stop/resume strategy; an HTTP retry
+        // here would only burn the same epoch instead of letting the cursor logic run.
+        const results = await solanaRpc<Array<{ amount: number; effectiveSlot: number } | null>>(
           'getInflationReward',
           [pubkeys, { epoch }],
+          { commitment: COMMITMENT, retries: 0 },
         )
-
-        // effectiveSlot is the same for all accounts in an epoch → one getBlockTime suffices
-        const first = results.find((r) => r !== null && r.amount > 0)
-        if (!first) continue
-        const blockTime = await rpc<number | null>('getBlockTime', [first.effectiveSlot])
-        // No timestamp → cannot make a tax record. Treat like a transient stop
-        // (break, NOT continue): the cursor must not advance past this epoch, or its
-        // reward would be lost forever. Earlier epochs in this batch already persist;
-        // this epoch is retried on the next sync. Rare for recent (in-window) slots.
-        if (blockTime === null) {
-          stop = { code: 'PROVIDER_ERROR', message: `Blockzeit fehlt für Epoche ${epoch}` }
-          break
-        }
-        const timestamp = new Date(blockTime * 1000)
-
-        results.forEach((r, i) => {
-          if (!r || r.amount <= 0) return
-          rewards.push({
-            symbol: 'SOL',
-            amount: fromBaseUnits(BigInt(r.amount), 9),
-            timestamp,
-            externalRef: `sol-reward:${pubkeys[i]}:${epoch}`,
-          })
-        })
+        // effectiveSlot is identical for all accounts in an epoch.
+        const rewarded = results.filter((r): r is { amount: number; effectiveSlot: number } => !!r && r.amount > 0)
+        if (rewarded.length === 0) continue
+        const entries = results.flatMap((r, i) =>
+          r && r.amount > 0 ? [{ pubkey: pubkeys[i]!, amountLamports: BigInt(r.amount) }] : [],
+        )
+        pending.push({ epoch, effectiveSlot: rewarded[0]!.effectiveSlot, entries })
       } catch (e) {
-        // Transient (rate limit / 5xx / network): STOP — do not advance the cursor
-        // past this epoch; it is retried on the next sync. Genuinely pruned/too-old
-        // epochs are skipped forward (their history is imported via CSV).
+        // Transient (rate limit / 5xx / network): STOP — do not advance the cursor past
+        // this epoch; it is retried on the next sync. Genuinely pruned/too-old epochs
+        // are skipped forward (their history is imported via CSV).
         if (isTransientRpcError(e)) {
           stop = {
             code: e instanceof ProviderError ? e.code : 'PROVIDER_ERROR',
@@ -251,6 +301,52 @@ export const solanaProvider: WalletProvider = {
           break
         }
         continue
+      }
+    }
+
+    // Phase 2 — resolve block times for the rewarded epochs with bounded concurrency
+    // (S2: was one serial getBlockTime per epoch). A missing or failed block time
+    // TRUNCATES to the contiguous prefix: keep every epoch below the first gap and stop
+    // there, because a tax record needs a timestamp and the cursor must not jump a gap.
+    // Phase-2 gaps sit at lower epochs than any phase-1 stop, so they take precedence.
+    const rewards: RawStakingReward[] = []
+    const blockTimes = await mapWithConcurrency(pending, BLOCKTIME_CONCURRENCY, async (p) => {
+      try {
+        // retries:0 for the same reason as getInflationReward above. getBlockTime takes
+        // no config object → no commitment param.
+        const blockTime = await solanaRpc<number | null>('getBlockTime', [p.effectiveSlot], { retries: 0 })
+        return { blockTime, error: null as unknown }
+      } catch (e) {
+        return { blockTime: null as number | null, error: e as unknown }
+      }
+    })
+    for (let i = 0; i < pending.length; i += 1) {
+      const p = pending[i]!
+      const bt = blockTimes[i]!
+      if (bt.error) {
+        // Cannot place this epoch in time → truncate here. A transient error keeps its
+        // code/status so the next sync retries the epoch; a non-transient one still
+        // stops rather than leave a silent gap.
+        const err = bt.error
+        stop = {
+          code: err instanceof ProviderError ? err.code : 'PROVIDER_ERROR',
+          status: err instanceof ProviderError ? err.status : undefined,
+          message: err instanceof Error ? err.message : String(err),
+        }
+        break
+      }
+      if (bt.blockTime === null) {
+        stop = { code: 'PROVIDER_ERROR', message: `Blockzeit fehlt für Epoche ${p.epoch}` }
+        break
+      }
+      const timestamp = new Date(bt.blockTime * 1000)
+      for (const entry of p.entries) {
+        rewards.push({
+          symbol: 'SOL',
+          amount: fromBaseUnits(entry.amountLamports, 9),
+          timestamp,
+          externalRef: `sol-reward:${entry.pubkey}:${p.epoch}`,
+        })
       }
     }
     // Truncated import → surface as a partial failure (carrying what we collected)

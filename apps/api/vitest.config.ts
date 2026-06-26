@@ -17,6 +17,8 @@ export default defineConfig({
       CORS_ORIGINS: 'http://localhost:5173',
       FAKE_PRICES: 'true',
       FAKE_PROVIDERS: 'true',
+      // Keep retry backoff near-instant so retry tests don't add real wall-clock delay.
+      PROVIDER_RETRY_BASE_MS: '1',
     },
   },
 })

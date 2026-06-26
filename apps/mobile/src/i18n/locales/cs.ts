@@ -443,6 +443,7 @@ const cs: MessageSchema = {
     ASSET_ALREADY_IN_SOURCE: 'Toto aktivum je v tomto zdroji již zaznamenáno',
     SYNC_ALREADY_RUNNING: 'Synchronizace tohoto zdroje již probíhá',
     RATE_LIMITED: 'Dosažen limit požadavků — zkuste to později',
+    TIMEOUT: 'Poskytovatel neodpověděl včas — zkuste to později',
     CSV_PARSE_ERROR: 'CSV se nepodařilo přečíst — očekávány alespoň dva sloupce s hlavičkou',
     CSV_NO_ROWS: 'CSV neobsahuje žádné datové řádky',
     CSV_TOO_LARGE: 'Soubor CSV je příliš velký',

@@ -27,6 +27,12 @@ const envSchema = z.object({
   // beaconcha.in now requires it for all API endpoints)
   BEACONCHAIN_API_KEY: z.string().optional(),
   MEMPOOL_API_URL: z.string().url().default('https://mempool.space/api'),
+  // Shared provider HTTP/RPC tuning (apply to providers migrated onto src/providers/http.ts).
+  // Per-call timeout that actually aborts the socket; bounded retry with backoff on
+  // transient statuses (408/425/429/5xx). Retry base is the first backoff step in ms.
+  PROVIDER_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+  PROVIDER_MAX_RETRIES: z.coerce.number().int().nonnegative().default(3),
+  PROVIDER_RETRY_BASE_MS: z.coerce.number().int().nonnegative().default(300),
   // Base URL of the web app for reset links (e.g. https://app.example.com). The local default
   // points at the Vite dev server; the reset link is built from it + ?token=…
   APP_PUBLIC_URL: z.string().url().default('http://localhost:5173'),

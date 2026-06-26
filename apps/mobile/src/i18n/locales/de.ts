@@ -442,6 +442,7 @@ const de = {
     ASSET_ALREADY_IN_SOURCE: 'Dieses Asset ist in dieser Quelle bereits erfasst',
     SYNC_ALREADY_RUNNING: 'Für diese Quelle läuft bereits ein Sync',
     RATE_LIMITED: 'Rate-Limit erreicht — bitte später erneut versuchen',
+    TIMEOUT: 'Der Anbieter hat nicht rechtzeitig geantwortet — bitte später erneut versuchen',
     CSV_PARSE_ERROR: 'CSV konnte nicht gelesen werden — mindestens zwei Spalten mit Header-Zeile erwartet',
     CSV_NO_ROWS: 'Die CSV enthält keine Datenzeilen',
     CSV_TOO_LARGE: 'Die CSV-Datei ist zu groß',
