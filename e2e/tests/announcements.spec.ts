@@ -9,7 +9,7 @@ const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url))
 
 // Seed an active broadcast announcement through the admin API (no admin UI in
 // the E2E harness): register admin, grant admin against the E2E DB, then POST.
-async function seedActiveAnnouncement(message: string): Promise<void> {
+async function seedActiveAnnouncement(message: string, opts: { public?: boolean } = {}): Promise<void> {
   const adminEmail = uniqueEmail('ann-admin')
   const ctx = await playwrightRequest.newContext()
   const reg = await ctx.post(`${API}/auth/register`, { data: { email: adminEmail, password: PASSWORD } })
@@ -24,7 +24,7 @@ async function seedActiveAnnouncement(message: string): Promise<void> {
 
   const r = await ctx.post(`${API}/admin/announcements`, {
     headers: { Authorization: `Bearer ${accessToken}` },
-    data: { level: 'ERROR', message, active: true },
+    data: { level: 'ERROR', messages: { de: message }, defaultLocale: 'de', active: true, public: opts.public ?? false },
   })
   expect(r.ok()).toBeTruthy()
   await ctx.dispose()
@@ -46,4 +46,14 @@ test('Ankündigung: Banner global sichtbar → schließen → bleibt nach Reload
   // persisted: still gone after a reload
   await page.reload()
   await expect(page.getByTestId('announcement').filter({ hasText: message })).toHaveCount(0)
+})
+
+test('Öffentliche Ankündigung: vor Login sichtbar', async ({ page }) => {
+  const message = `E2E-Public ${process.pid}-${Date.now()}`
+  await seedActiveAnnouncement(message, { public: true })
+
+  // No registration / login — land on the app while logged out.
+  await page.goto('/')
+  const banner = page.getByTestId('announcement').filter({ hasText: message })
+  await expect(banner).toBeVisible()
 })

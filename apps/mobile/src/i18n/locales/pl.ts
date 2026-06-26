@@ -1,6 +1,12 @@
 import type { MessageSchema } from './de'
 
 const pl: MessageSchema = {
+  announcement: {
+    level: {
+      error: 'Awaria',
+      info: 'Info',
+    },
+  },
   common: {
     cancel: 'Anuluj',
     delete: 'Usuń',

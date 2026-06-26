@@ -1,4 +1,10 @@
 const de = {
+  announcement: {
+    level: {
+      error: 'Störung',
+      info: 'Info',
+    },
+  },
   common: {
     cancel: 'Abbrechen',
     delete: 'Löschen',
