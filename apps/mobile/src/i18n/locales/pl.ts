@@ -435,6 +435,10 @@ const pl: MessageSchema = {
     submit: 'Wyślij',
     submitFailed: 'Nie udało się wysłać odpowiedzi',
     thanks: 'Dziękujemy za udział!',
+    anonymousNote: 'Ta ankieta jest anonimowa — Twoje odpowiedzi nie są powiązane z Twoją tożsamością.',
+    progress: '{answered} z {total} odpowiedzianych',
+    noAnswers: 'Odpowiedz na co najmniej jedno pytanie przed wysłaniem.',
+    empty: 'Ta ankieta nie zawiera żadnych pytań.',
   },
   errors: {
     EMAIL_TAKEN: 'Ten adres e-mail jest już zarejestrowany',

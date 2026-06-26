@@ -61,6 +61,9 @@ describe('SurveyBuilderView', () => {
     expect(api.createSurvey).toHaveBeenCalledTimes(1)
     const payload = api.createSurvey.mock.calls[0]![0]
     expect(payload.title).toBe('Meine Umfrage')
+    expect(payload.anonymous).toBe(false)
+    expect(payload.targetPlans).toEqual([])
+    expect(payload.targetCurrencies).toEqual([])
     expect(payload.questions).toHaveLength(1)
     expect(payload.questions[0]).toMatchObject({
       type: 'MULTI_CHOICE',
@@ -68,5 +71,32 @@ describe('SurveyBuilderView', () => {
       options: [{ label: 'A' }, { label: 'B' }],
     })
     expect(push).toHaveBeenCalledWith('/surveys')
+  })
+
+  it('includes anonymous flag and targeting in the payload', async () => {
+    const w = mountView()
+    await w.findAll('input:not([type])')[0]!.setValue('Zielgerichtet')
+    // anonymous toggle
+    const anonToggle = w.find('input[type="checkbox"]')
+    await anonToggle.setValue(true)
+    // plan multi-select: check FREE
+    const freeCb = w.findAll('input[type="checkbox"]').find((i) => i.attributes('value') === 'FREE')!
+    await freeCb.setValue(true)
+    // currency tag input (comma-separated, upper-cased)
+    const currencyInput = w.findAll('input').find((i) => i.attributes('placeholder') === 'z. B. EUR, USD')!
+    await currencyInput.setValue('eur, usd')
+    await currencyInput.trigger('keyup.enter')
+    await flushPromises()
+    expect(w.text()).toContain('EUR')
+    expect(w.text()).toContain('USD')
+
+    const saveBtn = w.findAll('button').find((b) => b.text() === 'Als Entwurf speichern')!
+    await saveBtn.trigger('click')
+    await flushPromises()
+
+    const payload = api.createSurvey.mock.calls[0]![0]
+    expect(payload.anonymous).toBe(true)
+    expect(payload.targetPlans).toEqual(['FREE'])
+    expect(payload.targetCurrencies).toEqual(['EUR', 'USD'])
   })
 })

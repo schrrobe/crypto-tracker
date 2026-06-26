@@ -80,9 +80,16 @@ adminSurveysRoutes.get(
   '/:id/free-text/export.csv',
   asyncHandler(async (req, res) => {
     const questionId = String(req.query.questionId ?? '')
-    const csv = await surveys.freeTextCsv(routeParam(req, 'id'), questionId)
+    const csv = await surveys.freeTextCsv(req.adminUser, routeParam(req, 'id'), questionId)
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', 'attachment; filename="survey-free-text.csv"')
     res.send(csv)
+  }),
+)
+
+adminSurveysRoutes.post(
+  '/:id/remind',
+  asyncHandler(async (req, res) => {
+    res.json(await surveys.remindNonResponders(req.adminUser, routeParam(req, 'id')))
   }),
 )

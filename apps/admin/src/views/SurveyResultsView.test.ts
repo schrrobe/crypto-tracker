@@ -23,19 +23,23 @@ const RESULTS = {
   id: 's1',
   title: 'Feature-Wunsch',
   status: 'PUBLISHED',
+  anonymous: true,
   responseCount: 7,
+  eligibleCount: 20,
+  responseRate: 0.35,
   questions: [
     {
       questionId: 'q-choice',
       type: 'SINGLE_CHOICE',
       prompt: 'Farbe?',
+      answeredCount: 7,
       options: [
         { optionId: 'o1', label: 'Rot', count: 5 },
         { optionId: 'o2', label: 'Blau', count: 2 },
       ],
       freeTextCount: 0,
     },
-    { questionId: 'q-free', type: 'FREE_TEXT', prompt: 'Sonstiges?', options: [], freeTextCount: 1 },
+    { questionId: 'q-free', type: 'FREE_TEXT', prompt: 'Sonstiges?', answeredCount: 3, options: [], freeTextCount: 1 },
   ],
 }
 
@@ -60,7 +64,31 @@ describe('SurveyResultsView', () => {
     expect(api.surveyResults).toHaveBeenCalledWith('s1')
     expect(api.surveyFreeText).toHaveBeenCalledWith('s1', { questionId: 'q-free', q: undefined, page: 1, pageSize: 25 })
     expect(w.text()).toContain('Feature-Wunsch')
-    expect(w.text()).toContain('7 Antworten')
+  })
+
+  it('shows the response rate as a percentage with count / eligible and per-question answered count', async () => {
+    const w = mountView()
+    await flushPromises()
+    expect(w.text()).toContain('35%')
+    expect(w.text()).toContain('7 / 20')
+    // anonymity indicator on the survey
+    expect(w.text()).toContain('anonym')
+    // per-question answered count "beantwortet von N von {responseCount}"
+    expect(w.text()).toContain('beantwortet von 7 von 7')
+    expect(w.text()).toContain('beantwortet von 3 von 7')
+  })
+
+  it('shows an anonymous indicator instead of a user id when userId is null', async () => {
+    api.surveyFreeText.mockResolvedValue({
+      answers: [{ text: 'Anon feedback', userId: null, createdAt: '2026-06-01T00:00:00.000Z' }],
+      total: 1,
+      page: 1,
+      pageSize: 25,
+    })
+    const w = mountView()
+    await flushPromises()
+    expect(w.text()).toContain('Anon feedback')
+    expect(w.text()).toContain('anonym')
   })
 
   it('renders choice option counts in a table', async () => {

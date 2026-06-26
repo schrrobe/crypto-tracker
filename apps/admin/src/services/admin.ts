@@ -20,6 +20,7 @@ import type {
   FreeTextAnswerListDto,
   SurveyListDto,
   SurveyResultsDto,
+  SurveyReminderResultDto,
   UpdateSurveyInput,
   AdminAnnouncementDto,
   AdminAnnouncementListDto,
@@ -110,6 +111,7 @@ export const adminApi = {
   updateSurvey: (id: string, input: UpdateSurveyInput) => api.patch<void>(`/admin/surveys/${id}`, input),
   publishSurvey: (id: string) => api.post<void>(`/admin/surveys/${id}/publish`),
   closeSurvey: (id: string) => api.post<void>(`/admin/surveys/${id}/close`),
+  remindSurvey: (id: string) => api.post<SurveyReminderResultDto>(`/admin/surveys/${id}/remind`),
   deleteSurvey: (id: string) => api.delete<void>(`/admin/surveys/${id}`),
   surveyResults: (id: string) => api.get<SurveyResultsDto>(`/admin/surveys/${id}/results`),
   surveyFreeText: (id: string, params: { questionId: string; q?: string; page?: number; pageSize?: number }) => {

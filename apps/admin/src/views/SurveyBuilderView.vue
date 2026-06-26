@@ -13,6 +13,49 @@
         <label class="block text-sm text-slate-600 mb-1">Beschreibung (optional)</label>
         <textarea v-model="description" rows="2" class="w-full border border-slate-300 rounded px-3 py-2 text-sm" />
       </div>
+
+      <label class="flex items-center gap-2 text-sm text-slate-700">
+        <input type="checkbox" v-model="anonymous" class="rounded border-slate-300" />
+        Anonyme Umfrage (Antworten werden nicht mit der Identität verknüpft)
+      </label>
+
+      <div>
+        <label class="block text-sm text-slate-600 mb-1">Zielgruppe: Pläne</label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1.5 text-sm text-slate-700">
+            <input type="checkbox" value="FREE" v-model="targetPlans" class="rounded border-slate-300" />
+            FREE
+          </label>
+          <label class="flex items-center gap-1.5 text-sm text-slate-700">
+            <input type="checkbox" value="PRO" v-model="targetPlans" class="rounded border-slate-300" />
+            PRO
+          </label>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">Keine Auswahl = alle Pläne</p>
+      </div>
+
+      <div>
+        <label class="block text-sm text-slate-600 mb-1">Zielgruppe: Währungen</label>
+        <div class="flex flex-wrap gap-1.5 mb-1">
+          <span
+            v-for="(c, ci) in targetCurrencies"
+            :key="c"
+            class="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-xs rounded px-2 py-0.5"
+          >
+            {{ c }}
+            <button class="text-slate-400 hover:text-red-600" @click="targetCurrencies.splice(ci, 1)">×</button>
+          </span>
+        </div>
+        <input
+          v-model="currencyInput"
+          placeholder="z. B. EUR, USD"
+          class="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+          @keyup.enter="addCurrencies"
+          @keydown.,.prevent="addCurrencies"
+          @blur="addCurrencies"
+        />
+        <p class="text-xs text-slate-400 mt-1">Komma oder Enter trennt Codes; keine Auswahl = alle Währungen</p>
+      </div>
     </div>
 
     <div v-for="(q, qi) in questions" :key="qi" class="bg-white rounded-lg shadow-sm p-4 space-y-3 mb-3">
@@ -80,12 +123,27 @@ interface QuestionForm {
 const router = useRouter()
 const title = ref('')
 const description = ref('')
+const anonymous = ref(false)
+const targetPlans = ref<('FREE' | 'PRO')[]>([])
+const targetCurrencies = ref<string[]>([])
+const currencyInput = ref('')
 const questions = ref<QuestionForm[]>([{ type: 'FREE_TEXT', prompt: '', options: [] }])
 const error = ref('')
 const saving = ref(false)
 
 function isChoice(t: QType): boolean {
   return t === 'SINGLE_CHOICE' || t === 'MULTI_CHOICE'
+}
+
+function addCurrencies() {
+  const codes = currencyInput.value
+    .split(',')
+    .map((c) => c.trim().toUpperCase())
+    .filter(Boolean)
+  for (const c of codes) {
+    if (!targetCurrencies.value.includes(c)) targetCurrencies.value.push(c)
+  }
+  currencyInput.value = ''
 }
 
 function addQuestion() {
@@ -102,10 +160,14 @@ function onTypeChange(q: QuestionForm) {
 async function save() {
   error.value = ''
   saving.value = true
+  addCurrencies()
   try {
     const payload: CreateSurveyInput = {
       title: title.value.trim(),
       description: description.value.trim() || undefined,
+      anonymous: anonymous.value,
+      targetPlans: targetPlans.value,
+      targetCurrencies: targetCurrencies.value,
       questions: questions.value.map((q) => ({
         type: q.type,
         prompt: q.prompt.trim(),

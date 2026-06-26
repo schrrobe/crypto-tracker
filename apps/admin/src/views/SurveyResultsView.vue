@@ -6,10 +6,15 @@
     </div>
 
     <p v-if="error" class="text-red-600 text-sm mb-3">{{ error }}</p>
-    <p class="text-slate-500 text-sm mb-4">{{ results?.responseCount ?? 0 }} Antworten</p>
+    <div class="flex items-center gap-3 text-sm mb-4">
+      <span class="text-slate-700 font-medium">{{ responseRatePct }}% Rücklaufquote</span>
+      <span class="text-slate-500">{{ results?.responseCount ?? 0 }} / {{ results?.eligibleCount ?? 0 }} Antworten</span>
+      <span v-if="results?.anonymous" class="text-xs rounded px-1.5 py-0.5 bg-violet-100 text-violet-700">anonym</span>
+    </div>
 
     <div v-for="q in results?.questions ?? []" :key="q.questionId" class="bg-white rounded-lg shadow-sm p-4 mb-4">
-      <h3 class="text-sm font-medium text-slate-700 mb-3">{{ q.prompt }}</h3>
+      <h3 class="text-sm font-medium text-slate-700 mb-1">{{ q.prompt }}</h3>
+      <p class="text-xs text-slate-400 mb-3">beantwortet von {{ q.answeredCount }} von {{ results?.responseCount ?? 0 }}</p>
 
       <!-- choice questions: table + bar chart -->
       <template v-if="q.type !== 'FREE_TEXT'">
@@ -49,7 +54,8 @@
         <ul class="text-sm divide-y divide-slate-100">
           <li v-for="(a, i) in ft(q.questionId).answers" :key="i" class="py-2">
             <span class="text-slate-800">{{ a.text }}</span>
-            <span class="text-slate-400 text-xs ml-2">{{ a.userId.slice(0, 8) }}</span>
+            <span v-if="a.userId === null" class="text-violet-500 text-xs ml-2 italic">anonym</span>
+            <span v-else class="text-slate-400 text-xs ml-2">{{ a.userId.slice(0, 8) }}</span>
           </li>
           <li v-if="ft(q.questionId).loaded && ft(q.questionId).answers.length === 0" class="py-2 text-slate-400">
             Keine Antworten
@@ -66,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Bar } from 'vue-chartjs'
 import type { FreeTextAnswerDto, SurveyQuestionResultDto, SurveyResultsDto } from '@crypto-tracker/shared'
@@ -79,6 +85,7 @@ const pageSize = 25
 
 const results = ref<SurveyResultsDto | null>(null)
 const error = ref('')
+const responseRatePct = computed(() => Math.round((results.value?.responseRate ?? 0) * 100))
 const opts = { responsive: true, plugins: { legend: { display: false } } }
 
 interface FtState {

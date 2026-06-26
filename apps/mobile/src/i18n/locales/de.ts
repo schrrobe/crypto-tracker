@@ -434,6 +434,10 @@ const de = {
     submit: 'Absenden',
     submitFailed: 'Antwort konnte nicht gesendet werden',
     thanks: 'Danke für deine Teilnahme!',
+    anonymousNote: 'Diese Umfrage ist anonym — deine Antworten werden nicht mit deiner Identität verknüpft.',
+    progress: '{answered} von {total} beantwortet',
+    noAnswers: 'Bitte beantworte mindestens eine Frage, bevor du absendest.',
+    empty: 'Diese Umfrage enthält keine Fragen.',
   },
   errors: {
     EMAIL_TAKEN: 'Diese E-Mail-Adresse ist bereits registriert',

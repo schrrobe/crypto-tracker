@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import request from 'supertest'
 import { API, app, bearer, makeAdmin, registerUser } from './helpers'
+import { prisma } from '../lib/prisma'
+
+// Create + publish a survey with an arbitrary body (targeting / anonymity).
+async function createPublished(
+  admin: Awaited<ReturnType<typeof registerUser>>,
+  body: Record<string, unknown>,
+) {
+  const create = await request(app).post(`${API}/admin/surveys`).set(...bearer(admin)).send(body)
+  expect(create.status).toBe(201)
+  const id = create.body.id as string
+  const publish = await request(app).post(`${API}/admin/surveys/${id}/publish`).set(...bearer(admin))
+  expect(publish.status).toBe(204)
+  return id
+}
 
 // Build a survey with one of each question type and publish it.
 async function createPublishedSurvey(admin: Awaited<ReturnType<typeof registerUser>>) {
@@ -116,5 +130,136 @@ describe('Surveys (Integration)', () => {
     expect(get.status).toBe(404)
     const pending = await request(app).get(`${API}/surveys/pending`).set(...bearer(user))
     expect(pending.body.surveys.find((s: { id: string }) => s.id === draftId)).toBeUndefined()
+  })
+
+  it('Targeting: nur Nutzer im Zielsegment sehen die Umfrage', async () => {
+    const admin = await registerUser('survey-target-admin', 'PRO')
+    await makeAdmin(admin)
+    const id = await createPublished(admin, {
+      title: 'Nur PRO',
+      targetPlans: ['PRO'],
+      questions: [{ type: 'FREE_TEXT', prompt: 'Feedback?' }],
+    })
+
+    const freeUser = await registerUser('survey-target-free', 'FREE')
+    const proUser = await registerUser('survey-target-pro', 'PRO')
+
+    // FREE user: invisible (404) and not pending; cannot submit (404).
+    expect((await request(app).get(`${API}/surveys/${id}`).set(...bearer(freeUser))).status).toBe(404)
+    const freePending = await request(app).get(`${API}/surveys/pending`).set(...bearer(freeUser))
+    expect(freePending.body.surveys.find((s: { id: string }) => s.id === id)).toBeUndefined()
+    const q = (await request(app).get(`${API}/surveys/${id}`).set(...bearer(proUser))).body.survey
+    const submitFree = await request(app)
+      .post(`${API}/surveys/${id}/responses`)
+      .set(...bearer(freeUser))
+      .send({ answers: [{ questionId: q.questions[0].id, text: 'nope' }] })
+    expect(submitFree.status).toBe(404)
+
+    // PRO user: visible and pending.
+    expect((await request(app).get(`${API}/surveys/${id}`).set(...bearer(proUser))).status).toBe(200)
+    const proPending = await request(app).get(`${API}/surveys/pending`).set(...bearer(proUser))
+    expect(proPending.body.surveys.find((s: { id: string }) => s.id === id)).toBeDefined()
+  })
+
+  it('Anonyme Umfrage: userId wird nirgends preisgegeben, Export wird auditiert', async () => {
+    const admin = await registerUser('survey-anon-admin', 'PRO')
+    await makeAdmin(admin)
+    const id = await createPublished(admin, {
+      title: 'Anonym',
+      anonymous: true,
+      questions: [{ type: 'FREE_TEXT', prompt: 'Ehrliche Meinung?' }],
+    })
+
+    const user = await registerUser('survey-anon-user', 'PRO')
+    const survey = (await request(app).get(`${API}/surveys/${id}`).set(...bearer(user))).body.survey
+    expect(survey.anonymous).toBe(true)
+    const qId = survey.questions[0].id
+    await request(app)
+      .post(`${API}/surveys/${id}/responses`)
+      .set(...bearer(user))
+      .send({ answers: [{ questionId: qId, text: 'streng geheim' }] })
+      .expect(204)
+
+    // Results: flagged anonymous.
+    const results = (await request(app).get(`${API}/admin/surveys/${id}/results`).set(...bearer(admin))).body
+    expect(results.anonymous).toBe(true)
+
+    // Free-text list: userId withheld (null), text still present.
+    const list = (
+      await request(app)
+        .get(`${API}/admin/surveys/${id}/free-text?questionId=${qId}`)
+        .set(...bearer(admin))
+    ).body
+    expect(list.answers.length).toBeGreaterThan(0)
+    expect(list.answers[0].userId).toBeNull()
+    expect(list.answers[0].text).toBe('streng geheim')
+
+    // CSV: no userId column; export audited.
+    const csv = await request(app)
+      .get(`${API}/admin/surveys/${id}/free-text/export.csv?questionId=${qId}`)
+      .set(...bearer(admin))
+    expect(csv.status).toBe(200)
+    expect(csv.text).toContain('createdAt,answer')
+    expect(csv.text).not.toContain('userId')
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: 'SURVEY_FREETEXT_EXPORTED', targetId: id },
+    })
+    expect(audit).not.toBeNull()
+  })
+
+  it('Erinnerung: zweite Erinnerung im Cooldown-Fenster wird übersprungen', async () => {
+    const admin = await registerUser('survey-remind-admin', 'PRO')
+    await makeAdmin(admin)
+    const id = await createPublished(admin, {
+      title: 'Erinnerung',
+      questions: [{ type: 'SINGLE_CHOICE', prompt: 'A oder B?', options: [{ label: 'A' }, { label: 'B' }] }],
+    })
+
+    const first = await request(app).post(`${API}/admin/surveys/${id}/remind`).set(...bearer(admin))
+    expect(first.status).toBe(200)
+    expect(first.body.skippedCooldown).toBe(false)
+    expect(typeof first.body.notified).toBe('number')
+    expect(typeof first.body.eligibleCount).toBe('number')
+    expect(first.body.lastRemindedAt).not.toBeNull()
+
+    const second = await request(app).post(`${API}/admin/surveys/${id}/remind`).set(...bearer(admin))
+    expect(second.status).toBe(200)
+    expect(second.body.skippedCooldown).toBe(true)
+    expect(second.body.notified).toBe(0)
+
+    // Reminder is audited.
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: 'SURVEY_REMINDER_SENT', targetId: id },
+    })
+    expect(audit).not.toBeNull()
+  })
+
+  it('Analytics: eligibleCount/responseRate Nenner und answeredCount Funnel', async () => {
+    const admin = await registerUser('survey-analytics-admin', 'PRO')
+    await makeAdmin(admin)
+    const id = await createPublished(admin, {
+      title: 'Analytics',
+      targetPlans: ['PRO'],
+      questions: [{ type: 'SINGLE_CHOICE', prompt: 'A oder B?', options: [{ label: 'A' }, { label: 'B' }] }],
+    })
+
+    const user = await registerUser('survey-analytics-user', 'PRO')
+    const survey = (await request(app).get(`${API}/surveys/${id}`).set(...bearer(user))).body.survey
+    const qId = survey.questions[0].id
+    const optId = survey.questions[0].options[0].id
+    await request(app)
+      .post(`${API}/surveys/${id}/responses`)
+      .set(...bearer(user))
+      .send({ answers: [{ questionId: qId, optionIds: [optId] }] })
+      .expect(204)
+
+    const results = (await request(app).get(`${API}/admin/surveys/${id}/results`).set(...bearer(admin))).body
+    expect(results.responseCount).toBeGreaterThanOrEqual(1)
+    // eligibleCount counts PRO users (the target); always >= responders.
+    expect(results.eligibleCount).toBeGreaterThanOrEqual(results.responseCount)
+    expect(results.responseRate).toBeGreaterThan(0)
+    expect(results.responseRate).toBeLessThanOrEqual(1)
+    // Everyone who responded answered the single question.
+    expect(results.questions[0].answeredCount).toBe(results.responseCount)
   })
 })

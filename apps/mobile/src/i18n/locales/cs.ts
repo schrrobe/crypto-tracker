@@ -435,6 +435,10 @@ const cs: MessageSchema = {
     submit: 'Odeslat',
     submitFailed: 'Odpověď se nepodařilo odeslat',
     thanks: 'Děkujeme za účast!',
+    anonymousNote: 'Tato anketa je anonymní — vaše odpovědi nejsou spojeny s vaší identitou.',
+    progress: '{answered} z {total} zodpovězeno',
+    noAnswers: 'Před odesláním odpovězte alespoň na jednu otázku.',
+    empty: 'Tato anketa neobsahuje žádné otázky.',
   },
   errors: {
     EMAIL_TAKEN: 'Tato e-mailová adresa je již zaregistrována',

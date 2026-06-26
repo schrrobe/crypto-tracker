@@ -7,6 +7,7 @@ import {
 } from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
+import { userMatchesTarget } from './targeting'
 
 type SurveyWithQuestions = Prisma.SurveyGetPayload<{
   include: { questions: { include: { options: true } } }
@@ -18,6 +19,7 @@ export function toSurveyDto(s: SurveyWithQuestions): SurveyDto {
     title: s.title,
     description: s.description,
     status: s.status as SurveyStatus,
+    anonymous: s.anonymous,
     questions: [...s.questions]
       .sort((a, b) => a.order - b.order)
       .map((q) => ({
@@ -32,8 +34,20 @@ export function toSurveyDto(s: SurveyWithQuestions): SurveyDto {
   }
 }
 
-// Published surveys the user has not yet answered — powers the dashboard banner.
+// Minimal user fields needed for targeting decisions.
+async function getTargetableUser(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { plan: true, baseCurrency: true },
+  })
+  if (!user) throw AppError.notFound('Benutzer nicht gefunden')
+  return user
+}
+
+// Published surveys the user has not yet answered AND is targeted by — powers the
+// dashboard banner.
 export async function listPendingSurveys(userId: string): Promise<SurveyDto[]> {
+  const user = await getTargetableUser(userId)
   const surveys = await prisma.survey.findMany({
     where: {
       status: SurveyStatus.PUBLISHED,
@@ -42,16 +56,22 @@ export async function listPendingSurveys(userId: string): Promise<SurveyDto[]> {
     include: { questions: { include: { options: true } } },
     orderBy: { publishedAt: 'desc' },
   })
-  return surveys.map(toSurveyDto)
+  // Filter by targeting in memory: the published set is small, and "empty array = all"
+  // does not express cleanly as a single SQL predicate across many surveys.
+  return surveys.filter((s) => userMatchesTarget(user, s)).map(toSurveyDto)
 }
 
-// Single published survey for filling out. 404 unless PUBLISHED (drafts/closed are invisible to users).
+// Single published survey for filling out. 404 unless PUBLISHED (drafts/closed are
+// invisible to users) and the user is within the survey's target audience — an
+// untargeted user gets the same 404 as a non-existent survey (no existence leak).
 export async function getPublishedSurvey(userId: string, surveyId: string): Promise<SurveyDto> {
   const survey = await prisma.survey.findFirst({
     where: { id: surveyId, status: SurveyStatus.PUBLISHED },
     include: { questions: { include: { options: true } } },
   })
   if (!survey) throw AppError.notFound('Umfrage nicht gefunden')
+  const user = await getTargetableUser(userId)
+  if (!userMatchesTarget(user, survey)) throw AppError.notFound('Umfrage nicht gefunden')
   return toSurveyDto(survey)
 }
 
@@ -65,6 +85,10 @@ export async function submitResponse(
     include: { questions: { include: { options: true } } },
   })
   if (!survey) throw AppError.notFound('Umfrage nicht gefunden')
+  // Same targeting gate as getPublishedSurvey: a user outside the audience cannot submit
+  // (404, not 403 — no existence leak), so results never include off-target responses.
+  const user = await getTargetableUser(userId)
+  if (!userMatchesTarget(user, survey)) throw AppError.notFound('Umfrage nicht gefunden')
 
   const questionsById = new Map(survey.questions.map((q) => [q.id, q]))
 

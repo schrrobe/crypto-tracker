@@ -27,7 +27,33 @@
       </template>
 
       <template v-else-if="survey">
+        <div v-if="survey.anonymous" class="ion-padding-horizontal ion-padding-top">
+          <ion-note class="survey-anonymous" data-testid="survey-anonymous-badge">
+            <ion-icon :icon="lockClosedOutline" aria-hidden="true" />
+            <span>{{ $t('surveys.anonymousNote') }}</span>
+          </ion-note>
+        </div>
+
         <p v-if="survey.description" class="ion-padding-horizontal ion-padding-top">{{ survey.description }}</p>
+
+        <!-- empty state: a loaded survey with no questions -->
+        <div
+          v-if="survey.questions.length === 0"
+          class="ion-padding ion-text-center"
+          data-testid="survey-empty"
+        >
+          <ion-icon :icon="documentTextOutline" size="large" color="medium" />
+          <p>{{ $t('surveys.empty') }}</p>
+          <ion-button fill="outline" router-link="/tabs/dashboard">{{ $t('common.back') }}</ion-button>
+        </div>
+
+        <template v-else>
+        <div class="ion-padding-horizontal ion-padding-top" data-testid="survey-progress">
+          <ion-label class="survey-progress-label">
+            {{ $t('surveys.progress', { answered: answeredCount, total: survey.questions.length }) }}
+          </ion-label>
+          <ion-progress-bar :value="progressValue" />
+        </div>
 
         <ion-list>
           <template v-for="q in survey.questions" :key="q.id">
@@ -50,6 +76,7 @@
             <!-- single choice -->
             <ion-radio-group
               v-else-if="q.type === 'SINGLE_CHOICE'"
+              data-testid="survey-single-group"
               :value="answers[q.id]?.optionIds[0] ?? null"
               @ionChange="setOptionIds(q.id, $event.detail.value ? [$event.detail.value] : [])"
             >
@@ -73,6 +100,9 @@
         </ion-list>
 
         <div class="ion-padding">
+          <p v-if="validationError" style="color: var(--ion-color-warning)" data-testid="survey-validation-error">
+            {{ validationError }}
+          </p>
           <p v-if="submitError" class="ion-color-danger" style="color: var(--ion-color-danger)" data-testid="survey-submit-error">
             {{ submitError }}
           </p>
@@ -80,14 +110,16 @@
             {{ $t('surveys.submit') }}
           </ion-button>
         </div>
+        </template>
       </template>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { onIonViewWillEnter } from '@ionic/vue'
+import { useI18n } from 'vue-i18n'
 import {
   IonPage,
   IonHeader,
@@ -100,6 +132,7 @@ import {
   IonItem,
   IonItemDivider,
   IonLabel,
+  IonNote,
   IonTextarea,
   IonRadioGroup,
   IonRadio,
@@ -108,8 +141,9 @@ import {
   IonCard,
   IonCardContent,
   IonIcon,
+  IonProgressBar,
 } from '@ionic/vue'
-import { checkmarkCircleOutline } from 'ionicons/icons'
+import { checkmarkCircleOutline, lockClosedOutline, documentTextOutline } from 'ionicons/icons'
 import { useRoute } from 'vue-router'
 import type { SurveyDto } from '@crypto-tracker/shared'
 import { useSurveysStore } from '../../stores/surveys.store'
@@ -118,6 +152,7 @@ import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
 
 const route = useRoute()
 const surveys = useSurveysStore()
+const { t } = useI18n()
 
 const survey = ref<SurveyDto | null>(null)
 const answers = reactive<Record<string, { text: string; optionIds: string[] }>>({})
@@ -126,6 +161,23 @@ const submitting = ref(false)
 const submitted = ref(false)
 const loadError = ref('')
 const submitError = ref('')
+const validationError = ref('')
+
+// A question counts as answered when it has non-empty free text or at least one selected option.
+function isAnswered(questionId: string): boolean {
+  const a = answers[questionId]
+  if (!a) return false
+  return a.text.trim().length > 0 || a.optionIds.length > 0
+}
+
+const answeredCount = computed(() =>
+  (survey.value?.questions ?? []).filter((q) => isAnswered(q.id)).length,
+)
+
+const progressValue = computed(() => {
+  const total = survey.value?.questions.length ?? 0
+  return total === 0 ? 0 : answeredCount.value / total
+})
 
 function setText(questionId: string, text: string) {
   const a = answers[questionId]
@@ -148,6 +200,7 @@ onIonViewWillEnter(async () => {
   loading.value = true
   loadError.value = ''
   submitError.value = ''
+  validationError.value = ''
   submitted.value = false
   try {
     const s = await surveys.getSurvey(route.params.id as string)
@@ -162,8 +215,14 @@ onIonViewWillEnter(async () => {
 
 async function submit() {
   if (!survey.value) return
-  submitting.value = true
   submitError.value = ''
+  validationError.value = ''
+  // Gentle inline guard: avoid an opaque server error when nothing was answered.
+  if (answeredCount.value === 0) {
+    validationError.value = t('surveys.noAnswers')
+    return
+  }
+  submitting.value = true
   try {
     const payload = {
       answers: survey.value.questions.map((q) => ({
@@ -181,3 +240,18 @@ async function submit() {
   }
 }
 </script>
+
+<style scoped>
+.survey-anonymous {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+.survey-progress-label {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--ion-color-medium);
+  margin-bottom: 6px;
+}
+</style>

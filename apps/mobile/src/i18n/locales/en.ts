@@ -435,6 +435,10 @@ const en: MessageSchema = {
     submit: 'Submit',
     submitFailed: 'Your answer could not be sent',
     thanks: 'Thanks for taking part!',
+    anonymousNote: 'This survey is anonymous — your answers are not linked to your identity.',
+    progress: '{answered} of {total} answered',
+    noAnswers: 'Please answer at least one question before submitting.',
+    empty: 'This survey has no questions.',
   },
   errors: {
     EMAIL_TAKEN: 'This email address is already registered',

@@ -18,6 +18,7 @@
           <tr>
             <th class="px-4 py-2">Titel</th>
             <th class="px-4 py-2">Status</th>
+            <th class="px-4 py-2">Zielgruppe</th>
             <th class="px-4 py-2">Fragen</th>
             <th class="px-4 py-2">Antworten</th>
             <th class="px-4 py-2">Erstellt</th>
@@ -30,10 +31,18 @@
             :key="s.id"
             class="border-t border-slate-100 hover:bg-slate-50"
           >
-            <td class="px-4 py-2 font-medium">{{ s.title }}</td>
+            <td class="px-4 py-2 font-medium">
+              {{ s.title }}
+              <span
+                v-if="s.anonymous"
+                class="text-xs rounded px-1.5 py-0.5 ml-1 bg-violet-100 text-violet-700"
+                >anonym</span
+              >
+            </td>
             <td class="px-4 py-2">
               <span class="text-xs rounded px-1" :class="statusClass(s.status)">{{ statusLabel(s.status) }}</span>
             </td>
+            <td class="px-4 py-2 text-slate-500 text-xs">{{ targetingSummary(s) }}</td>
             <td class="px-4 py-2">{{ s.questionCount }}</td>
             <td class="px-4 py-2">{{ s.responseCount }}</td>
             <td class="px-4 py-2 text-slate-500">{{ date(s.createdAt) }}</td>
@@ -52,14 +61,23 @@
               >
                 Schließen
               </button>
+              <button
+                v-if="s.status === 'PUBLISHED'"
+                class="text-blue-700 hover:underline mr-3 disabled:opacity-50"
+                :disabled="reminding === s.id"
+                @click="remind(s.id)"
+              >
+                {{ reminding === s.id ? 'Erinnere…' : 'Nicht-Antwortende erinnern' }}
+              </button>
               <button class="text-slate-700 hover:underline mr-3" @click="$router.push(`/surveys/${s.id}/results`)">
                 Auswerten
               </button>
               <button class="text-red-600 hover:underline" @click="remove(s.id)">Löschen</button>
+              <p v-if="reminderMsg[s.id]" class="text-xs text-slate-500 mt-1">{{ reminderMsg[s.id] }}</p>
             </td>
           </tr>
           <tr v-if="data && data.surveys.length === 0">
-            <td class="px-4 py-6 text-center text-slate-400" colspan="6">Noch keine Umfragen</td>
+            <td class="px-4 py-6 text-center text-slate-400" colspan="7">Noch keine Umfragen</td>
           </tr>
         </tbody>
       </table>
@@ -68,14 +86,39 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import type { SurveyListDto } from '@crypto-tracker/shared'
+import { onMounted, reactive, ref } from 'vue'
+import type { SurveyListDto, SurveyListItemDto } from '@crypto-tracker/shared'
 import { adminApi } from '../services/admin'
 import { ApiError } from '../services/api.client'
 import { date } from '../format'
 
 const data = ref<SurveyListDto | null>(null)
 const error = ref('')
+const reminding = ref<string | null>(null)
+const reminderMsg = reactive<Record<string, string>>({})
+
+function targetingSummary(s: SurveyListItemDto): string {
+  const parts: string[] = []
+  if (s.targetPlans.length) parts.push(s.targetPlans.join('/'))
+  if (s.targetCurrencies.length) parts.push(s.targetCurrencies.join(', '))
+  const scope = parts.length ? parts.join(' · ') : 'Alle'
+  return `${scope} (${s.eligibleCount})`
+}
+
+async function remind(id: string) {
+  reminding.value = id
+  delete reminderMsg[id]
+  try {
+    const res = await adminApi.remindSurvey(id)
+    reminderMsg[id] = res.skippedCooldown
+      ? 'Kürzlich erinnert – Cooldown aktiv'
+      : `${res.notified} erinnert (${res.alreadyResponded} bereits geantwortet)`
+  } catch (e) {
+    reminderMsg[id] = e instanceof ApiError ? e.message : 'Erinnern fehlgeschlagen'
+  } finally {
+    reminding.value = null
+  }
+}
 
 async function reload() {
   error.value = ''
