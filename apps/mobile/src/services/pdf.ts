@@ -44,7 +44,11 @@ export function buildTaxReportPdf(report: TaxReportDto): jsPDF {
   doc.text(`Steuerreport ${report.year} — ${country}`, 14, 18)
   doc.setFontSize(9)
   doc.setTextColor(120)
-  doc.text(`Erstellt am ${date(report.generatedAt)} · Crypto Tracker · Währung EUR`, 14, 24)
+  doc.text(
+    `Steuersubjekt: ${report.portfolioLabel} · Erstellt am ${date(report.generatedAt)} · Crypto Tracker · Währung EUR`,
+    14,
+    24,
+  )
   doc.setTextColor(0)
 
   // Totals block
@@ -132,5 +136,11 @@ export function buildTaxReportPdf(report: TaxReportDto): jsPDF {
 
 export async function downloadTaxReportPdf(report: TaxReportDto): Promise<void> {
   const blob = buildTaxReportPdf(report).output('blob')
-  await saveOrShareFile(`steuerreport-${report.country}-${report.year}.pdf`, blob)
+  const slug =
+    report.portfolioLabel
+      .trim()
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase() || 'portfolio'
+  await saveOrShareFile(`steuerreport-${slug}-${report.country}-${report.year}.pdf`, blob)
 }

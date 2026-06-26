@@ -47,16 +47,19 @@ const de = {
     settings: 'Einstellungen',
   },
   portfolios: {
-    title: 'Portfolios',
-    switchTitle: 'Portfolio wechseln',
-    manage: 'Portfolios verwalten…',
+    title: 'Steuersubjekte (Portfolios)',
+    switchTitle: 'Steuersubjekt wechseln',
+    manage: 'Steuersubjekte verwalten…',
+    activeEntity: 'Steuersubjekt',
+    switch: 'wechseln',
+    switchedTo: 'Du bist jetzt in: {name}',
     default: 'Standard',
     sourceCount: '{n} Quelle(n)',
     create: 'Portfolio anlegen',
-    createTitle: 'Neues Portfolio',
-    renameTitle: 'Portfolio umbenennen',
+    createTitle: 'Neues Steuersubjekt',
+    renameTitle: 'Steuersubjekt umbenennen',
     deleteTitle: '„{label}" löschen?',
-    deleteMessage: 'Nur leere Portfolios können gelöscht werden.',
+    deleteMessage: 'Nur leere Steuersubjekte können gelöscht werden.',
   },
   market: {
     title: 'Markt',
@@ -147,6 +150,7 @@ const de = {
   },
   holdings: {
     empty: 'Noch keine Bestände erfasst.',
+    addHolding: 'Bestand erfassen',
     accountType: {
       SPOT: 'Spot',
       EARN: 'Earn',
@@ -471,8 +475,12 @@ const de = {
       'Beide Seiten müssen zum selben Portfolio gehören — Portfolios sind getrennte Steuersubjekte',
     SWAP_LINKED_TX_IMMUTABLE:
       'Diese Transaktion ist als Tausch verknüpft — bitte zuerst die Verknüpfung lösen',
-    PORTFOLIO_NOT_EMPTY: 'Das Portfolio enthält noch Quellen — bitte zuerst die Quellen löschen',
-    PORTFOLIO_LAST: 'Das letzte Portfolio kann nicht gelöscht werden',
+    PORTFOLIO_NOT_EMPTY:
+      'Dieses Steuersubjekt enthält noch Quellen. Es ist die vollständige Steuerhistorie und wird nicht automatisch mitgelöscht — bitte zuerst die Quellen entfernen',
+    PORTFOLIO_LAST: 'Das letzte Steuersubjekt kann nicht gelöscht werden — es muss immer eines geben',
+    PORTFOLIO_REQUIRED: 'Bitte wähle das Steuersubjekt, zu dem dieser Eintrag gehört',
+    PORTFOLIO_LABEL_DUPLICATE:
+      'Es gibt bereits ein Steuersubjekt mit diesem Namen — bitte einen eindeutigen Namen wählen',
     INVALID_RESET_TOKEN: 'Der Link ist ungültig oder abgelaufen — fordere einen neuen an',
     PLAN_UPGRADE_REQUIRED: 'Diese Funktion erfordert Crypto Tracker Pro',
     SURVEY_ALREADY_SUBMITTED: 'Diese Umfrage hast du bereits beantwortet',

@@ -155,6 +155,7 @@ export async function getReport(
   portfolioId?: string,
 ): Promise<TaxReportDto> {
   const pid = await resolvePortfolioId(userId, portfolioId)
+  const portfolio = await prisma.portfolio.findUnique({ where: { id: pid }, select: { label: true } })
   const txs = await prisma.transaction.findMany({
     where: { source: { userId, portfolioId: pid } },
     include: TAX_TX_INCLUDE,
@@ -193,6 +194,7 @@ export async function getReport(
   return {
     year,
     country,
+    portfolioLabel: portfolio?.label ?? '',
     currency: 'EUR',
     disposals: report.disposals.map((d) => toDisposalDto(d, sourceLabels)),
     totals: {

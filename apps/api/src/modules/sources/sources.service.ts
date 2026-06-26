@@ -7,7 +7,8 @@ import { getPlan } from '../../middleware/plan.middleware'
 import { getExchangeProvider, getWalletProvider } from '../../providers/provider.registry'
 import { ProviderError } from '../../providers/provider.types'
 import { toSyncRunDto } from '../sync/syncRun.mapper'
-import { resolvePortfolioId } from '../portfolios/portfolios.service'
+import { resolvePortfolioId, resolvePortfolioIdForWrite } from '../portfolios/portfolios.service'
+import { MANUAL_TX_SOURCE_LABEL } from '../transactions/transactions.service'
 
 type SourceWithRelations = Prisma.PortfolioSourceGetPayload<{
   include: { credential: { select: { keyPreview: true } }; wallet: true; syncRuns: true }
@@ -62,14 +63,27 @@ async function reloadDto(sourceId: string): Promise<SourceDto> {
 }
 
 export async function createSource(userId: string, input: CreateSourceInput): Promise<SourceDto> {
-  // Free limit: max. FREE_LIMITS.sources sources in total
+  // The reserved label belongs to the auto-managed manual-transaction bucket and
+  // must not be claimed by a user-created source (would collide on the partial
+  // unique index / shadow the auto bucket).
+  if (input.type === 'MANUAL' && input.label === MANUAL_TX_SOURCE_LABEL) {
+    throw AppError.badRequest(
+      'SOURCE_LABEL_RESERVED',
+      'Dieser Name ist für die automatische Quelle „Manuelle Transaktionen" reserviert',
+    )
+  }
+  // Free limit: max. FREE_LIMITS.sources user-created sources. The auto-managed
+  // manual-transaction bucket is infrastructure and is excluded from the count,
+  // so it neither blocks nor silently inflates the limit.
   if ((await getPlan(userId)) !== 'PRO') {
-    const count = await prisma.portfolioSource.count({ where: { userId } })
+    const count = await prisma.portfolioSource.count({
+      where: { userId, NOT: { type: 'MANUAL', label: MANUAL_TX_SOURCE_LABEL } },
+    })
     if (count >= FREE_LIMITS.sources) {
       throw AppError.upgradeRequired('Im Free-Tarif sind maximal 5 Quellen möglich')
     }
   }
-  const portfolioId = await resolvePortfolioId(userId, input.portfolioId)
+  const portfolioId = await resolvePortfolioIdForWrite(userId, input.portfolioId)
   if (input.type === 'MANUAL') {
     const source = await prisma.portfolioSource.create({
       data: { userId, portfolioId, type: 'MANUAL', provider: 'MANUAL', label: input.label },
