@@ -285,8 +285,8 @@ const fileInput = ref<HTMLInputElement | null>(null)
 
 // Row failures (line > 0) are real errors; line 0 entries are notices (e.g. an
 // asset that netted to <= 0) and must not look like failed rows.
-const resultErrors = computed(() => (result.value?.errorRows ?? []).filter((r) => r.line > 0))
-const resultWarnings = computed(() => (result.value?.errorRows ?? []).filter((r) => r.line === 0))
+const resultErrors = computed(() => (result.value?.errorRows ?? []).filter((r) => r.kind !== 'notice'))
+const resultWarnings = computed(() => (result.value?.errorRows ?? []).filter((r) => r.kind === 'notice'))
 const resultColor = computed(() => {
   if (result.value?.status !== 'COMPLETED') return 'danger'
   return resultErrors.value.length > 0 ? 'warning' : 'success'

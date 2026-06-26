@@ -9,12 +9,16 @@ export interface MappedBalanceRow {
 }
 
 export interface RowError {
-  line: number // 1-basiert inkl. Header (Datenzeilen starten bei 2) — wie im Editor
-  raw: string
+  // Present for row-level errors (1-basiert inkl. Header, Datenzeilen ab 2). Absent
+  // for file-level notices (`kind: 'notice'`) that aren't tied to a single row.
+  line?: number
+  raw?: string
   // German fallback text; the frontend prefers `code` (stable i18n key) + `params`.
   error: string
   code?: string
   params?: Record<string, string | number>
+  // 'notice' = file-level message (e.g. an asset that netted to <= 0), not a row error.
+  kind?: 'notice'
 }
 
 // Normalisiert deutsche und englische Zahlformate auf einen Dezimal-String mit Punkt:

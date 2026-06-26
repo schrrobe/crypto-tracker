@@ -241,8 +241,7 @@ async function confirmTransactionImport(
   for (const assetId of nonPositiveAssetIds) {
     const symbol = symbolByAssetId.get(assetId) ?? assetId
     errors.push({
-      line: 0,
-      raw: symbol,
+      kind: 'notice',
       code: 'csv.noticeNonPositiveNet',
       params: { symbol },
       error: `Asset „${symbol}": Nettobestand ≤ 0 (mehr Verkäufe als Käufe — unvollständige Historie?) — nicht als Bestand übernommen`,
