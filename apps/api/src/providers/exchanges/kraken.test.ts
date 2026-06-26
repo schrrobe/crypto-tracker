@@ -69,6 +69,19 @@ describe('normalizeKrakenAsset', () => {
     expect(normalizeKrakenAsset('EUR')).toBeNull()
     expect(normalizeKrakenAsset('KFEE')).toBeNull()
   })
+
+  it('reicht unbekannte Codes deterministisch durch, ohne sie auf ein falsches bekanntes Symbol zu mappen', () => {
+    // Regression guard for CSO-L1: an unknown code must never silently resolve
+    // to a *different* known asset (no wrong market). It is passed through
+    // verbatim → downstream creates an explicit unmapped asset (no price).
+    expect(normalizeKrakenAsset('FOOBAR')).toEqual({ symbol: 'FOOBAR', accountType: 'SPOT' })
+    // deterministic: same input → same output, every call
+    expect(normalizeKrakenAsset('FOOBAR')).toEqual(normalizeKrakenAsset('FOOBAR'))
+    // an unknown code never collides onto a mapped symbol like BTC/ETH
+    expect(normalizeKrakenAsset('FOOBAR')!.symbol).not.toBe('BTC')
+    // staking suffix on an unknown base still derives the account type, not the symbol
+    expect(normalizeKrakenAsset('FOOBAR.S')).toEqual({ symbol: 'FOOBAR', accountType: 'EARN' })
+  })
 })
 
 describe('krakenProvider.fetchBalances', () => {
