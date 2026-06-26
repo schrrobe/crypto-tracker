@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProviderError } from './provider.types'
-import { bigIntFromJson, httpJson, parseRetryAfter, solanaRpc } from './http'
+import { bigIntFromJson, bigIntsFromJson, httpJson, parseRetryAfter, solanaRpc } from './http'
 
 function res(status: number, body: unknown, headers: Record<string, string> = {}) {
   return {
@@ -68,6 +68,11 @@ describe('httpJson', () => {
     await expect(httpJson('https://x.test', { retries: 0 })).rejects.toBeInstanceOf(ProviderError)
     expect(fn).toHaveBeenCalledTimes(1)
   })
+
+  it('wirft PROVIDER_ERROR statt rohem SyntaxError bei ungültigem JSON (200)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => res(200, 'not json')))
+    await expect(httpJson('https://x.test')).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
 })
 
 describe('solanaRpc', () => {
@@ -87,6 +92,16 @@ describe('solanaRpc', () => {
   it('mappt HTTP 429 auf RATE_LIMITED mit Status', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => res(429, {})))
     await expect(solanaRpc('getThing', [], { retries: 0 })).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 })
+  })
+
+  it('wirft PROVIDER_ERROR, wenn das 200-Envelope weder result noch error trägt', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => res(200, { jsonrpc: '2.0', id: 1 })))
+    await expect(solanaRpc('getThing', [])).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
+
+  it('wirft PROVIDER_ERROR bei ungültigem JSON statt rohem SyntaxError', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => res(200, '{kaputt')))
+    await expect(solanaRpc('getThing', [])).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
   })
 })
 
@@ -119,6 +134,16 @@ describe('parseRetryAfter', () => {
     await expect(httpJson('https://x.test')).resolves.toEqual({ ok: true })
     expect(fn).toHaveBeenCalledTimes(2)
   })
+
+  it('deckelt ein riesiges Retry-After auf timeoutMs statt stundenlang zu schlafen', async () => {
+    const fn = vi.fn()
+    fn.mockResolvedValueOnce(res(429, {}, { 'retry-after': '86400' })) // 1 Tag
+    fn.mockResolvedValueOnce(res(200, { ok: true }))
+    vi.stubGlobal('fetch', fn)
+    // timeoutMs: 20 → sleep is clamped to 20ms; the test would hang ~24h if uncapped.
+    await expect(httpJson('https://x.test', { timeoutMs: 20 })).resolves.toEqual({ ok: true })
+    expect(fn).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('bigIntFromJson', () => {
@@ -128,5 +153,16 @@ describe('bigIntFromJson', () => {
 
   it('wirft, wenn das Feld fehlt', () => {
     expect(() => bigIntFromJson('{"other":1}', 'value')).toThrow(ProviderError)
+  })
+})
+
+describe('bigIntsFromJson', () => {
+  it('liest alle Vorkommen verlustfrei in Dokumentreihenfolge', () => {
+    const text = '[{"lamports":9007199254740993},{"lamports":5000000000}]'
+    expect(bigIntsFromJson(text, 'lamports')).toEqual([9007199254740993n, 5000000000n])
+  })
+
+  it('liefert ein leeres Array, wenn der Schlüssel fehlt', () => {
+    expect(bigIntsFromJson('[]', 'lamports')).toEqual([])
   })
 })

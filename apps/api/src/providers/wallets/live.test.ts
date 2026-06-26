@@ -17,7 +17,7 @@ const TIMEOUT = 30_000
 // A decimal string like "57.20000000" or "0" — no scientific notation, no NaN.
 function expectDecimalString(value: string) {
   expect(typeof value).toBe('string')
-  expect(value).toMatch(/^-?\d+(\.\d+)?$/)
+  expect(value).toMatch(/^\d+(\.\d+)?$/)
   expect(Number.isNaN(Number(value))).toBe(false)
 }
 

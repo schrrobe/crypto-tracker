@@ -189,6 +189,30 @@ describe('solanaProvider', () => {
     expect(balances).toEqual([{ symbol: 'SOL', amount: '8.5' }])
   })
 
+  it('liest Stake-Account-lamports jenseits von 2^53 verlustfrei', async () => {
+    // 9007199254740993 = 2^53 + 1: through solanaRpc/JSON.parse this would round to
+    // ...992 and yield a wrong staked total. Raw-text lossless parse keeps the bit.
+    // Written as a raw response string so the fixture itself doesn't lose it.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: { body: string }) => {
+        const { method } = JSON.parse(init.body) as { method: string }
+        if (method === 'getBalance') return ok({ value: 0 })
+        if (method === 'getProgramAccounts') {
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: () => null },
+            text: async () => '{"result":[{"pubkey":"X","account":{"lamports":9007199254740993}}]}',
+          }
+        }
+        return ok({ value: [] })
+      }),
+    )
+    const balances = await solanaProvider.fetchBalances(ADDRESS)
+    expect(balances).toEqual([{ symbol: 'SOL', amount: '9007199.254740993' }])
+  })
+
   it('wirft PROVIDER_ERROR bei RPC-Fehler-Antwort', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => rpcError('Invalid param')))
     await expect(solanaProvider.fetchBalances(ADDRESS)).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })

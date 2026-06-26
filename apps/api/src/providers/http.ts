@@ -83,8 +83,12 @@ export async function httpRaw(url: string, opts: RequestOptions = {}): Promise<H
       })
       const text = await res.text()
       if (!res.ok && RETRYABLE_STATUS.has(res.status) && attempt < maxRetries) {
+        // Cap the server-provided Retry-After at timeoutMs: a hostile/buggy header
+        // (e.g. "Retry-After: 86400") would otherwise park this shared helper for
+        // hours, far past the intended bounded-retry window. Falls back to
+        // backoff+jitter when the header is absent.
         const retryAfter = parseRetryAfter(res.headers?.get?.('retry-after'))
-        await sleep(retryAfter ?? backoffDelay(attempt))
+        await sleep(Math.min(retryAfter ?? backoffDelay(attempt), timeoutMs))
         continue
       }
       return { status: res.status, ok: res.ok, text }
@@ -104,6 +108,17 @@ export async function httpRaw(url: string, opts: RequestOptions = {}): Promise<H
         `Netzwerkfehler: ${error instanceof Error ? error.message : String(error)}`,
       )
     }
+  }
+}
+
+// Keep JSON.parse failures inside the ProviderError contract the sync/mobile
+// layers depend on: a 200 with a malformed body must surface a typed code, not a
+// raw SyntaxError. label names the source for the German error text.
+function parseProviderJson<T>(text: string, label: string): T {
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    throw new ProviderError('PROVIDER_ERROR', `${label}: ungültiges JSON`)
   }
 }
 
@@ -127,7 +142,7 @@ export async function httpJson<T>(
   if (!res.ok) {
     throw (opts.mapStatus ?? defaultStatusMapper)(res.status)
   }
-  return JSON.parse(res.text) as T
+  return parseProviderJson<T>(res.text, 'Anbieterantwort')
 }
 
 export type Commitment = 'processed' | 'confirmed' | 'finalized'
@@ -192,9 +207,14 @@ export async function solanaRpc<T>(
   opts: SolanaRpcOptions = {},
 ): Promise<T> {
   const text = await solanaRpcText(method, params, opts)
-  const json = JSON.parse(text) as RpcEnvelope<T>
+  const json = parseProviderJson<RpcEnvelope<T>>(text, 'Solana-RPC')
   if (json.error) {
     throw new ProviderError('PROVIDER_ERROR', `Solana-RPC: ${json.error.message}`)
+  }
+  // A 200 carrying neither result nor error is a protocol violation; surface it as
+  // a typed error instead of silently returning undefined to the caller.
+  if (!('result' in json)) {
+    throw new ProviderError('PROVIDER_ERROR', 'Solana-RPC: Ergebnis fehlt')
   }
   return json.result as T
 }
@@ -209,4 +229,16 @@ export function bigIntFromJson(text: string, key: string): bigint {
     throw new ProviderError('PROVIDER_ERROR', `Antwortfeld "${key}" fehlt oder ist nicht ganzzahlig`)
   }
   return BigInt(match[1]!)
+}
+
+// Like bigIntFromJson but for a key that repeats across an array response (e.g. the
+// per-account lamports in getProgramAccounts). Returns every match in document
+// order so the caller can zip it back onto the structurally-parsed elements.
+export function bigIntsFromJson(text: string, key: string): bigint[] {
+  const re = new RegExp(`"${key}"\\s*:\\s*(-?\\d+)`, 'g')
+  const out: bigint[] = []
+  for (let match = re.exec(text); match; match = re.exec(text)) {
+    out.push(BigInt(match[1]!))
+  }
+  return out
 }

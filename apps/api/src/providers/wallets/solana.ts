@@ -1,5 +1,5 @@
 import { fromBaseUnits } from '../../lib/decimal'
-import { RETRYABLE_STATUS, bigIntFromJson, solanaRpc, solanaRpcText } from '../http'
+import { RETRYABLE_STATUS, bigIntFromJson, bigIntsFromJson, solanaRpc, solanaRpcText } from '../http'
 import {
   ProviderError,
   type RawBalance,
@@ -80,12 +80,16 @@ interface TokenAccount {
 // via the withdrawer authority. account.lamports = delegated stake +
 // rent reserve + accrued rewards.
 async function fetchStakeAccounts(address: string): Promise<Array<{ pubkey: string; lamports: bigint }>> {
-  const result = await solanaRpc<Array<{ pubkey: string; account: { lamports: number } }>>(
+  // base64 (not jsonParsed): we only need pubkey + lamports, never the parsed stake
+  // layout. An opaque base64 data blob also guarantees the only "lamports" key per
+  // account is the balance — so we can read every value losslessly from the raw
+  // text (a large stake account can exceed 2^53 lamports, which JSON.parse rounds).
+  const text = await solanaRpcText(
     'getProgramAccounts',
     [
       STAKE_PROGRAM_ID,
       {
-        encoding: 'jsonParsed',
+        encoding: 'base64',
         filters: [
           { dataSize: STAKE_ACCOUNT_SIZE },
           { memcmp: { offset: STAKE_WITHDRAWER_OFFSET, bytes: address } },
@@ -94,9 +98,16 @@ async function fetchStakeAccounts(address: string): Promise<Array<{ pubkey: stri
     ],
     { commitment: COMMITMENT },
   )
-  // A single stake account's lamports stays well under 2^53, so BigInt(number) is
-  // exact here (unlike a whale's total getBalance value).
-  return result.map((r) => ({ pubkey: r.pubkey, lamports: BigInt(r.account.lamports) }))
+  const json = JSON.parse(text) as { error?: { message: string }; result?: Array<{ pubkey: string }> }
+  if (json.error) {
+    throw new ProviderError('PROVIDER_ERROR', `Solana-RPC: ${json.error.message}`)
+  }
+  const accounts = json.result ?? []
+  const lamports = bigIntsFromJson(text, 'lamports')
+  if (lamports.length !== accounts.length) {
+    throw new ProviderError('PROVIDER_ERROR', 'Solana-RPC: Stake-Account-Antwort inkonsistent')
+  }
+  return accounts.map((account, i) => ({ pubkey: account.pubkey, lamports: lamports[i]! }))
 }
 
 // Extract the epoch from a reward externalRef (sol-reward:<account>:<epoch>)
