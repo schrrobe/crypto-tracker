@@ -424,15 +424,26 @@ model HistoricalAssetPrice {
   @@unique([assetId, date])
 }
 
-// Append-only: jüngste Zeile je Asset = aktueller Preis, ältere = Historie
+// Append-only: jüngste Zeile je Asset = aktueller Preis, ältere = Historie.
+// bucketAt = fetchedAt auf die Minute (UTC) abgeschnitten. @@unique([assetId,bucketAt])
+// macht Schreibvorgänge idempotent: ein Preis je Asset je Minute, egal wie viele
+// (auch nebenläufige) refreshPrices-Aufrufe es gibt. Verhindert Duplikate + unbegrenztes
+// Wachstum. fetchedAt bleibt der präzise Zeitstempel für Sortierung/Anzeige.
 model AssetPrice {
   id        String   @id @default(uuid())
   assetId   String
+  // NOTE (bewusst nicht in diesem PR geändert): 8 Nachkommastellen runden Preise
+  // < 5e-9 auf 0 → Micro-Cap-Tokens würden mit Wert 0 bewertet. Für die aktuellen
+  // Assets (BTC/ETH/Stablecoins) unkritisch. Eine Erhöhung (z.B. Decimal(36,18)) ist
+  // eine eigene Spalten-Migration auf Bestandsdaten und gehört nicht in dieses
+  // Idempotenz-Hardening. Siehe Eng-Review C4.
   priceEur  Decimal  @db.Decimal(24, 8)
   priceUsd  Decimal  @db.Decimal(24, 8)
   fetchedAt DateTime @default(now())
+  bucketAt  DateTime
   asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
+  @@unique([assetId, bucketAt])
   @@index([assetId, fetchedAt])
 }
 

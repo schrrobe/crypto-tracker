@@ -63,7 +63,11 @@ export async function getSummary(userId: string, portfolioId?: string): Promise<
       valueEur = eur.toFixed(2)
       valueUsd = usd.toFixed(2)
       if (!pricesFetchedAt || price.fetchedAt < pricesFetchedAt) pricesFetchedAt = price.fetchedAt
-    } else {
+    } else if (asset.coingeckoId === null) {
+      // Only a genuinely unmapped asset (no CoinGecko id) belongs in unmappedAssets —
+      // that list drives the "needs mapping" UI. A MAPPED asset whose price is only
+      // momentarily missing (e.g. a partial CoinGecko response) must NOT be relabelled
+      // as unmapped; it stays in byAsset with a null value until the next refresh.
       unmappedAssets.push(asset)
     }
     byAsset.push({ asset, quantity: quantity.toString(), valueEur, valueUsd })

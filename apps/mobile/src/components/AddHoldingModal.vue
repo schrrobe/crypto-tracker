@@ -58,7 +58,7 @@
       <ion-button
         expand="block"
         class="ion-margin-top"
-        :disabled="saving || (!editHolding && !selectedAsset) || !quantity"
+        :disabled="saving || (!editHolding && !selectedAsset) || !quantityValid"
         data-testid="holding-save"
         @click="save"
       >
@@ -84,7 +84,7 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { AssetDto, HoldingDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
 import { apiErrorMessage } from '../services/errors'
@@ -105,6 +105,14 @@ const selectedAsset = ref<AssetDto | null>(null)
 const quantity = ref('')
 const error = ref('')
 const saving = ref(false)
+
+// A quantity is valid only if it parses to a finite, positive number. Accepts the
+// German comma decimal ("0,5"). Drives the Save button's disabled state so users can't
+// submit "abc", "-5", "0" or an overflow ("1,5e9999") and bounce off a server 400.
+const quantityValid = computed(() => {
+  const n = Number(quantity.value.replace(',', '.').trim())
+  return Number.isFinite(n) && n > 0
+})
 
 watch(
   () => props.isOpen,
