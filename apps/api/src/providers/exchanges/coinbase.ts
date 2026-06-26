@@ -1,11 +1,16 @@
 import jwt from 'jsonwebtoken'
 import { randomBytes } from 'node:crypto'
+import { fetchWithTimeout } from '../http'
 import {
   ProviderError,
   type ExchangeCredentials,
   type ExchangeProvider,
   type RawBalance,
 } from '../provider.types'
+
+// Safety bound: stop paginating after this many pages (250 accounts each) even if
+// the API keeps returning has_next — guards against a stuck/repeating cursor.
+const MAX_PAGES = 50
 
 // Coinbase Advanced Trade API with CDP keys: apiKey = key name
 // ("organizations/{org}/apiKeys/{key}"), apiSecret = EC private key (PEM, ES256).
@@ -62,7 +67,9 @@ async function fetchCoinbaseBalances(creds: ExchangeCredentials): Promise<RawBal
 
   const balances: RawBalance[] = []
   let cursor = ''
+  let pages = 0
   do {
+    if (++pages > MAX_PAGES) break
     let token: string
     try {
       token = buildCoinbaseJwt(creds.apiKey, privateKey, 'GET', ACCOUNTS_PATH)
@@ -71,7 +78,7 @@ async function fetchCoinbaseBalances(creds: ExchangeCredentials): Promise<RawBal
     }
 
     const query = `limit=250${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
-    const res = await fetch(`https://${HOST}${ACCOUNTS_PATH}?${query}`, {
+    const res = await fetchWithTimeout(`https://${HOST}${ACCOUNTS_PATH}?${query}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (res.status === 401 || res.status === 403) {

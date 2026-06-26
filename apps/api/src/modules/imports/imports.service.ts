@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { Prisma, type CsvImport } from '@prisma/client'
 import { EXCHANGE_PROVIDERS, type CsvImportDto, type CsvUploadResponse, type ImportErrorRow } from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
@@ -11,7 +12,7 @@ import {
 } from '../../csv/csv.mapper'
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
-import { computeNetBalances } from '../transactions/tx-net-balance'
+import { computeNetBalances, type NetBalanceTx } from '../transactions/tx-net-balance'
 import { resolvePortfolioId } from '../portfolios/portfolios.service'
 
 const PREVIEW_ROWS = 10
@@ -46,6 +47,16 @@ export async function uploadCsv(
   const pid = await resolvePortfolioId(userId, portfolioId)
   const { headers, rows } = parseCsv(file.buffer.toString('utf8'))
 
+  // Detect re-upload of the same file in the same portfolio: each upload creates
+  // its own CSV source, so an identical file would otherwise be counted twice.
+  const contentHash = createHash('sha256').update(file.buffer).digest('hex')
+  const priorImport = await prisma.csvImport.findFirst({
+    where: { contentHash, source: { userId, portfolioId: pid } },
+    select: { source: { select: { label: true } } },
+    orderBy: { createdAt: 'asc' },
+  })
+  const duplicateCsvSource = priorImport?.source.label ?? null
+
   const source = await prisma.portfolioSource.create({
     data: {
       userId,
@@ -64,6 +75,7 @@ export async function uploadCsv(
       rawPreview: { headers, rows: rows.slice(0, PREVIEW_ROWS) },
       rawRows: rows,
       totalRows: rows.length,
+      contentHash,
     },
     include: { source: { select: { label: true } } },
   })
@@ -96,6 +108,7 @@ export async function uploadCsv(
     preset,
     duplicateExchangeSource,
     duplicateExchangeProvider,
+    duplicateCsvSource,
   }
 }
 
@@ -188,13 +201,16 @@ async function confirmTransactionImport(
   const { valid, errors } = applyTransactionMapping(rows, mapping)
 
   const assetMap = await resolveAssetsBySymbol(valid.map((r) => r.symbol))
-  const netInput: Array<{ assetId: string; type: typeof valid[number]['type']; quantity: Prisma.Decimal }> = []
+  const symbolByAssetId = new Map<string, string>()
+  const netInput: NetBalanceTx[] = []
   const txRows: Prisma.TransactionCreateManyInput[] = []
 
   for (const row of valid) {
     const asset = assetMap.get(row.symbol)
     if (!asset) continue
+    symbolByAssetId.set(asset.id, row.symbol)
     const quantity = new Prisma.Decimal(row.quantity)
+    const fee = row.fee ? new Prisma.Decimal(row.fee) : null
     txRows.push({
       sourceId: record.sourceId,
       importId: record.id,
@@ -202,14 +218,34 @@ async function confirmTransactionImport(
       type: row.type,
       quantity,
       pricePerUnit: row.price ? new Prisma.Decimal(row.price) : null,
-      feeAmount: row.fee ? new Prisma.Decimal(row.fee) : null,
+      feeAmount: fee,
       currency: row.currency ?? null,
       timestamp: row.timestamp,
     })
-    netInput.push({ assetId: asset.id, type: row.type, quantity })
+    netInput.push({
+      assetId: asset.id,
+      type: row.type,
+      quantity,
+      fee,
+      // Only subtract the fee when the row explicitly records its currency as the
+      // asset itself. The fee currency is otherwise unknown (most exports omit it
+      // or only record the price/quote currency), and assuming "asset" would wrongly
+      // subtract fiat fees — so when in doubt we do not touch the balance.
+      feeInAsset: !!fee && !!row.currency && row.currency === row.symbol,
+    })
   }
 
-  const holdings = computeNetBalances(netInput)
+  const { holdings, nonPositiveAssetIds } = computeNetBalances(netInput)
+  // Surface assets that netted to <= 0 (more sells than buys) so the user notices
+  // an incomplete history instead of the asset silently vanishing from holdings.
+  for (const assetId of nonPositiveAssetIds) {
+    const symbol = symbolByAssetId.get(assetId) ?? assetId
+    errors.push({
+      line: 0,
+      raw: symbol,
+      error: `Asset „${symbol}": Nettobestand ≤ 0 (mehr Verkäufe als Käufe — unvollständige Historie?) — nicht als Bestand übernommen`,
+    })
+  }
 
   const [, , , updated] = await prisma.$transaction([
     prisma.transaction.deleteMany({ where: { sourceId: record.sourceId } }),

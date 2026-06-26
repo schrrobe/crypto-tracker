@@ -87,6 +87,11 @@
             }}
           </p>
         </ion-text>
+        <ion-text v-if="uploadResult?.duplicateCsvSource" color="danger">
+          <p class="hint" data-testid="csv-duplicate-file-warning">
+            ⚠ {{ $t('csv.duplicateCsv', { source: uploadResult.duplicateCsvSource }) }}
+          </p>
+        </ion-text>
         <ion-list inset>
           <ion-item>
             <ion-select

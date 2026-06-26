@@ -262,6 +262,8 @@ const de = {
     presetDetected: '{provider}-Export erkannt — Spalten sind vorbelegt.',
     duplicateExchange:
       'Achtung: „{source}" ist bereits per API mit {provider} verbunden. Dieser Import würde die Bestände doppelt zählen — brich ab oder lösche danach eine der beiden Quellen.',
+    duplicateCsv:
+      'Achtung: Diese Datei gleicht einem früheren Import („{source}") in diesem Portfolio. Ein erneuter Import würde die Bestände doppelt zählen — brich ab oder lösche danach eine der beiden Quellen.',
     symbolColumn: 'Symbol-Spalte',
     quantityColumn: 'Mengen-Spalte',
     run: 'Importieren',

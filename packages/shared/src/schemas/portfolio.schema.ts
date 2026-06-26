@@ -209,6 +209,9 @@ export interface CsvUploadResponse {
   // provider of the detected duplicate exchange — used to display the name in the
   // warning (covers all exchanges, not just the preset ones).
   duplicateExchangeProvider: (typeof EXCHANGE_PROVIDERS)[number] | null
+  // label of an earlier CSV import with identical file content in the same
+  // portfolio — otherwise null. Warns about double counting the same file.
+  duplicateCsvSource: string | null
 }
 
 export type HistoryRange = '24h' | '7d' | '30d' | '1y'

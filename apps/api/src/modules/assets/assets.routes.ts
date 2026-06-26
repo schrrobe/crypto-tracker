@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth } from '../../middleware/auth.middleware'
@@ -73,10 +74,21 @@ assetsRoutes.post(
       throw AppError.conflict('COINGECKO_ID_TAKEN', 'Diese CoinGecko-ID ist bereits einem Asset zugeordnet')
     }
 
-    const updated = await prisma.asset.update({
-      where: { id: assetId },
-      data: { coingeckoId: req.body.coingeckoId },
-    })
+    let updated
+    try {
+      updated = await prisma.asset.update({
+        where: { id: assetId },
+        data: { coingeckoId: req.body.coingeckoId },
+      })
+    } catch (e) {
+      // Concurrent mapping to the same CoinGecko-ID: the check-then-update above
+      // is not atomic, so the unique constraint may still fire — surface it as a
+      // clean conflict instead of a 500.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw AppError.conflict('COINGECKO_ID_TAKEN', 'Diese CoinGecko-ID ist bereits einem Asset zugeordnet')
+      }
+      throw e
+    }
     await refreshPrices([assetId])
     res.json({
       asset: {

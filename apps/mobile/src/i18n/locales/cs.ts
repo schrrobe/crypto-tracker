@@ -263,6 +263,8 @@ const cs: MessageSchema = {
     presetDetected: 'Rozpoznán export {provider} — sloupce jsou předvyplněny.',
     duplicateExchange:
       'Pozor: „{source}" je už připojeno k {provider} přes API. Tento import by započítal zůstatky dvakrát — zruš, nebo poté smaž jeden ze dvou zdrojů.',
+    duplicateCsv:
+      'Pozor: tento soubor je shodný s dřívějším importem („{source}") v tomto portfoliu. Opětovný import by započítal zůstatky dvakrát — zruš, nebo poté smaž jeden ze dvou zdrojů.',
     symbolColumn: 'Sloupec symbolu',
     quantityColumn: 'Sloupec množství',
     run: 'Importovat',

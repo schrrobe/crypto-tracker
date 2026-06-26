@@ -263,6 +263,8 @@ const pl: MessageSchema = {
     presetDetected: 'Wykryto eksport {provider} — kolumny zostały wstępnie przypisane.',
     duplicateExchange:
       'Uwaga: „{source}" jest już połączone z {provider} przez API. Ten import policzyłby aktywa podwójnie — anuluj lub usuń potem jedno z dwóch źródeł.',
+    duplicateCsv:
+      'Uwaga: ten plik wygląda identycznie jak wcześniejszy import („{source}") w tym portfelu. Ponowny import policzyłby aktywa podwójnie — anuluj lub usuń potem jedno z dwóch źródeł.',
     symbolColumn: 'Kolumna symbolu',
     quantityColumn: 'Kolumna ilości',
     run: 'Importuj',

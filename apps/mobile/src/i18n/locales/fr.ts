@@ -263,6 +263,8 @@ const fr: MessageSchema = {
     presetDetected: 'Export {provider} détecté — les colonnes sont préremplies.',
     duplicateExchange:
       "Attention : « {source} » est déjà connecté à {provider} via API. Cet import compterait les avoirs deux fois — annulez, ou supprimez ensuite l'une des deux sources.",
+    duplicateCsv:
+      "Attention : ce fichier semble identique à un import précédent (« {source} ») dans ce portefeuille. Le réimporter compterait les avoirs deux fois — annulez, ou supprimez ensuite l'une des deux sources.",
     symbolColumn: 'Colonne symbole',
     quantityColumn: 'Colonne quantité',
     run: 'Importer',

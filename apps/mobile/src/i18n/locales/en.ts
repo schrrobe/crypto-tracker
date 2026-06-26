@@ -263,6 +263,8 @@ const en: MessageSchema = {
     presetDetected: '{provider} export detected — columns are pre-filled.',
     duplicateExchange:
       'Warning: "{source}" is already connected to {provider} via API. This import would count balances twice — cancel, or delete one of the two sources afterward.',
+    duplicateCsv:
+      'Warning: this file looks identical to an earlier import ("{source}") in this portfolio. Importing again would count the balances twice — cancel, or delete one of the two sources afterward.',
     symbolColumn: 'Symbol column',
     quantityColumn: 'Quantity column',
     run: 'Import',
