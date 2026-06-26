@@ -114,12 +114,23 @@ export async function httpRaw(url: string, opts: RequestOptions = {}): Promise<H
 // Keep JSON.parse failures inside the ProviderError contract the sync/mobile
 // layers depend on: a 200 with a malformed body must surface a typed code, not a
 // raw SyntaxError. label names the source for the German error text.
-function parseProviderJson<T>(text: string, label: string): T {
+export function parseProviderJson<T>(text: string, label: string): T {
   try {
     return JSON.parse(text) as T
   } catch {
     throw new ProviderError('PROVIDER_ERROR', `${label}: ungültiges JSON`)
   }
+}
+
+// JSON-RPC envelopes are always objects. A 200 carrying null or a bare primitive
+// (e.g. `null`, `42`) would otherwise throw a raw TypeError on the first `.error`
+// access or `in` check — keep it inside the ProviderError contract instead.
+function parseRpcEnvelope<T>(text: string, label: string): RpcEnvelope<T> {
+  const json = parseProviderJson<unknown>(text, label)
+  if (typeof json !== 'object' || json === null) {
+    throw new ProviderError('PROVIDER_ERROR', `${label}: ungültige Antwortstruktur`)
+  }
+  return json as RpcEnvelope<T>
 }
 
 export type StatusMapper = (status: number) => ProviderError
@@ -207,7 +218,7 @@ export async function solanaRpc<T>(
   opts: SolanaRpcOptions = {},
 ): Promise<T> {
   const text = await solanaRpcText(method, params, opts)
-  const json = parseProviderJson<RpcEnvelope<T>>(text, 'Solana-RPC')
+  const json = parseRpcEnvelope<T>(text, 'Solana-RPC')
   if (json.error) {
     throw new ProviderError('PROVIDER_ERROR', `Solana-RPC: ${json.error.message}`)
   }

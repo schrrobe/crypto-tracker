@@ -103,6 +103,16 @@ describe('solanaRpc', () => {
     vi.stubGlobal('fetch', vi.fn(async () => res(200, '{kaputt')))
     await expect(solanaRpc('getThing', [])).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
   })
+
+  it('wirft PROVIDER_ERROR bei null-Body statt rohem TypeError', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => res(200, 'null')))
+    await expect(solanaRpc('getThing', [])).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
+
+  it('wirft PROVIDER_ERROR bei primitivem 200-Body statt rohem TypeError', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => res(200, '42')))
+    await expect(solanaRpc('getThing', [])).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
 })
 
 describe('parseRetryAfter', () => {

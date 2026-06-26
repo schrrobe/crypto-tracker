@@ -1,5 +1,12 @@
 import { fromBaseUnits } from '../../lib/decimal'
-import { RETRYABLE_STATUS, bigIntFromJson, bigIntsFromJson, solanaRpc, solanaRpcText } from '../http'
+import {
+  RETRYABLE_STATUS,
+  bigIntFromJson,
+  bigIntsFromJson,
+  parseProviderJson,
+  solanaRpc,
+  solanaRpcText,
+} from '../http'
 import {
   ProviderError,
   type RawBalance,
@@ -98,11 +105,20 @@ async function fetchStakeAccounts(address: string): Promise<Array<{ pubkey: stri
     ],
     { commitment: COMMITMENT },
   )
-  const json = JSON.parse(text) as { error?: { message: string }; result?: Array<{ pubkey: string }> }
+  // Malformed JSON must surface a typed code (parseProviderJson), not a raw
+  // SyntaxError. A 200 with neither error nor result is a protocol violation —
+  // reject it rather than silently treating it as "no stake accounts".
+  const json = parseProviderJson<{ error?: { message: string }; result?: Array<{ pubkey: string }> }>(
+    text,
+    'Solana-RPC',
+  )
   if (json.error) {
     throw new ProviderError('PROVIDER_ERROR', `Solana-RPC: ${json.error.message}`)
   }
-  const accounts = json.result ?? []
+  if (!('result' in json) || json.result === undefined) {
+    throw new ProviderError('PROVIDER_ERROR', 'Solana-RPC: Ergebnis fehlt')
+  }
+  const accounts = json.result
   const lamports = bigIntsFromJson(text, 'lamports')
   if (lamports.length !== accounts.length) {
     throw new ProviderError('PROVIDER_ERROR', 'Solana-RPC: Stake-Account-Antwort inkonsistent')
@@ -166,7 +182,7 @@ export const solanaProvider: WalletProvider = {
     // from the raw response text as a BigInt. The application-error case (200 body
     // with an `error`) is handled the same way solanaRpc would.
     const balanceText = await solanaRpcText('getBalance', [address], { commitment: COMMITMENT })
-    const balanceEnvelope = JSON.parse(balanceText) as { error?: { message: string } }
+    const balanceEnvelope = parseProviderJson<{ error?: { message: string } }>(balanceText, 'Solana-RPC')
     if (balanceEnvelope.error) {
       throw new ProviderError('PROVIDER_ERROR', `Solana-RPC: ${balanceEnvelope.error.message}`)
     }
@@ -224,6 +240,11 @@ export const solanaProvider: WalletProvider = {
     address: string,
     sinceHint: { lastExternalRef: string | null },
   ): Promise<RawStakingReward[]> {
+    // Same defense-in-depth as fetchBalances: never send a malformed address
+    // (a stored row could predate a validation change) into the backfill RPCs.
+    if (!ADDRESS_RE.test(address)) {
+      throw new ProviderError('INVALID_ADDRESS', 'Ungültige Solana-Adresse')
+    }
     const stakeAccounts = await fetchStakeAccounts(address)
     if (stakeAccounts.length === 0) return []
     const pubkeys = stakeAccounts.map((s) => s.pubkey)
