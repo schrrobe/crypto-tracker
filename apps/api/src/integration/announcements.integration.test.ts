@@ -1,7 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import request from 'supertest'
 import { API, app, bearer, makeAdmin, registerUser } from './helpers'
 import { prisma } from '../lib/prisma'
+
+// Isolate from accumulated rows in the shared test DB: with the MAX_VISIBLE=5
+// cap, leftover announcements from prior runs would push freshly-created test
+// rows out of the active list and make these tests flaky.
+beforeEach(async () => {
+  await prisma.announcement.deleteMany()
+})
 
 type Admin = Awaited<ReturnType<typeof registerUser>>
 
@@ -130,6 +137,18 @@ describe('Announcements (Integration)', () => {
       active: true,
     })
     expect(res.status).toBe(400)
+  })
+
+  it('C1b: PATCH defaultLocale auf Sprache ohne Nachricht → 400', async () => {
+    const admin = await registerUser('ann-c1b-admin', 'FREE')
+    await makeAdmin(admin)
+    // only 'de' has a message; switching defaultLocale to 'en' alone would blank the banner
+    const id = await createAnnouncement(admin, { messages: { de: 'nur Deutsch' }, defaultLocale: 'de' })
+    const res = await request(app).patch(`${API}/admin/announcements/${id}`).set(...bearer(admin)).send({
+      defaultLocale: 'en',
+    })
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('VALIDATION_ERROR')
   })
 
   it('public endpoint: nur öffentliche Ankündigungen, ohne Auth', async () => {

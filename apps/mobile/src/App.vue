@@ -32,8 +32,14 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 // subset (incident/maintenance banner on the login screen). The store collapses
 // overlapping calls and fails closed; a failed refetch keeps prior banners.
 function refresh(): void {
-  const load = auth.user ? announcements.loadActive() : announcements.loadPublic()
-  void load.catch((e) => console.warn('[announcements] load failed', e))
+  if (auth.user) {
+    void announcements.loadActive().catch((e) => console.warn('[announcements] load failed', e))
+  } else {
+    // Clear any authed banners synchronously on logout so non-public broadcasts
+    // can't linger on the login screen until the public fetch resolves.
+    announcements.reset()
+    void announcements.loadPublic().catch((e) => console.warn('[announcements] load failed', e))
+  }
 }
 
 function onVisible(): void {

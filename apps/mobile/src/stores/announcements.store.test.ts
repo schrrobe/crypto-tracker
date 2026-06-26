@@ -79,6 +79,23 @@ describe('announcements.store', () => {
     expect(mockGet).toHaveBeenCalledTimes(1)
   })
 
+  it('a logout loadPublic supersedes an in-flight authed loadActive (no leak)', async () => {
+    let resolveActive!: (v: unknown) => void
+    mockGet.mockReturnValue(new Promise((r) => (resolveActive = r)))
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ announcements: [ann('public-only', 'ERROR')] }) })
+    vi.stubGlobal('fetch', fetchMock)
+    const store = useAnnouncementsStore()
+
+    const pActive = store.loadActive() // in flight (authed; would include non-public)
+    const pPublic = store.loadPublic() // logout transition supersedes
+    await pPublic
+    resolveActive({ announcements: [ann('authed-secret')] }) // authed result lands late
+    await pActive
+
+    expect(store.active.map((a) => a.id)).toEqual(['public-only']) // late authed result discarded
+    vi.unstubAllGlobals()
+  })
+
   it('loadPublic fetches the public endpoint without auth and fails closed', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ announcements: [ann('p', 'ERROR')] }) })
     vi.stubGlobal('fetch', fetchMock)

@@ -29,9 +29,16 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
   // Active announcements the user has not dismissed (by id:updatedAt) on this device.
   const visible = computed(() => active.value.filter((a) => !dismissed.value.includes(keyOf(a))))
 
-  // Single-flight guard: interval + resume + visibilitychange + watch(immediate)
-  // can all fire near-simultaneously; collapse overlapping loads into one request.
+  // Single-flight guard, mode-aware. interval + resume + visibilitychange +
+  // watch(immediate) can fire near-simultaneously; collapse overlapping loads of
+  // the SAME mode into one request. A different-mode call (auth transition:
+  // 'active' ↔ 'public') is NOT collapsed, and a resolved result is discarded if
+  // its mode is no longer the latest requested — otherwise an in-flight authed
+  // fetch could land non-public announcements after the user logged out.
+  type LoadMode = 'active' | 'public'
   let inFlight: Promise<void> | null = null
+  let inFlightMode: LoadMode | null = null
+  let latestMode: LoadMode | null = null
 
   // Drop dismissed keys that no longer match any active announcement's current
   // key (announcement deleted, or edited so its key changed). Prevents the
@@ -45,26 +52,32 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
     }
   }
 
-  function run(fetcher: () => Promise<AnnouncementDto[]>): Promise<void> {
-    if (inFlight) return inFlight
+  function run(mode: LoadMode, fetcher: () => Promise<AnnouncementDto[]>): Promise<void> {
+    latestMode = mode
+    if (inFlight && inFlightMode === mode) return inFlight
+    inFlightMode = mode
     inFlight = (async () => {
-      active.value = await fetcher()
+      const result = await fetcher()
+      // Discard if a later call switched mode (e.g. logout while authed fetch ran).
+      if (latestMode !== mode) return
+      active.value = result
       pruneDismissed()
     })().finally(() => {
       inFlight = null
+      inFlightMode = null
     })
     return inFlight
   }
 
   // Authed: all active announcements.
   function loadActive(): Promise<void> {
-    return run(async () => (await api.get<{ announcements: AnnouncementDto[] }>('/announcements/active')).announcements)
+    return run('active', async () => (await api.get<{ announcements: AnnouncementDto[] }>('/announcements/active')).announcements)
   }
 
   // Pre-login: public announcements only. Plain fetch, NO bearer / NO 401-refresh
   // pipeline (a missing session must not trigger a refresh). Fails closed.
   function loadPublic(): Promise<void> {
-    return run(async () => {
+    return run('public', async () => {
       try {
         const res = await fetch(`${apiBaseUrl()}/announcements/public`)
         if (!res.ok) return []

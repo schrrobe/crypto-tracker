@@ -118,6 +118,12 @@ export async function updateAnnouncement(
   if (input.messages !== undefined || input.defaultLocale !== undefined) {
     const effMessages = (input.messages ?? existing.messages ?? {}) as AnnouncementMessages
     const effLocale = (input.defaultLocale ?? existing.defaultLocale) as AnnouncementLocale
+    // Re-validate the MERGED default-locale message: PATCHing defaultLocale alone
+    // (no messages) skips the schema check and could point at an empty locale →
+    // the banner would render blank. Mirror the C1 merged-window approach.
+    if (!effMessages[effLocale]?.trim()) {
+      throw AppError.badRequest('VALIDATION_ERROR', 'Die Standardsprache benötigt eine Nachricht')
+    }
     data.message = effMessages[effLocale] ?? existing.message
   }
 
