@@ -51,7 +51,8 @@ function backoffDelay(attempt: number): number {
 }
 
 // Honor a Retry-After header (delta-seconds or HTTP-date); null if absent/unparseable.
-function parseRetryAfter(value: string | null | undefined): number | null {
+// Exported for direct unit testing of both the seconds and HTTP-date branches.
+export function parseRetryAfter(value: string | null | undefined): number | null {
   if (!value) return null
   const secs = Number(value)
   if (Number.isFinite(secs)) return Math.max(0, secs * 1000)
@@ -62,6 +63,10 @@ function parseRetryAfter(value: string | null | undefined): number | null {
 // Core request with abort-on-timeout + bounded retry. Returns the final response
 // body as text. Only abort/network failures that survive all retries throw
 // (TIMEOUT for an aborted request, PROVIDER_ERROR for any other network throw).
+//
+// Retry safety: this tracker is read-only (no trading/withdrawals — see CLAUDE.md),
+// so every provider call is idempotent and blind retry on a transient failure or
+// timeout is safe. A future non-idempotent request MUST pass retries: 0.
 export async function httpRaw(url: string, opts: RequestOptions = {}): Promise<HttpRawResult> {
   const timeoutMs = opts.timeoutMs ?? env.PROVIDER_TIMEOUT_MS
   const maxRetries = opts.retries ?? env.PROVIDER_MAX_RETRIES

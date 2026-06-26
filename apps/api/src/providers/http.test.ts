@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProviderError } from './provider.types'
-import { bigIntFromJson, httpJson, solanaRpc } from './http'
+import { bigIntFromJson, httpJson, parseRetryAfter, solanaRpc } from './http'
 
 function res(status: number, body: unknown, headers: Record<string, string> = {}) {
   return {
@@ -87,6 +87,37 @@ describe('solanaRpc', () => {
   it('mappt HTTP 429 auf RATE_LIMITED mit Status', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => res(429, {})))
     await expect(solanaRpc('getThing', [], { retries: 0 })).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 })
+  })
+})
+
+describe('parseRetryAfter', () => {
+  it('liest delta-seconds als Millisekunden', () => {
+    expect(parseRetryAfter('5')).toBe(5000)
+    expect(parseRetryAfter('0')).toBe(0)
+  })
+
+  it('liest ein HTTP-Datum als ms ab jetzt (Zukunft positiv, Vergangenheit 0)', () => {
+    const future = new Date(Date.now() + 10_000).toUTCString()
+    const ms = parseRetryAfter(future)
+    expect(ms).not.toBeNull()
+    expect(ms!).toBeGreaterThan(0)
+    expect(ms!).toBeLessThanOrEqual(10_000)
+    expect(parseRetryAfter(new Date(Date.now() - 10_000).toUTCString())).toBe(0)
+  })
+
+  it('gibt null bei fehlendem oder unparsbarem Wert', () => {
+    expect(parseRetryAfter(null)).toBeNull()
+    expect(parseRetryAfter(undefined)).toBeNull()
+    expect(parseRetryAfter('übermorgen')).toBeNull()
+  })
+
+  it('httpRaw wartet Retry-After ab und liefert danach das Ergebnis', async () => {
+    const fn = vi.fn()
+    fn.mockResolvedValueOnce(res(429, {}, { 'retry-after': '0' }))
+    fn.mockResolvedValueOnce(res(200, { ok: true }))
+    vi.stubGlobal('fetch', fn)
+    await expect(httpJson('https://x.test')).resolves.toEqual({ ok: true })
+    expect(fn).toHaveBeenCalledTimes(2)
   })
 })
 
