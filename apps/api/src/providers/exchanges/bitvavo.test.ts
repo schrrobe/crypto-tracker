@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bitvavoProvider, bitvavoSignature } from './bitvavo'
+import { bitvavoProvider, bitvavoSignature, normalizeBitvavoAsset } from './bitvavo'
+import { mockFetch } from './__test-helpers'
 
 // Realistic Bitvavo balance response (GET /v2/balance)
 const BALANCE_FIXTURE = [
@@ -8,12 +9,6 @@ const BALANCE_FIXTURE = [
   { symbol: 'ETH', available: '3', inOrder: '0' },
   { symbol: 'ADA', available: '0', inOrder: '0' }, // zero balance → skipped
 ]
-
-function mockFetch(status: number, body: unknown) {
-  const fn = vi.fn(async () => ({ ok: status >= 200 && status < 300, status, json: async () => body }))
-  vi.stubGlobal('fetch', fn)
-  return fn
-}
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -31,6 +26,18 @@ describe('bitvavoSignature', () => {
     // every component changes the signature
     expect(bitvavoSignature('1548183481068', 'GET', '/v2/balance', '', 'geheim')).not.toBe(sig)
     expect(bitvavoSignature('1548183481067', 'POST', '/v2/balance', '', 'geheim')).not.toBe(sig)
+    // path and body each change the signature
+    expect(bitvavoSignature('1548183481067', 'GET', '/v2/account', '', 'geheim')).not.toBe(sig)
+    expect(bitvavoSignature('1548183481067', 'GET', '/v2/balance', '{"x":1}', 'geheim')).not.toBe(sig)
+  })
+})
+
+describe('normalizeBitvavoAsset', () => {
+  it('uppercased Standard-Ticker und überspringt Fiat (case-insensitive)', () => {
+    expect(normalizeBitvavoAsset('btc')).toBe('BTC')
+    expect(normalizeBitvavoAsset('ETH')).toBe('ETH')
+    expect(normalizeBitvavoAsset('EUR')).toBeNull()
+    expect(normalizeBitvavoAsset('eur')).toBeNull()
   })
 })
 
@@ -55,6 +62,12 @@ describe('bitvavoProvider.fetchBalances', () => {
     expect(headers['bitvavo-access-key']).toBe('test-key')
     expect(headers['bitvavo-access-timestamp']).toMatch(/^\d+$/)
     expect(headers['bitvavo-access-signature']).toMatch(/^[0-9a-f]{64}$/)
+
+    // Wiring-KAT: sent signature must equal the pure function over the exact
+    // timestamp/method/path/body used for the request — fails if the wrapper
+    // signs a different path, method, or body than it sends.
+    const ts = headers['bitvavo-access-timestamp']!
+    expect(headers['bitvavo-access-signature']).toBe(bitvavoSignature(ts, 'GET', '/v2/balance', '', CREDS.apiSecret))
   })
 
   it('mappt 403 auf INVALID_API_KEY', async () => {

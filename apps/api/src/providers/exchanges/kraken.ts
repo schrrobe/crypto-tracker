@@ -13,6 +13,18 @@ import {
 const BASE_URL = 'https://api.kraken.com'
 const BALANCE_PATH = '/0/private/Balance'
 
+// Kraken requires a strictly increasing nonce per API key. Date.now() alone
+// collides when two requests land in the same millisecond (e.g. parallel
+// background syncs), which Kraken rejects as "Invalid nonce". Scale ms→µs and
+// keep a monotonic floor so a same-ms burst still yields distinct ascending
+// values. Stateful by necessity; the signature below stays pure.
+let lastNonce = 0
+export function nextKrakenNonce(now: number = Date.now()): string {
+  const candidate = now * 1000
+  lastNonce = candidate > lastNonce ? candidate : lastNonce + 1
+  return lastNonce.toString()
+}
+
 // API-Sign = HMAC-SHA512(path + SHA256(nonce + postData), base64decode(secret)), base64 encoded
 export function krakenSignature(path: string, postData: string, nonce: string, secretB64: string): string {
   const message = Buffer.concat([
@@ -59,10 +71,11 @@ function accountTypeForKraken(code: string, base: string): HoldingAccountType {
 }
 
 export function normalizeKrakenAsset(code: string): { symbol: string; accountType: HoldingAccountType } | null {
-  // Staking/reward variants like "ETH2.S", "SOL.S", "XBT.M" → base asset + account type
-  const base = code.split('.')[0] ?? code
+  // Staking/reward variants like "ETH2.S", "SOL.S", "XBT.M" → base asset + account type.
+  // Uppercase before lookup so case-varied fiat ("eur") still hits SKIP and never leaks.
+  const base = (code.split('.')[0] ?? code).toUpperCase()
   if (SKIP.has(base)) return null
-  return { symbol: ASSET_MAP[base] ?? base.toUpperCase(), accountType: accountTypeForKraken(code, base) }
+  return { symbol: ASSET_MAP[base] ?? base, accountType: accountTypeForKraken(code, base) }
 }
 
 interface KrakenResponse {
@@ -83,7 +96,7 @@ function classifyKrakenError(messages: string[]): ProviderError {
 
 async function fetchKrakenBalances(creds: ExchangeCredentials): Promise<RawBalance[]> {
   if (!creds.apiSecret) throw new ProviderError('INVALID_API_KEY', 'Kraken: API-Secret fehlt')
-  const nonce = Date.now().toString()
+  const nonce = nextKrakenNonce()
   const postData = `nonce=${nonce}`
 
   const res = await fetch(`${BASE_URL}${BALANCE_PATH}`, {
@@ -96,10 +109,14 @@ async function fetchKrakenBalances(creds: ExchangeCredentials): Promise<RawBalan
     body: postData,
   })
   if (res.status === 429) throw new ProviderError('RATE_LIMITED', 'Kraken Rate-Limit erreicht')
-  if (!res.ok) throw new ProviderError('PROVIDER_ERROR', `Kraken antwortet mit ${res.status}`)
 
-  const json = (await res.json()) as KrakenResponse
-  if (json.error.length > 0) throw classifyKrakenError(json.error)
+  // Kraken returns its { error: [...] } envelope even on non-2xx responses, so
+  // parse the body before the status-only fallback — otherwise a 401 carrying
+  // "EAPI:Invalid key" gets misclassified as PROVIDER_ERROR instead of INVALID_API_KEY.
+  const json = (await res.json().catch(() => null)) as KrakenResponse | null
+  if (json && json.error.length > 0) throw classifyKrakenError(json.error)
+  if (!res.ok) throw new ProviderError('PROVIDER_ERROR', `Kraken antwortet mit ${res.status}`)
+  if (!json) throw new ProviderError('PROVIDER_ERROR', 'Kraken: ungültige Antwort')
 
   const balances: RawBalance[] = []
   for (const [code, amount] of Object.entries(json.result ?? {})) {
