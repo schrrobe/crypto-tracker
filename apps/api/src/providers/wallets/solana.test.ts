@@ -217,6 +217,27 @@ describe('solanaProvider', () => {
     vi.stubGlobal('fetch', vi.fn(async () => rpcError('Invalid param')))
     await expect(solanaProvider.fetchBalances(ADDRESS)).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
   })
+
+  it('wirft PROVIDER_ERROR bei null-Body statt rohem TypeError (getBalance)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, status: 200, headers: { get: () => null }, text: async () => 'null' })),
+    )
+    await expect(solanaProvider.fetchBalances(ADDRESS)).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
+
+  it('wirft PROVIDER_ERROR, wenn getProgramAccounts result kein Array ist', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: { body: string }) => {
+        const { method } = JSON.parse(init.body) as { method: string }
+        if (method === 'getBalance') return ok({ value: 0 })
+        if (method === 'getProgramAccounts') return ok(null) // 200, result: null → not an array
+        return ok({ value: [] })
+      }),
+    )
+    await expect(solanaProvider.fetchBalances(ADDRESS)).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
 })
 
 describe('solanaProvider.fetchStakingRewards', () => {

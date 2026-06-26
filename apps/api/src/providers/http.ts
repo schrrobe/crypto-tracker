@@ -125,7 +125,7 @@ export function parseProviderJson<T>(text: string, label: string): T {
 // JSON-RPC envelopes are always objects. A 200 carrying null or a bare primitive
 // (e.g. `null`, `42`) would otherwise throw a raw TypeError on the first `.error`
 // access or `in` check — keep it inside the ProviderError contract instead.
-function parseRpcEnvelope<T>(text: string, label: string): RpcEnvelope<T> {
+export function parseRpcEnvelope<T>(text: string, label: string): RpcEnvelope<T> {
   const json = parseProviderJson<unknown>(text, label)
   if (typeof json !== 'object' || json === null) {
     throw new ProviderError('PROVIDER_ERROR', `${label}: ungültige Antwortstruktur`)
@@ -204,7 +204,7 @@ export async function solanaRpcText(
   return res.text
 }
 
-interface RpcEnvelope<T> {
+export interface RpcEnvelope<T> {
   result?: T
   error?: { code: number; message: string }
 }

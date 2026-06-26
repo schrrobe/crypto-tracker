@@ -3,7 +3,7 @@ import {
   RETRYABLE_STATUS,
   bigIntFromJson,
   bigIntsFromJson,
-  parseProviderJson,
+  parseRpcEnvelope,
   solanaRpc,
   solanaRpcText,
 } from '../http'
@@ -105,18 +105,16 @@ async function fetchStakeAccounts(address: string): Promise<Array<{ pubkey: stri
     ],
     { commitment: COMMITMENT },
   )
-  // Malformed JSON must surface a typed code (parseProviderJson), not a raw
-  // SyntaxError. A 200 with neither error nor result is a protocol violation —
-  // reject it rather than silently treating it as "no stake accounts".
-  const json = parseProviderJson<{ error?: { message: string }; result?: Array<{ pubkey: string }> }>(
-    text,
-    'Solana-RPC',
-  )
+  // parseRpcEnvelope guards both malformed JSON (→ typed code, not a raw
+  // SyntaxError) and non-object 200 bodies (null/primitive would otherwise throw
+  // a TypeError on the .error access below). A 200 whose result is not an array
+  // is a protocol violation — reject it rather than silently reporting no stake.
+  const json = parseRpcEnvelope<Array<{ pubkey: string }>>(text, 'Solana-RPC')
   if (json.error) {
     throw new ProviderError('PROVIDER_ERROR', `Solana-RPC: ${json.error.message}`)
   }
-  if (!('result' in json) || json.result === undefined) {
-    throw new ProviderError('PROVIDER_ERROR', 'Solana-RPC: Ergebnis fehlt')
+  if (!Array.isArray(json.result)) {
+    throw new ProviderError('PROVIDER_ERROR', 'Solana-RPC: Stake-Account-Antwort unvollständig')
   }
   const accounts = json.result
   const lamports = bigIntsFromJson(text, 'lamports')
@@ -182,7 +180,7 @@ export const solanaProvider: WalletProvider = {
     // from the raw response text as a BigInt. The application-error case (200 body
     // with an `error`) is handled the same way solanaRpc would.
     const balanceText = await solanaRpcText('getBalance', [address], { commitment: COMMITMENT })
-    const balanceEnvelope = parseProviderJson<{ error?: { message: string } }>(balanceText, 'Solana-RPC')
+    const balanceEnvelope = parseRpcEnvelope<unknown>(balanceText, 'Solana-RPC')
     if (balanceEnvelope.error) {
       throw new ProviderError('PROVIDER_ERROR', `Solana-RPC: ${balanceEnvelope.error.message}`)
     }
