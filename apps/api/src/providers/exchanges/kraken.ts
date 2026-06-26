@@ -17,7 +17,11 @@ const BALANCE_PATH = '/0/private/Balance'
 // collides when two requests land in the same millisecond (e.g. parallel
 // background syncs), which Kraken rejects as "Invalid nonce". Scale ms→µs and
 // keep a monotonic floor so a same-ms burst still yields distinct ascending
-// values. Stateful by necessity; the signature below stays pure.
+// values. The counter is process-global, not per-key — that is still correct
+// because a globally increasing sequence is increasing for every key's subset;
+// keys just see gaps. After a restart it reseeds from Date.now()*1000, which
+// time keeps ahead of the prior value. Stateful by necessity; the signature
+// below stays pure.
 let lastNonce = 0
 export function nextKrakenNonce(now: number = Date.now()): string {
   const candidate = now * 1000
