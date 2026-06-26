@@ -22,7 +22,7 @@ export const useImportsStore = defineStore('imports', () => {
     form.append('file', file)
     form.append('kind', kind)
     if (label.trim()) form.append('label', label.trim())
-    const portfolioId = usePortfoliosStore().scopeId()
+    const portfolioId = usePortfoliosStore().writeScopeId()
     if (portfolioId) form.append('portfolioId', portfolioId)
     if (exchange) form.append('exchange', exchange)
     return api.upload<CsvUploadResponse>('/imports', form)
@@ -44,5 +44,9 @@ export const useImportsStore = defineStore('imports', () => {
     imports.value = imports.value.filter((i) => i.id !== importId)
   }
 
-  return { imports, load, upload, confirmMapping, remove }
+  function reset(): void {
+    imports.value = []
+  }
+
+  return { imports, load, upload, confirmMapping, remove, reset }
 })

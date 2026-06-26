@@ -54,16 +54,19 @@ const cs: MessageSchema = {
     settings: 'Nastavení',
   },
   portfolios: {
-    title: 'Portfolia',
-    switchTitle: 'Přepnout portfolio',
-    manage: 'Spravovat portfolia…',
+    title: 'Daňové subjekty (portfolia)',
+    switchTitle: 'Přepnout daňový subjekt',
+    manage: 'Spravovat daňové subjekty…',
+    activeEntity: 'Daňový subjekt',
+    switch: 'přepnout',
+    switchedTo: 'Nyní v: {name}',
     default: 'Výchozí',
     sourceCount: 'Zdroje: {n}',
-    create: 'Vytvořit portfolio',
-    createTitle: 'Nové portfolio',
-    renameTitle: 'Přejmenovat portfolio',
+    create: 'Vytvořit daňový subjekt',
+    createTitle: 'Nový daňový subjekt',
+    renameTitle: 'Přejmenovat daňový subjekt',
     deleteTitle: 'Smazat „{label}"?',
-    deleteMessage: 'Smazat lze pouze prázdná portfolia.',
+    deleteMessage: 'Smazat lze pouze prázdné daňové subjekty.',
   },
   market: {
     title: 'Trh',
@@ -154,6 +157,7 @@ const cs: MessageSchema = {
   },
   holdings: {
     empty: 'Zatím nebyla zaznamenána žádná aktiva.',
+    addHolding: 'Přidat pozici',
     accountType: {
       SPOT: 'Spot',
       EARN: 'Earn',
@@ -478,8 +482,11 @@ const cs: MessageSchema = {
       'Obě strany musí patřit do stejného portfolia — portfolia jsou oddělené daňové subjekty',
     SWAP_LINKED_TX_IMMUTABLE:
       'Tato transakce je propojena jako směna — nejprve prosím zrušte propojení',
-    PORTFOLIO_NOT_EMPTY: 'Portfolio stále obsahuje zdroje — nejprve prosím smažte zdroje',
-    PORTFOLIO_LAST: 'Poslední portfolio nelze smazat',
+    PORTFOLIO_NOT_EMPTY:
+      'Tento daňový subjekt stále obsahuje zdroje. Je úplnou daňovou historií a nemaže se automaticky — nejprve prosím odstraňte zdroje',
+    PORTFOLIO_LAST: 'Poslední daňový subjekt nelze smazat — vždy musí existovat alespoň jeden',
+    PORTFOLIO_REQUIRED: 'Vyberte prosím daňový subjekt, ke kterému tento záznam patří',
+    PORTFOLIO_LABEL_DUPLICATE: 'Daňový subjekt s tímto názvem již existuje — zvolte prosím jedinečný název',
     INVALID_RESET_TOKEN: 'Odkaz je neplatný nebo vypršel — vyžádejte si nový',
     PLAN_UPGRADE_REQUIRED: 'Tato funkce vyžaduje Crypto Tracker Pro',
     SURVEY_ALREADY_SUBMITTED: 'Tuto anketu jste již vyplnili',

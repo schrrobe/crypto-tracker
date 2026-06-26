@@ -8,9 +8,13 @@ import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import { refreshPrices } from '../../coingecko/price.service'
 import { computeNetBalances } from './tx-net-balance'
-import { resolvePortfolioId } from '../portfolios/portfolios.service'
+import { resolvePortfolioId, resolvePortfolioIdForWrite } from '../portfolios/portfolios.service'
 
-const MANUAL_TX_SOURCE_LABEL = 'Manuelle Transaktionen'
+// Reserved label of the single auto-managed MANUAL source that backs manual
+// transactions per portfolio. A partial unique index
+// (PortfolioSource_manual_tx_bucket_key) guarantees there is at most one per
+// portfolio. Exported so other modules can recognise / exclude this bucket.
+export const MANUAL_TX_SOURCE_LABEL = 'Manuelle Transaktionen'
 
 // Includes for DTO mapping: the counterpart of the transfer link incl. its source
 const TX_INCLUDE = {
@@ -95,43 +99,64 @@ async function getOrCreateManualTxSource(userId: string, portfolioId: string) {
   })
   if (byLabel) return byLabel
 
-  return prisma.portfolioSource.create({
-    data: { userId, portfolioId, type: 'MANUAL', provider: 'MANUAL', label: MANUAL_TX_SOURCE_LABEL },
-  })
+  try {
+    return await prisma.portfolioSource.create({
+      data: { userId, portfolioId, type: 'MANUAL', provider: 'MANUAL', label: MANUAL_TX_SOURCE_LABEL },
+    })
+  } catch (error) {
+    // Race: two parallel first transactions both pass the checks above and collide
+    // on the partial unique index → re-fetch the winner instead of failing (500).
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const existing = await prisma.portfolioSource.findFirst({
+        where: { userId, portfolioId, type: 'MANUAL', label: MANUAL_TX_SOURCE_LABEL },
+      })
+      if (existing) return existing
+    }
+    throw error
+  }
 }
 
-// Re-derive the source's balances from its transactions (same net rule as the CSV import)
+// Re-derive the source's balances from its transactions (same net rule as the CSV import).
+// Serialized per source via a transaction-scoped advisory lock: two concurrent
+// transaction mutations on the same source would otherwise both deleteMany +
+// createMany the holdings and collide on the (sourceId,assetId,accountType) unique
+// index (P2002 → 500). The lock makes the loser wait, then recompute over the
+// committed tx set. Reading the transactions INSIDE the lock keeps the snapshot consistent.
 async function recomputeHoldings(sourceId: string): Promise<void> {
-  const txs = await prisma.transaction.findMany({
-    where: { sourceId },
-    select: {
-      assetId: true,
-      type: true,
-      quantity: true,
-      feeAmount: true,
-      currency: true,
-      asset: { select: { symbol: true } },
-    },
+  const assetIds = await prisma.$transaction(async (db) => {
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${sourceId}))`
+    const txs = await db.transaction.findMany({
+      where: { sourceId },
+      select: {
+        assetId: true,
+        type: true,
+        quantity: true,
+        feeAmount: true,
+        currency: true,
+        asset: { select: { symbol: true } },
+      },
+    })
+    const { holdings } = computeNetBalances(
+      txs.map((t) => ({
+        assetId: t.assetId,
+        type: t.type,
+        quantity: t.quantity,
+        fee: t.feeAmount,
+        // Only subtract when the fee currency is explicitly the asset itself; the
+        // fee currency is otherwise unknown, and assuming "asset" would wrongly
+        // subtract fiat fees.
+        feeInAsset: !!t.feeAmount && !!t.currency && t.currency === t.asset.symbol,
+      })),
+    )
+    await db.holding.deleteMany({ where: { sourceId } })
+    if (holdings.length > 0) {
+      await db.holding.createMany({
+        data: holdings.map((h) => ({ sourceId, assetId: h.assetId, quantity: h.quantity })),
+      })
+    }
+    return holdings.map((h) => h.assetId)
   })
-  const { holdings } = computeNetBalances(
-    txs.map((t) => ({
-      assetId: t.assetId,
-      type: t.type,
-      quantity: t.quantity,
-      fee: t.feeAmount,
-      // Only subtract when the fee currency is explicitly the asset itself; the
-      // fee currency is otherwise unknown, and assuming "asset" would wrongly
-      // subtract fiat fees.
-      feeInAsset: !!t.feeAmount && !!t.currency && t.currency === t.asset.symbol,
-    })),
-  )
-  await prisma.$transaction([
-    prisma.holding.deleteMany({ where: { sourceId } }),
-    prisma.holding.createMany({
-      data: holdings.map((h) => ({ sourceId, assetId: h.assetId, quantity: h.quantity })),
-    }),
-  ])
-  await refreshPrices(holdings.map((h) => h.assetId))
+  await refreshPrices(assetIds)
 }
 
 export async function listTransactions(
@@ -164,7 +189,7 @@ export async function createTransaction(
   const asset = await prisma.asset.findUnique({ where: { id: input.assetId } })
   if (!asset) throw AppError.notFound('Asset nicht gefunden')
 
-  const portfolioId = await resolvePortfolioId(userId, input.portfolioId)
+  const portfolioId = await resolvePortfolioIdForWrite(userId, input.portfolioId)
   const source = await getOrCreateManualTxSource(userId, portfolioId)
   const tx = await prisma.transaction.create({
     data: {
@@ -245,5 +270,17 @@ export async function updateTransaction(
 export async function deleteTransaction(userId: string, txId: string): Promise<void> {
   const existing = await getOwnedManualTransaction(userId, txId)
   await prisma.transaction.delete({ where: { id: existing.id } })
+
+  // When the auto-managed bucket loses its last transaction, drop it: keeping an
+  // empty phantom source would block portfolio deletion (sourceCount > 0) and
+  // count against the free source limit. Cascade clears its (already empty) holdings.
+  const remaining = await prisma.transaction.count({ where: { sourceId: existing.sourceId } })
+  // Only auto-clean the auto-managed manual-tx bucket. A user-created MANUAL
+  // source (e.g. a renamed/legacy bucket) must never be deleted out from under
+  // the user just because its last transaction was removed.
+  if (remaining === 0 && existing.source.label === MANUAL_TX_SOURCE_LABEL) {
+    await prisma.portfolioSource.delete({ where: { id: existing.sourceId } })
+    return
+  }
   await recomputeHoldings(existing.sourceId)
 }

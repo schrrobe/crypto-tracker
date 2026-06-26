@@ -51,5 +51,5 @@ test('Portfolio-Löschregeln: letztes und nicht-leeres Portfolio blockiert', asy
   // delete the last portfolio → error text
   await page.getByTestId('portfolio-delete-Mein Portfolio').click()
   await page.getByRole('button', { name: 'Löschen' }).click()
-  await expect(page.getByTestId('portfolio-error')).toContainText('letzte Portfolio')
+  await expect(page.getByTestId('portfolio-error')).toContainText('letzte Steuersubjekt')
 })

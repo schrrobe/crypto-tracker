@@ -9,19 +9,29 @@ async function findAssetId(user: TestUser, symbol: string): Promise<string> {
   return asset.id
 }
 
+// With >1 portfolio, writes must name their entity explicitly (PORTFOLIO_REQUIRED).
+async function defaultPortfolioId(user: TestUser): Promise<string> {
+  const res = await request(app).get(`${API}/portfolios`).set(...bearer(user))
+  const def = (res.body.portfolios as Array<{ id: string; isDefault: boolean }>).find((p) => p.isDefault)
+  if (!def) throw new Error('Kein Default-Portfolio gefunden')
+  return def.id
+}
+
 describe('Portfolio-Isolation (Integration)', () => {
   it('Quellen, Bestände, Transaktionen, Summary und Steuerreport sind strikt getrennt', async () => {
     const user = await registerUser('iso')
-    const eltern = await createPortfolio(user, 'Eltern')
     const btcId = await findAssetId(user, 'BTC')
 
-    // Default: exchange source (fake) + sync → 0.1 BTC + 2 ETH
+    // Default: exchange source (fake) + sync → 0.1 BTC + 2 ETH (created while the
+    // default is still the only entity, so an omitted portfolioId is unambiguous)
     const exchange = await request(app)
       .post(`${API}/sources`)
       .set(...bearer(user))
       .send({ type: 'EXCHANGE', provider: 'KRAKEN', label: 'Mein Kraken', apiKey: 'valid-key-1234', apiSecret: 'valid-secret' })
     expect(exchange.status).toBe(201)
     await request(app).post(`${API}/sources/${exchange.body.source.id}/sync`).set(...bearer(user))
+
+    const eltern = await createPortfolio(user, 'Eltern')
 
     // Eltern: manual transactions (BUY 2023, SELL 2024 → gain)
     for (const tx of [
@@ -81,9 +91,10 @@ describe('Portfolio-Isolation (Integration)', () => {
   it('sync-all synct nur das angegebene Portfolio', async () => {
     const user = await registerUser('iso-sync')
     const eltern = await createPortfolio(user, 'Eltern')
+    const defId = await defaultPortfolioId(user)
 
     for (const [label, portfolioId] of [
-      ['Default-Kraken', undefined],
+      ['Default-Kraken', defId],
       ['Eltern-Kraken', eltern.id],
     ] as const) {
       const res = await request(app)
@@ -107,9 +118,10 @@ describe('Portfolio-Isolation (Integration)', () => {
   it('zwei Portfolios bekommen getrennte automatische MANUAL-Quellen', async () => {
     const user = await registerUser('iso-manual')
     const eltern = await createPortfolio(user, 'Eltern')
+    const defId = await defaultPortfolioId(user)
     const btcId = await findAssetId(user, 'BTC')
 
-    for (const portfolioId of [undefined, eltern.id]) {
+    for (const portfolioId of [defId, eltern.id]) {
       const res = await request(app)
         .post(`${API}/transactions`)
         .set(...bearer(user))
@@ -128,12 +140,13 @@ describe('Portfolio-Isolation (Integration)', () => {
   it('Transfer-Link über Portfolio-Grenze wird abgelehnt', async () => {
     const user = await registerUser('iso-link')
     const eltern = await createPortfolio(user, 'Eltern')
+    const defId = await defaultPortfolioId(user)
     const btcId = await findAssetId(user, 'BTC')
 
     const w = await request(app)
       .post(`${API}/transactions`)
       .set(...bearer(user))
-      .send({ assetId: btcId, type: 'WITHDRAWAL', quantity: '1', timestamp: '2024-01-10T00:00:00.000Z' })
+      .send({ assetId: btcId, type: 'WITHDRAWAL', quantity: '1', timestamp: '2024-01-10T00:00:00.000Z', portfolioId: defId })
     const d = await request(app)
       .post(`${API}/transactions`)
       .set(...bearer(user))

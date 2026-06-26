@@ -53,6 +53,15 @@ export const usePortfoliosStore = defineStore('portfolios', () => {
     return activePortfolioId.value ?? undefined
   }
 
+  // For writes/actions: with more than one tax entity, every write must name its
+  // entity explicitly — the "omitted = default" convention is unsafe once the user
+  // has separate tax subjects (a transaction could land in the wrong one). With a
+  // single portfolio, undefined lets the backend use the lone default.
+  function writeScopeId(): string | undefined {
+    if (portfolios.value.length > 1) return active.value?.id
+    return activePortfolioId.value ?? undefined
+  }
+
   async function create(label: string): Promise<PortfolioDto> {
     const { portfolio } = await api.post<{ portfolio: PortfolioDto }>('/portfolios', { label })
     await load()
@@ -86,6 +95,7 @@ export const usePortfoliosStore = defineStore('portfolios', () => {
     setActive,
     scopeQuery,
     scopeId,
+    writeScopeId,
     create,
     rename,
     remove,

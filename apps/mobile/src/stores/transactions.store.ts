@@ -21,7 +21,7 @@ export const useTransactionsStore = defineStore('transactions', () => {
   }
 
   async function create(input: CreateTransactionInput): Promise<void> {
-    await api.post('/transactions', { ...input, portfolioId: usePortfoliosStore().scopeId() })
+    await api.post('/transactions', { ...input, portfolioId: usePortfoliosStore().writeScopeId() })
     await load()
   }
 

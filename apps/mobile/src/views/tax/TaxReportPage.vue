@@ -23,6 +23,7 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
+      <PortfolioSwitcher variant="banner" @switched="loadData" />
       <ion-list inset>
         <ion-item>
           <ion-select
@@ -212,6 +213,7 @@ import { computed, ref } from 'vue'
 import type { TaxCountry, TaxWarningDto } from '@crypto-tracker/shared'
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
 import ErrorState from '../../components/ErrorState.vue'
+import PortfolioSwitcher from '../../components/PortfolioSwitcher.vue'
 import { useTaxStore } from '../../stores/tax.store'
 import { formatCurrency, formatQuantity, intlLocale } from '../../services/format'
 import { downloadCsv } from '../../services/download'
@@ -292,6 +294,17 @@ function trimQty(q: string): string {
   return cut ? `${int},${cut}` : int
 }
 
+// Filesystem-safe slug of the tax entity name for export filenames
+function entitySlug(label: string): string {
+  return (
+    label
+      .trim()
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase() || 'portfolio'
+  )
+}
+
 async function exportCsv() {
   if (!report.value) return
   const r = report.value
@@ -309,6 +322,7 @@ async function exportCsv() {
   ])
   // Summary rows so the export ties out to the totals shown on screen
   rows.push([])
+  rows.push([t('portfolios.activeEntity'), r.portfolioLabel, '', '', '', '', '', '', '', ''])
   rows.push(['Summe Gewinn/Verlust', '', '', '', '', '', de(r.totals.totalGainEur), '', '', ''])
   rows.push([
     'Steuerpflichtig nach Freigrenze',
@@ -323,7 +337,7 @@ async function exportCsv() {
     '',
   ])
   await downloadCsv(
-    `steuerreport-${r.country}-${r.year}.csv`,
+    `steuerreport-${entitySlug(r.portfolioLabel)}-${r.country}-${r.year}.csv`,
     [
       'Asset',
       'Menge',

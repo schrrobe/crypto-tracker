@@ -9,6 +9,7 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
+      <PortfolioSwitcher variant="banner" @switched="loadData" />
       <LoadingSkeleton v-if="pageLoading && importsStore.imports.length === 0" />
       <ErrorState v-else-if="pageError && importsStore.imports.length === 0" @retry="loadData" />
       <ion-list v-else-if="importsStore.imports.length > 0" inset>
@@ -77,6 +78,7 @@ import { ref } from 'vue'
 import type { CsvImportDto } from '@crypto-tracker/shared'
 import LoadingSkeleton from '../../../components/LoadingSkeleton.vue'
 import ErrorState from '../../../components/ErrorState.vue'
+import PortfolioSwitcher from '../../../components/PortfolioSwitcher.vue'
 import { useImportsStore } from '../../../stores/imports.store'
 import { useSourcesStore } from '../../../stores/sources.store'
 import { usePortfolioStore } from '../../../stores/portfolio.store'

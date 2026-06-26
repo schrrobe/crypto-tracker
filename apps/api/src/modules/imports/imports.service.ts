@@ -15,7 +15,7 @@ import { normalizeKrakenAsset } from '../../providers/exchanges/kraken'
 import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { computeNetBalances, type NetBalanceTx } from '../transactions/tx-net-balance'
-import { resolvePortfolioId } from '../portfolios/portfolios.service'
+import { resolvePortfolioId, resolvePortfolioIdForWrite } from '../portfolios/portfolios.service'
 
 const PREVIEW_ROWS = 10
 
@@ -46,7 +46,7 @@ export async function uploadCsv(
   portfolioId?: string,
   exchange?: (typeof EXCHANGE_PROVIDERS)[number],
 ): Promise<CsvUploadResponse> {
-  const pid = await resolvePortfolioId(userId, portfolioId)
+  const pid = await resolvePortfolioIdForWrite(userId, portfolioId)
   const { headers, rows } = parseCsv(file.buffer.toString('utf8'))
   const { mapping, preset } = suggestMappingWithPreset(headers, kind)
 
