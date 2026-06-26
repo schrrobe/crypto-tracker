@@ -281,6 +281,8 @@ const ru: MessageSchema = {
     result: 'Импортировано {imported} из {total} строк',
     errorRowsTitle: 'Ошибочные строки (не импортированы):',
     warningsTitle: 'Примечания:',
+    noticeNonPositiveNet:
+      'Актив {symbol}: чистый баланс ≤ 0 (продаж больше, чем покупок — неполная история?) — не импортировано как остаток',
     errorLine: 'Строка {line}: {error}',
     kindBalances: 'Балансы',
     kindTransactions: 'Транзакции',

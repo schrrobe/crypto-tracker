@@ -85,6 +85,25 @@ describe('Asset-Mapping (Integration)', () => {
     expect(fixed.body.asset.coingeckoId).toBe(idFor(symbol))
   })
 
+  it('Admin-Remap → 409 wenn die CoinGecko-ID bereits einem anderen Asset gehört', async () => {
+    const symbolA = uniqueSymbol()
+    const symbolB = uniqueSymbol()
+    // Asset A already owns the CoinGecko id.
+    await prisma.asset.create({
+      data: { symbol: symbolA, name: `${symbolA} Coin`, coingeckoId: idFor(symbolA) },
+    })
+    const assetB = await createUnmappedAsset(symbolB)
+
+    const admin = await registerUser('remap-taken', 'FREE')
+    await makeAdmin(admin)
+    const res = await request(app)
+      .put(`${API}/admin/assets/${assetB.id}/mapping`)
+      .set(...bearer(admin))
+      .send({ coingeckoId: idFor(symbolA) })
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('COINGECKO_ID_TAKEN')
+  })
+
   it('Admin-Remap lehnt Symbol-Mismatch ab', async () => {
     const symbol = uniqueSymbol()
     const asset = await createUnmappedAsset(symbol)

@@ -243,6 +243,8 @@ async function confirmTransactionImport(
     errors.push({
       line: 0,
       raw: symbol,
+      code: 'csv.noticeNonPositiveNet',
+      params: { symbol },
       error: `Asset „${symbol}": Nettobestand ≤ 0 (mehr Verkäufe als Käufe — unvollständige Historie?) — nicht als Bestand übernommen`,
     })
   }

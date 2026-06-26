@@ -66,10 +66,15 @@ async function fetchCoinbaseBalances(creds: ExchangeCredentials): Promise<RawBal
   const privateKey = normalizePrivateKey(creds.apiSecret)
 
   const balances: RawBalance[] = []
+  const seenCursors = new Set<string>()
   let cursor = ''
   let pages = 0
   do {
-    if (++pages > MAX_PAGES) break
+    if (++pages > MAX_PAGES) {
+      // A real account set fits within MAX_PAGES; exceeding it means the cursor
+      // never terminates — fail instead of returning silently truncated balances.
+      throw new ProviderError('PROVIDER_ERROR', 'Coinbase: Pagination-Limit überschritten')
+    }
     let token: string
     try {
       token = buildCoinbaseJwt(creds.apiKey, privateKey, 'GET', ACCOUNTS_PATH)
@@ -95,7 +100,14 @@ async function fetchCoinbaseBalances(creds: ExchangeCredentials): Promise<RawBal
         if (Number(amount) > 0) balances.push({ symbol: account.currency.toUpperCase(), amount })
       }
     }
-    cursor = data.has_next ? data.cursor : ''
+    const next = data.has_next ? data.cursor : ''
+    if (next && (next === cursor || seenCursors.has(next))) {
+      // Repeated cursor → the server is looping the same page; continuing would
+      // append duplicate balances until MAX_PAGES. Fail rather than inflate.
+      throw new ProviderError('PROVIDER_ERROR', 'Coinbase: Pagination hängt (Cursor wiederholt sich)')
+    }
+    if (next) seenCursors.add(next)
+    cursor = next
   } while (cursor)
 
   return balances

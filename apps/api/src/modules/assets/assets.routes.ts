@@ -60,7 +60,8 @@ assetsRoutes.get(
 const mappingSchema = z.object({ coingeckoId: z.string().trim().min(1).max(120) })
 
 // Mapping is a global write (assets are shared) — rate-limit so one account can't
-// sweep many assets. Generous in local/test so the suite isn't throttled.
+// sweep many assets. Generous in local (tests also run as APP_ENV=local) so the
+// suite isn't throttled.
 const mappingLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: env.APP_ENV === 'local' ? 1000 : 10,

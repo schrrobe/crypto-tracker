@@ -280,6 +280,8 @@ const de = {
     result: '{imported} von {total} Zeilen importiert',
     errorRowsTitle: 'Fehlerhafte Zeilen (nicht importiert):',
     warningsTitle: 'Hinweise:',
+    noticeNonPositiveNet:
+      'Asset {symbol}: Nettobestand ≤ 0 (mehr Verkäufe als Käufe — unvollständige Historie?) — nicht als Bestand übernommen',
     errorLine: 'Zeile {line}: {error}',
     kindBalances: 'Bestände',
     kindTransactions: 'Transaktionen',

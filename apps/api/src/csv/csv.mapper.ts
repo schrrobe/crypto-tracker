@@ -11,7 +11,10 @@ export interface MappedBalanceRow {
 export interface RowError {
   line: number // 1-basiert inkl. Header (Datenzeilen starten bei 2) — wie im Editor
   raw: string
+  // German fallback text; the frontend prefers `code` (stable i18n key) + `params`.
   error: string
+  code?: string
+  params?: Record<string, string | number>
 }
 
 // Normalisiert deutsche und englische Zahlformate auf einen Dezimal-String mit Punkt:

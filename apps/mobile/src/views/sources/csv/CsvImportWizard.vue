@@ -58,7 +58,7 @@
           data-testid="csv-file"
           @change="onFileSelected"
         />
-        <ion-button expand="block" fill="outline" data-testid="csv-choose-file" @click="fileInput?.click()">
+        <ion-button expand="block" fill="outline" data-testid="csv-choose-file" @click="openFilePicker">
           {{ file ? file.name : $t('csv.chooseFile') }}
         </ion-button>
         <ion-text v-if="error" color="danger"><p class="error" data-testid="csv-error">{{ error }}</p></ion-text>
@@ -221,7 +221,7 @@
           <p class="hint">{{ $t('csv.warningsTitle') }}</p>
           <ion-list inset data-testid="csv-warning-rows">
             <ion-item v-for="(row, i) in resultWarnings" :key="`w-${i}`">
-              <ion-label class="ion-text-wrap"><h3>{{ row.error }}</h3></ion-label>
+              <ion-label class="ion-text-wrap"><h3>{{ row.code ? $t(row.code, row.params ?? {}) : row.error }}</h3></ion-label>
             </ion-item>
           </ion-list>
         </template>
@@ -306,6 +306,13 @@ watch(
     error.value = ''
   },
 )
+
+function openFilePicker() {
+  // Reset first so re-selecting the same file still fires `change` (the native
+  // input keeps its previous value across resets/reopens otherwise).
+  if (fileInput.value) fileInput.value.value = ''
+  fileInput.value?.click()
+}
 
 function onFileSelected(event: Event) {
   file.value = (event.target as HTMLInputElement).files?.[0] ?? null

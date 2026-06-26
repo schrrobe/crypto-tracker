@@ -179,7 +179,11 @@ export interface MappingSuggestionDto {
 export interface ImportErrorRow {
   line: number
   raw: string
+  // German fallback text (server texts stay German). The frontend prefers `code`
+  // (a stable i18n key) + `params` when present, falling back to `error`.
   error: string
+  code?: string
+  params?: Record<string, string | number>
 }
 
 export interface CsvImportDto {

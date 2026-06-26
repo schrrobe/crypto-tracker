@@ -281,6 +281,8 @@ const cs: MessageSchema = {
     result: 'Importováno {imported} z {total} řádků',
     errorRowsTitle: 'Chybné řádky (neimportováno):',
     warningsTitle: 'Poznámky:',
+    noticeNonPositiveNet:
+      'Aktivum {symbol}: čistý zůstatek ≤ 0 (více prodejů než nákupů — neúplná historie?) — neimportováno jako zůstatek',
     errorLine: 'Řádek {line}: {error}',
     kindBalances: 'Zůstatky',
     kindTransactions: 'Transakce',

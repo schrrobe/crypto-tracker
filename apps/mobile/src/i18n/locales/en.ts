@@ -281,6 +281,8 @@ const en: MessageSchema = {
     result: '{imported} of {total} rows imported',
     errorRowsTitle: 'Invalid rows (not imported):',
     warningsTitle: 'Notes:',
+    noticeNonPositiveNet:
+      'Asset {symbol}: net balance ≤ 0 (more sells than buys — incomplete history?) — not imported as a holding',
     errorLine: 'Line {line}: {error}',
     kindBalances: 'Balances',
     kindTransactions: 'Transactions',

@@ -21,9 +21,12 @@
     color="danger"
     class="tappable"
     role="button"
+    tabindex="0"
     :title="source.lastSyncRun.errorMessage ?? undefined"
     :data-testid="`sync-status-${source.id}`"
     @click="showError"
+    @keydown.enter.prevent="showError"
+    @keydown.space.prevent="showError"
   >
     {{ $t('sync.error', { message: source.lastSyncRun.errorMessage }) }}
   </ion-badge>

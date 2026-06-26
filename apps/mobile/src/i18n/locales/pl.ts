@@ -281,6 +281,8 @@ const pl: MessageSchema = {
     result: 'Zaimportowano {imported} z {total} wierszy',
     errorRowsTitle: 'Błędne wiersze (niezaimportowane):',
     warningsTitle: 'Uwagi:',
+    noticeNonPositiveNet:
+      'Aktywo {symbol}: saldo netto ≤ 0 (więcej sprzedaży niż zakupów — niepełna historia?) — nie zaimportowano jako stan',
     errorLine: 'Wiersz {line}: {error}',
     kindBalances: 'Salda',
     kindTransactions: 'Transakcje',

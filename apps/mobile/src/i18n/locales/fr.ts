@@ -281,6 +281,8 @@ const fr: MessageSchema = {
     result: '{imported} lignes sur {total} importées',
     errorRowsTitle: 'Lignes invalides (non importées) :',
     warningsTitle: 'Remarques :',
+    noticeNonPositiveNet:
+      'Actif {symbol} : solde net ≤ 0 (plus de ventes que d’achats — historique incomplet ?) — non importé comme avoir',
     errorLine: 'Ligne {line} : {error}',
     kindBalances: 'Soldes',
     kindTransactions: 'Transactions',
