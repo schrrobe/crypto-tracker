@@ -343,6 +343,13 @@ async function confirmDeleteAccount() {
 }
 
 async function promptCreatePortfolio() {
+  portfolioError.value = ''
+  // Free tier is capped — surface the paywall up front instead of letting the user
+  // name a tax entity and only then hit a 402.
+  if (!auth.isPro && portfolios.portfolios.length >= FREE_LIMITS.portfolios) {
+    openPaywall()
+    return
+  }
   const alert = await alertController.create({
     header: t('portfolios.createTitle'),
     inputs: [{ name: 'label', type: 'text', attributes: { maxlength: 60 } }],

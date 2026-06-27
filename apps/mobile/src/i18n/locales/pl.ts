@@ -54,16 +54,19 @@ const pl: MessageSchema = {
     settings: 'Ustawienia',
   },
   portfolios: {
-    title: 'Portfolia',
-    switchTitle: 'Przełącz portfolio',
-    manage: 'Zarządzaj portfoliami…',
+    title: 'Podmioty podatkowe (portfolia)',
+    switchTitle: 'Przełącz podmiot podatkowy',
+    manage: 'Zarządzaj podmiotami podatkowymi…',
+    activeEntity: 'Podmiot podatkowy',
+    switch: 'przełącz',
+    switchedTo: 'Teraz w: {name}',
     default: 'Domyślne',
     sourceCount: 'Źródła: {n}',
-    create: 'Utwórz portfolio',
-    createTitle: 'Nowe portfolio',
-    renameTitle: 'Zmień nazwę portfolio',
+    create: 'Utwórz podmiot podatkowy',
+    createTitle: 'Nowy podmiot podatkowy',
+    renameTitle: 'Zmień nazwę podmiotu podatkowego',
     deleteTitle: 'Usunąć „{label}"?',
-    deleteMessage: 'Można usuwać tylko puste portfolia.',
+    deleteMessage: 'Można usuwać tylko puste podmioty podatkowe.',
   },
   market: {
     title: 'Rynek',
@@ -168,6 +171,7 @@ const pl: MessageSchema = {
   },
   holdings: {
     empty: 'Nie dodano jeszcze żadnych aktywów.',
+    addHolding: 'Dodaj pozycję',
     accountType: {
       SPOT: 'Spot',
       EARN: 'Earn',
@@ -495,8 +499,11 @@ const pl: MessageSchema = {
       'Obie strony muszą należeć do tego samego portfolio — portfolia są odrębnymi podmiotami podatkowymi',
     SWAP_LINKED_TX_IMMUTABLE:
       'Ta transakcja jest połączona jako wymiana — najpierw rozłącz powiązanie',
-    PORTFOLIO_NOT_EMPTY: 'Portfolio zawiera jeszcze źródła — najpierw usuń źródła',
-    PORTFOLIO_LAST: 'Ostatniego portfolio nie można usunąć',
+    PORTFOLIO_NOT_EMPTY:
+      'Ten podmiot podatkowy nadal zawiera źródła. Stanowi pełną historię podatkową i nie jest usuwany automatycznie — najpierw usuń źródła',
+    PORTFOLIO_LAST: 'Ostatniego podmiotu podatkowego nie można usunąć — zawsze musi istnieć jeden',
+    PORTFOLIO_REQUIRED: 'Wybierz podmiot podatkowy, do którego należy ten wpis',
+    PORTFOLIO_LABEL_DUPLICATE: 'Podmiot podatkowy o tej nazwie już istnieje — wybierz unikalną nazwę',
     INVALID_RESET_TOKEN: 'Link jest nieprawidłowy lub wygasł — poproś o nowy',
     PLAN_UPGRADE_REQUIRED: 'Ta funkcja wymaga Crypto Tracker Pro',
     SURVEY_ALREADY_SUBMITTED: 'Już wypełniłeś tę ankietę',

@@ -38,8 +38,9 @@ sourcesRoutes.post(
 // Queue mode (REDIS_URL set): 202 + RUNNING run, the worker executes it, the frontend polls.
 sourcesRoutes.post(
   '/sync-all',
+  validate(portfolioScopeQuerySchema, 'body'),
   asyncHandler(async (req, res) => {
-    const portfolioId = typeof req.body?.portfolioId === 'string' ? req.body.portfolioId : undefined
+    const { portfolioId } = req.body as { portfolioId?: string }
     const { results, queued } = await syncService.syncAllSources(req.userId, portfolioId)
     res.status(queued ? 202 : 200).json({ results })
   }),
