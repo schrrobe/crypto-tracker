@@ -49,7 +49,10 @@ const envSchema = z.object({
   // Human-readable price for the paywall (e.g. "4,99 € / Monat"). The app never
   // computes a price — it only displays this label; the real amount lives in Stripe.
   // Unset → the paywall shows benefits without a price line.
-  STRIPE_PRICE_LABEL: z.string().optional(),
+  STRIPE_PRICE_LABEL: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().trim().optional(),
+  ),
   STRIPE_SUCCESS_URL: z.string().url().optional(),
   STRIPE_CANCEL_URL: z.string().url().optional(),
   // Interval of the automatic sync (Pro) in the worker; ≥ 60 spares provider limits

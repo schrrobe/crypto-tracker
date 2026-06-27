@@ -111,21 +111,27 @@ async function assertLabelAvailable(
 }
 
 export async function createPortfolio(userId: string, label: string): Promise<PortfolioDto> {
-  // Free limit: at most FREE_LIMITS.portfolios portfolios
-  if ((await getPlan(userId)) !== 'PRO') {
-    const count = await prisma.portfolio.count({ where: { userId } })
-    if (count >= FREE_LIMITS.portfolios) {
-      throw AppError.upgradeRequired(`Im Free-Tarif sind maximal ${FREE_LIMITS.portfolios} Portfolios möglich`, {
-        feature: 'unlimitedPortfolios',
-        limit: FREE_LIMITS.portfolios,
-        used: count,
-      })
-    }
-  }
+  const plan = await getPlan(userId)
   await assertLabelAvailable(userId, label)
-  const portfolio = await prisma.portfolio.create({
-    data: { userId, label: label.trim() },
-    include: { _count: { select: { sources: true } } },
+  // Free quota enforced atomically: a per-user advisory lock serializes the
+  // count+create so two concurrent requests can't both pass the check (TOCTOU)
+  // and exceed FREE_LIMITS.portfolios. Same lock pattern as deletePortfolio.
+  const portfolio = await prisma.$transaction(async (tx) => {
+    if (plan !== 'PRO') {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
+      const count = await tx.portfolio.count({ where: { userId } })
+      if (count >= FREE_LIMITS.portfolios) {
+        throw AppError.upgradeRequired(`Im Free-Tarif sind maximal ${FREE_LIMITS.portfolios} Portfolios möglich`, {
+          feature: 'unlimitedPortfolios',
+          limit: FREE_LIMITS.portfolios,
+          used: count,
+        })
+      }
+    }
+    return tx.portfolio.create({
+      data: { userId, label: label.trim() },
+      include: { _count: { select: { sources: true } } },
+    })
   })
   return toPortfolioDto(portfolio)
 }

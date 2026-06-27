@@ -318,8 +318,9 @@ async function confirmDelete(source: SourceDto) {
 
 onIonViewWillEnter(() => {
   loadData()
-  // Onboarding entry points from the dashboard
-  if (route.query.add === '1') modalOpen.value = true
+  // Onboarding entry points from the dashboard — route the add path through the
+  // same quota guard so a Free user at the cap hits the paywall, not the form.
+  if (route.query.add === '1') onAddSource()
   if (route.query.csv === '1') csvWizardOpen.value = true
   if (route.query.add || route.query.csv) router.replace({ query: {} })
 })

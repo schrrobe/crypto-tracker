@@ -19,11 +19,11 @@ export const useBillingStore = defineStore('billing', () => {
       const cfg = await api.get<{ enabled: boolean; priceLabel: string | null }>('/billing/config')
       enabled.value = cfg.enabled
       priceLabel.value = cfg.priceLabel
-    } catch {
-      // Keep defaults (enabled=true) — a config fetch failure should not hard-block
-      // the upgrade path; checkout itself surfaces a clear error if truly disabled.
-    } finally {
+      // Mark loaded only on success, so a transient failure retries on the next
+      // paywall open instead of freezing the optimistic defaults for the session.
       configLoaded.value = true
+    } catch {
+      // Leave configLoaded=false → the next open retries.
     }
   }
 

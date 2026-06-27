@@ -19,7 +19,8 @@
 
       <ion-text v-if="error" color="danger"><p class="error">{{ error }}</p></ion-text>
 
-      <template v-if="billing.enabled">
+      <ion-spinner v-if="!billing.configLoaded" name="crescent" data-testid="paywall-loading" />
+      <template v-else-if="billing.enabled">
         <p v-if="billing.priceLabel" class="price" data-testid="paywall-price">{{ billing.priceLabel }}</p>
         <ion-button
           expand="block"

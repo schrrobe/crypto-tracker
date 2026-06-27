@@ -62,6 +62,7 @@ describe('Plan-Gating (Integration)', () => {
     expect(third.status).toBe(402)
     expect(third.body.error.details?.feature).toBe('unlimitedPortfolios')
     expect(third.body.error.details?.limit).toBe(2)
+    expect(third.body.error.details?.used).toBe(2)
 
     await setPlan(user, 'PRO')
     await createPortfolio(user, 'Drittes Pro')

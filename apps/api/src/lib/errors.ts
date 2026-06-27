@@ -1,3 +1,5 @@
+import type { UpgradeRequiredDetails } from '@crypto-tracker/shared'
+
 export class AppError extends Error {
   constructor(
     public readonly code: string,
@@ -28,7 +30,10 @@ export class AppError extends Error {
   // 402 Payment Required — feature requires a Pro subscription. `details` carries
   // a machine-readable discriminator ({ feature, limit?, used? }) so the client can
   // show contextual, localized paywall copy instead of parsing the German message.
-  static upgradeRequired(message = 'Diese Funktion erfordert Crypto Tracker Pro', details?: unknown) {
+  static upgradeRequired(
+    message = 'Diese Funktion erfordert Crypto Tracker Pro',
+    details?: UpgradeRequiredDetails,
+  ) {
     return new AppError('PLAN_UPGRADE_REQUIRED', 402, message, details)
   }
 }
