@@ -47,6 +47,43 @@ describe('PnL (Integration)', () => {
     expect(res.body.excludedValueEur).toBe('0.00')
   })
 
+  it('Pro: MARGIN/non-spot holdings are excluded from PnL coverage', async () => {
+    const user = await registerUser('pnl-margin') // PRO
+    const btcId = await findAssetId(user, 'BTC')
+    const ethId = await findAssetId(user, 'ETH')
+
+    // SPOT BTC with a real cost basis
+    await request(app)
+      .post(`${API}/transactions`)
+      .set(...bearer(user))
+      .send({
+        assetId: btcId,
+        type: 'BUY',
+        quantity: '1',
+        pricePerUnit: '20000',
+        currency: 'EUR',
+        timestamp: '2024-01-15T10:00:00.000Z',
+      })
+      .expect(201)
+
+    // Inject a MARGIN short on the same user's source — has a price but no spot basis.
+    // Before the spot-only scoping this counted as "excluded value" (a liability read
+    // as omitted assets); now it must not appear in PnL coverage at all.
+    const src = await prisma.portfolioSource.findFirst({ where: { userId: user.userId } })
+    await prisma.holding.create({
+      data: { sourceId: src!.id, assetId: ethId, accountType: 'MARGIN', quantity: '-5' },
+    })
+
+    await request(app).post(`${API}/prices/refresh`).set(...bearer(user)).expect(200)
+
+    const res = await request(app).get(`${API}/portfolio/pnl`).set(...bearer(user))
+    expect(res.status).toBe(200)
+    expect(res.body.coveredCount).toBe(1) // BTC only
+    expect(res.body.excludedCount).toBe(0) // MARGIN not counted as excluded value
+    const symbols = (res.body.positions as Array<{ assetSymbol: string }>).map((p) => p.assetSymbol)
+    expect(symbols).not.toContain('ETH')
+  })
+
   it('Free: /portfolio/pnl → 402', async () => {
     const user = await registerUser('pnl-free', 'FREE')
     const res = await request(app).get(`${API}/portfolio/pnl`).set(...bearer(user))

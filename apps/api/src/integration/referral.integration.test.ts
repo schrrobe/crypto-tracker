@@ -22,13 +22,20 @@ async function registerWithCode(prefix: string, referralCode?: string) {
   return res.body.user.id as string
 }
 
+// Distinct event id per delivery so the webhook idempotency guard (event.id) never
+// fires here — duplicate-invoice idempotency is exercised at the invoice level
+// (stripeInvoiceId unique), which is the contract these tests verify.
+let eventSeq = 0
 async function fireInvoicePaid(
   customer: string,
   invoiceId: string,
   amountCents: number,
   billingReason = 'subscription_cycle',
 ) {
+  eventSeq += 1
   fakeEvent = {
+    id: `evt_inv_${invoiceId}_${eventSeq}`,
+    created: 1000 + eventSeq,
     type: 'invoice.paid',
     data: { object: { customer, id: invoiceId, amount_paid: amountCents, currency: 'eur', billing_reason: billingReason } },
   }

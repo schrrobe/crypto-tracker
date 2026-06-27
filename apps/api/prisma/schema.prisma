@@ -103,6 +103,14 @@ model User {
   stripeCustomerId     String?    @unique
   stripeSubscriptionId String?
   planUntil            DateTime?
+  // Stripe event ordering guard: the `created` of the last plan-affecting event
+  // applied. A webhook delivered/processed out of order (older `created`) is ignored
+  // so a stale subscription state can't overwrite a newer one.
+  lastStripeEventAt    DateTime?
+  // Dunning marker: set on invoice.payment_failed, cleared on the next successful
+  // invoice.paid. Pro is NOT revoked here — Stripe retries for days, then the
+  // subscription event downgrades. This is a support/observability signal only.
+  paymentFailedAt      DateTime?
   createdAt     DateTime          @default(now())
   // Referral program: own shareable code + who invited this user (self-relation).
   referralCode  String?           @unique
@@ -277,6 +285,15 @@ model Asset {
   futuresPositions FuturesPosition[]
 
   @@index([symbol])
+}
+
+// Webhook idempotency: Stripe delivers at-least-once and retries for 3 days.
+// We record every processed event id and short-circuit on replay, so duplicate
+// deliveries (and captured-and-replayed valid payloads) are no-ops.
+model ProcessedStripeEvent {
+  id          String   @id // Stripe event id (evt_...)
+  type        String
+  processedAt DateTime @default(now())
 }
 
 model Holding {

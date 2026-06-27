@@ -1,6 +1,7 @@
 import { Router, type RequestHandler } from 'express'
 import { requireAuth } from '../../middleware/auth.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
+import { AppError } from '../../lib/errors'
 import * as billingService from './billing.service'
 
 export const billingRoutes = Router()
@@ -19,6 +20,19 @@ billingRoutes.post(
   '/checkout',
   asyncHandler(async (req, res) => {
     res.json({ url: await billingService.createCheckoutSession(req.userId) })
+  }),
+)
+
+// Reconcile plan from a completed Checkout session on success-return (covers a
+// delayed/dropped webhook — user paid but would otherwise stay FREE).
+billingRoutes.post(
+  '/reconcile',
+  asyncHandler(async (req, res) => {
+    const sessionId = (req.body as { sessionId?: unknown }).sessionId
+    if (typeof sessionId !== 'string' || sessionId.length === 0) {
+      throw AppError.badRequest('INVALID_SESSION_ID', 'sessionId fehlt')
+    }
+    res.json(await billingService.reconcileCheckoutSession(req.userId, sessionId))
   }),
 )
 
