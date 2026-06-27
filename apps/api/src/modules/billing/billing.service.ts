@@ -205,18 +205,39 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
     await applyPlanByCustomer(String(sub.customer), active ? 'PRO' : 'FREE', sub.id, subscriptionPeriodEnd(sub), event.created)
     return
   }
+  // Dunning signal. We deliberately do NOT downgrade here: Stripe retries the
+  // failed invoice over several days, then fires subscription.updated/deleted
+  // (handled above) which performs the actual downgrade. Record the failure for
+  // support visibility and keep Pro until the subscription truly ends.
+  if (event.type === 'invoice.payment_failed') {
+    const invoice = event.data.object as Stripe.Invoice
+    if (!invoice.customer) return
+    const res = await prisma.user.updateMany({
+      where: { stripeCustomerId: String(invoice.customer) },
+      data: { paymentFailedAt: new Date(event.created * 1000) },
+    })
+    if (res.count === 0) {
+      console.warn(`[billing] invoice.payment_failed for unknown Stripe customer ${invoice.customer}`)
+    }
+    return
+  }
   // Recurring referral commission: each paid invoice of an invited user credits
   // their referrer 20% (idempotent per invoice id).
   if (event.type === 'invoice.paid') {
     const invoice = event.data.object as Stripe.Invoice
     if (!invoice.customer || !invoice.id || invoice.amount_paid <= 0) return
+    const payer = await prisma.user.findUnique({
+      where: { stripeCustomerId: String(invoice.customer) },
+      select: { id: true, referredById: true, paymentFailedAt: true },
+    })
+    // Any successful charge clears a prior dunning marker (independent of the
+    // referral-only billing_reason filter below).
+    if (payer?.paymentFailedAt) {
+      await prisma.user.update({ where: { id: payer.id }, data: { paymentFailedAt: null } })
+    }
     // Only reward genuine subscription charges — skip prorations, manual one-off
     // invoices, etc. (Stripe emits invoice.paid for those too).
     if (invoice.billing_reason !== 'subscription_create' && invoice.billing_reason !== 'subscription_cycle') return
-    const payer = await prisma.user.findUnique({
-      where: { stripeCustomerId: String(invoice.customer) },
-      select: { id: true, referredById: true },
-    })
     if (!payer?.referredById) return
     await recordCommissionForInvoice({
       referredUserId: payer.id,

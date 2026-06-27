@@ -107,6 +107,10 @@ model User {
   // applied. A webhook delivered/processed out of order (older `created`) is ignored
   // so a stale subscription state can't overwrite a newer one.
   lastStripeEventAt    DateTime?
+  // Dunning marker: set on invoice.payment_failed, cleared on the next successful
+  // invoice.paid. Pro is NOT revoked here — Stripe retries for days, then the
+  // subscription event downgrades. This is a support/observability signal only.
+  paymentFailedAt      DateTime?
   createdAt     DateTime          @default(now())
   // Referral program: own shareable code + who invited this user (self-relation).
   referralCode  String?           @unique

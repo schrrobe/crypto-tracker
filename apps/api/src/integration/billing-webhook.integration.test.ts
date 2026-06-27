@@ -110,4 +110,41 @@ describe('Stripe-Webhook (Integration)', () => {
 
     expect((await prisma.user.findUnique({ where: { id: user.userId } }))?.plan).toBe('PRO')
   })
+
+  it('invoice.payment_failed records the dunning marker but keeps PRO', async () => {
+    const user = await registerUser('wh-dunning', 'PRO')
+    const customer = `cus_${user.userId}`
+    await prisma.user.update({ where: { id: user.userId }, data: { stripeCustomerId: customer } })
+    fakeEvent = {
+      id: `evt_fail_${user.userId}`,
+      created: 3000,
+      type: 'invoice.payment_failed',
+      data: { object: { customer } },
+    }
+    const { handleWebhookEvent } = await import('../modules/billing/billing.service')
+    await handleWebhookEvent(Buffer.from('{}'), 'sig')
+
+    const updated = await prisma.user.findUnique({ where: { id: user.userId } })
+    expect(updated?.plan).toBe('PRO') // dunning does not revoke Pro
+    expect(updated?.paymentFailedAt).not.toBeNull()
+  })
+
+  it('invoice.paid clears the dunning marker', async () => {
+    const user = await registerUser('wh-recover', 'PRO')
+    const customer = `cus_${user.userId}`
+    await prisma.user.update({
+      where: { id: user.userId },
+      data: { stripeCustomerId: customer, paymentFailedAt: new Date() },
+    })
+    fakeEvent = {
+      id: `evt_paid_${user.userId}`,
+      created: 4000,
+      type: 'invoice.paid',
+      data: { object: { customer, id: `in_${user.userId}`, amount_paid: 1999, currency: 'eur' } },
+    }
+    const { handleWebhookEvent } = await import('../modules/billing/billing.service')
+    await handleWebhookEvent(Buffer.from('{}'), 'sig')
+
+    expect((await prisma.user.findUnique({ where: { id: user.userId } }))?.paymentFailedAt).toBeNull()
+  })
 })
