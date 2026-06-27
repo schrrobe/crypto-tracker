@@ -1,5 +1,6 @@
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
+import { prisma } from '../lib/prisma'
 import { API, app, bearer, registerUser, type TestUser } from './helpers'
 
 async function findAssetId(user: TestUser, symbol: string): Promise<string> {
@@ -40,6 +41,10 @@ describe('PnL (Integration)', () => {
     expect(pos?.valueEur).toBe('50000.00')
     expect(pos?.pnlEur).toBe('30000.00')
     expect(res.body.totalPnlEur).toBe('30000.00')
+    // Coverage: the BTC position has full tx history → covered, nothing excluded
+    expect(res.body.coveredCount).toBe(1)
+    expect(res.body.excludedCount).toBe(0)
+    expect(res.body.excludedValueEur).toBe('0.00')
   })
 
   it('Free: /portfolio/pnl → 402', async () => {
@@ -47,5 +52,40 @@ describe('PnL (Integration)', () => {
     const res = await request(app).get(`${API}/portfolio/pnl`).set(...bearer(user))
     expect(res.status).toBe(402)
     expect(res.body.error.code).toBe('PLAN_UPGRADE_REQUIRED')
+    expect(res.body.error.details?.feature).toBe('pnl')
+  })
+
+  it('Pro: holdings without transaction history are reported as excluded coverage', async () => {
+    const user = await registerUser('pnl-coverage') // PRO
+    const btcId = await findAssetId(user, 'BTC')
+    const ethId = await findAssetId(user, 'ETH')
+
+    // Covered: BTC with a real cost basis
+    await request(app)
+      .post(`${API}/transactions`)
+      .set(...bearer(user))
+      .send({
+        assetId: btcId,
+        type: 'BUY',
+        quantity: '1',
+        pricePerUnit: '20000',
+        currency: 'EUR',
+        timestamp: '2024-01-15T10:00:00.000Z',
+      })
+      .expect(201)
+
+    // Excluded: a snapshot ETH holding with a price but NO transaction history.
+    const src = await prisma.portfolioSource.findFirst({ where: { userId: user.userId } })
+    await prisma.holding.create({
+      data: { sourceId: src!.id, assetId: ethId, accountType: 'SPOT', quantity: '2' },
+    })
+
+    await request(app).post(`${API}/prices/refresh`).set(...bearer(user)).expect(200)
+
+    const res = await request(app).get(`${API}/portfolio/pnl`).set(...bearer(user))
+    expect(res.status).toBe(200)
+    expect(res.body.coveredCount).toBe(1) // BTC
+    expect(res.body.excludedCount).toBe(1) // ETH snapshot, no basis
+    expect(Number(res.body.excludedValueEur)).toBeGreaterThan(0)
   })
 })

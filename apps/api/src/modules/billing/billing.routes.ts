@@ -6,6 +6,14 @@ import * as billingService from './billing.service'
 export const billingRoutes = Router()
 billingRoutes.use(requireAuth)
 
+// Billing config (is checkout available, price label) — drives the paywall CTA
+billingRoutes.get(
+  '/config',
+  asyncHandler(async (_req, res) => {
+    res.json(billingService.billingConfig())
+  }),
+)
+
 // Checkout session for the Pro subscription → URL to the Stripe Checkout
 billingRoutes.post(
   '/checkout',
