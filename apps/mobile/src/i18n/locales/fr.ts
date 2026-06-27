@@ -1,6 +1,12 @@
 import type { MessageSchema } from './de'
 
 const fr: MessageSchema = {
+  announcement: {
+    level: {
+      error: 'Incident',
+      info: 'Info',
+    },
+  },
   common: {
     cancel: 'Annuler',
     delete: 'Supprimer',
@@ -48,16 +54,19 @@ const fr: MessageSchema = {
     settings: 'Réglages',
   },
   portfolios: {
-    title: 'Portfolios',
-    switchTitle: 'Changer de portfolio',
-    manage: 'Gérer les portfolios…',
+    title: 'Entités fiscales (portfolios)',
+    switchTitle: 'Changer d’entité fiscale',
+    manage: 'Gérer les entités fiscales…',
+    activeEntity: 'Entité fiscale',
+    switch: 'changer',
+    switchedTo: 'Maintenant dans : {name}',
     default: 'Par défaut',
     sourceCount: '{n} source(s)',
-    create: 'Créer un portfolio',
-    createTitle: 'Nouveau portfolio',
-    renameTitle: 'Renommer le portfolio',
+    create: 'Créer une entité fiscale',
+    createTitle: 'Nouvelle entité fiscale',
+    renameTitle: 'Renommer l’entité fiscale',
     deleteTitle: 'Supprimer « {label} » ?',
-    deleteMessage: 'Seuls les portfolios vides peuvent être supprimés.',
+    deleteMessage: 'Seules les entités fiscales vides peuvent être supprimées.',
   },
   market: {
     title: 'Marché',
@@ -148,6 +157,7 @@ const fr: MessageSchema = {
   },
   holdings: {
     empty: 'Aucun avoir enregistré.',
+    addHolding: 'Ajouter un avoir',
     accountType: {
       SPOT: 'Spot',
       EARN: 'Earn',
@@ -479,8 +489,11 @@ const fr: MessageSchema = {
       'Les deux côtés doivent appartenir au même portfolio — les portfolios sont des entités fiscales distinctes',
     SWAP_LINKED_TX_IMMUTABLE:
       "Cette transaction est liée comme échange — veuillez d'abord supprimer la liaison",
-    PORTFOLIO_NOT_EMPTY: "Le portfolio contient encore des sources — veuillez d'abord supprimer les sources",
-    PORTFOLIO_LAST: 'Le dernier portfolio ne peut pas être supprimé',
+    PORTFOLIO_NOT_EMPTY:
+      "Cette entité fiscale contient encore des sources. Elle constitue l'historique fiscal complet et n'est pas supprimée automatiquement — veuillez d'abord supprimer les sources",
+    PORTFOLIO_LAST: 'La dernière entité fiscale ne peut pas être supprimée — il doit toujours en exister une',
+    PORTFOLIO_REQUIRED: "Veuillez choisir l'entité fiscale à laquelle appartient cette entrée",
+    PORTFOLIO_LABEL_DUPLICATE: 'Une entité fiscale portant ce nom existe déjà — veuillez choisir un nom unique',
     INVALID_RESET_TOKEN: 'Le lien est invalide ou expiré — demandez-en un nouveau',
     PLAN_UPGRADE_REQUIRED: 'Cette fonction nécessite Crypto Tracker Pro',
     SURVEY_ALREADY_SUBMITTED: 'Vous avez déjà répondu à ce sondage',

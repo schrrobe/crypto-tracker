@@ -42,7 +42,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   async function refresh(): Promise<void> {
     loading.value = true
     try {
-      await api.post('/prices/refresh', { portfolioId: usePortfoliosStore().scopeId() })
+      await api.post('/prices/refresh', { portfolioId: usePortfoliosStore().writeScopeId() })
       await Promise.all([
         loadSummary(),
         loadHoldings(),

@@ -21,6 +21,12 @@ function resolveBaseUrl(): string {
 const BASE_URL = resolveBaseUrl()
 const REFRESH_KEY = 'refresh-token'
 
+// For callers that must hit the API WITHOUT the bearer/401-refresh pipeline
+// (e.g. the pre-login public announcements fetch).
+export function apiBaseUrl(): string {
+  return BASE_URL
+}
+
 export const isNativePlatform = Capacitor.isNativePlatform()
 
 let accessToken: string | null = null

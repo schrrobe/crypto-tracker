@@ -94,6 +94,9 @@ export interface TaxUncoveredSourceDto {
 export interface TaxReportDto {
   year: number
   country: TaxCountry
+  // The tax entity (portfolio) this report covers — stamped on screen and exports
+  // so a report is never mistaken for another subject's numbers.
+  portfolioLabel: string
   currency: 'EUR'
   disposals: TaxDisposalDto[]
   totals: TaxReportTotalsDto

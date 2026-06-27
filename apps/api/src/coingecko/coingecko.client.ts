@@ -116,6 +116,9 @@ export type MarketChartPoint = [number, number]
 const chartCache = new Map<string, { at: number; data: MarketChartPoint[] }>()
 const CHART_CACHE_TTL_MS = 30 * 60 * 1000
 const CHART_CACHE_MAX = 500
+// Single-flight: collapse concurrent misses for the same key into one upstream
+// call so an expiring cache can't trigger a stampede against the shared demo key.
+const chartInflight = new Map<string, Promise<MarketChartPoint[]>>()
 
 // Historical prices for the value history — on-demand instead of local snapshots,
 // so the chart is filled immediately even without background sync. A 30-min cache
@@ -143,20 +146,31 @@ export async function fetchMarketChart(
     return data
   }
 
+  const existing = chartInflight.get(cacheKey)
+  if (existing) return existing
+
   const url = `${BASE}/coins/${encodeURIComponent(coingeckoId)}/market_chart?vs_currency=${currency}&days=${days}`
-  try {
-    const json = await cgFetchJson<{ prices?: MarketChartPoint[] }>(url)
-    const data = json?.prices ?? []
-    cacheSet(chartCache, cacheKey, { at: Date.now(), data }, CHART_CACHE_MAX)
-    return data
-  } catch (err) {
-    // Rate limit/outage: return the last known state (no matter how old) instead
-    // of letting the whole history fail. Without a cache the error is propagated.
-    if (cached) {
-      console.warn(`[coingecko] market_chart fehlgeschlagen, liefere Cache-Stand: ${String(err)}`)
-      return cached.data
+  const promise = (async () => {
+    try {
+      const json = await cgFetchJson<{ prices?: MarketChartPoint[] }>(url)
+      const data = json?.prices ?? []
+      cacheSet(chartCache, cacheKey, { at: Date.now(), data }, CHART_CACHE_MAX)
+      return data
+    } catch (err) {
+      // Rate limit/outage: return the last known state (no matter how old) instead
+      // of letting the whole history fail. Without a cache the error is propagated.
+      if (cached) {
+        console.warn(`[coingecko] market_chart fehlgeschlagen, liefere Cache-Stand: ${String(err)}`)
+        return cached.data
+      }
+      throw err
     }
-    throw err
+  })()
+  chartInflight.set(cacheKey, promise)
+  try {
+    return await promise
+  } finally {
+    chartInflight.delete(cacheKey)
   }
 }
 
@@ -237,6 +251,8 @@ export interface MarketCoin {
 
 const marketsCache = new Map<string, { at: number; data: MarketCoin[] }>()
 const MARKETS_CACHE_TTL_MS = 60_000
+// Single-flight per currency — see chartInflight.
+const marketsInflight = new Map<string, Promise<MarketCoin[]>>()
 
 // Top 100 by market cap incl. 24h change — pure display data (number is fine,
 // not the money pipeline). 60-s cache per currency.
@@ -264,19 +280,30 @@ export async function fetchMarkets(currency: 'eur' | 'usd'): Promise<MarketCoin[
     return data
   }
 
-  try {
-    const data = await fetchMarketsFromCoinGecko(currency)
-    marketsCache.set(currency, { at: Date.now(), data })
-    return data
-  } catch (err) {
-    // CoinGecko free tier (without a key) is often rate-limited (429). Instead of
-    // dropping the whole market tab: return the last known state, no matter how old.
-    // Only without any cache is the error propagated.
-    if (cached) {
-      console.warn(`[coingecko] Markt-Abruf fehlgeschlagen, liefere Cache-Stand: ${String(err)}`)
-      return cached.data
+  const existing = marketsInflight.get(currency)
+  if (existing) return existing
+
+  const promise = (async () => {
+    try {
+      const data = await fetchMarketsFromCoinGecko(currency)
+      marketsCache.set(currency, { at: Date.now(), data })
+      return data
+    } catch (err) {
+      // CoinGecko free tier (without a key) is often rate-limited (429). Instead of
+      // dropping the whole market tab: return the last known state, no matter how old.
+      // Only without any cache is the error propagated.
+      if (cached) {
+        console.warn(`[coingecko] Markt-Abruf fehlgeschlagen, liefere Cache-Stand: ${String(err)}`)
+        return cached.data
+      }
+      throw err
     }
-    throw err
+  })()
+  marketsInflight.set(currency, promise)
+  try {
+    return await promise
+  } finally {
+    marketsInflight.delete(currency)
   }
 }
 

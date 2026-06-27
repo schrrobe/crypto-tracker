@@ -20,10 +20,11 @@ const api = adminApi as unknown as {
   deleteAnnouncement: ReturnType<typeof vi.fn>
 }
 
+const base = { defaultLocale: 'de', dismissible: true, public: false, startsAt: null, endsAt: null, updatedAt: '2026-06-01T00:00:00.000Z' }
 const LIST = {
   announcements: [
-    { id: '1', level: 'ERROR', message: 'API gestört', active: true, startsAt: null, endsAt: null, createdAt: '2026-06-01T00:00:00.000Z' },
-    { id: '2', level: 'INFO', message: 'Wartung geplant', active: false, startsAt: null, endsAt: null, createdAt: '2026-06-02T00:00:00.000Z' },
+    { id: '1', level: 'ERROR', messages: { de: 'API gestört' }, active: true, createdAt: '2026-06-01T00:00:00.000Z', ...base },
+    { id: '2', level: 'INFO', messages: { de: 'Wartung geplant' }, active: false, createdAt: '2026-06-02T00:00:00.000Z', ...base },
   ],
 }
 
@@ -39,28 +40,59 @@ describe('AnnouncementsView', () => {
     api.deleteAnnouncement.mockReset().mockResolvedValue(undefined)
   })
 
-  it('renders announcements with level labels and status', async () => {
+  it('renders announcements with level labels and computed status', async () => {
     const w = mountView()
     await flushPromises()
     expect(w.text()).toContain('API gestört')
     expect(w.text()).toContain('Wartung geplant')
-    expect(w.text()).toContain('Fehler')
+    expect(w.text()).toContain('Störung')
     expect(w.text()).toContain('Info')
-    expect(w.text()).toContain('aktiv')
+    expect(w.text()).toContain('LIVE') // id1 active, no window
+    expect(w.text()).toContain('Inaktiv') // id2 inactive
   })
 
-  it('creates an announcement with the form payload', async () => {
+  it('shows a loading state before data resolves', async () => {
+    let resolve!: (v: unknown) => void
+    api.announcements.mockReturnValue(new Promise((r) => (resolve = r)))
+    const w = mountView()
+    expect(w.text()).toContain('Lädt')
+    resolve(LIST)
+    await flushPromises()
+    expect(w.text()).not.toContain('Lädt')
+  })
+
+  it('creates an announcement with the per-locale payload', async () => {
     const w = mountView()
     await flushPromises()
-    await w.find('select').setValue('ERROR')
-    await w.find('input[placeholder="Nachricht"]').setValue('Neuer Hinweis')
+    await w.find('select').setValue('ERROR') // first select = level
+    await w.findAll('textarea')[0]!.setValue('Neuer Hinweis') // first textarea = de (default locale)
     const createBtn = w.findAll('button').find((b) => b.text() === 'Anlegen')!
     await createBtn.trigger('click')
     await flushPromises()
     expect(api.createAnnouncement).toHaveBeenCalledTimes(1)
     const payload = api.createAnnouncement.mock.calls[0]![0]
-    expect(payload).toMatchObject({ level: 'ERROR', message: 'Neuer Hinweis', active: true })
+    expect(payload).toMatchObject({ level: 'ERROR', messages: { de: 'Neuer Hinweis' }, defaultLocale: 'de', active: true })
     expect(api.announcements).toHaveBeenCalledTimes(2) // initial + reload
+  })
+
+  it('loads a row into the form and saves the edit via PATCH', async () => {
+    const w = mountView()
+    await flushPromises()
+    const editBtn = w.findAll('button').find((b) => b.text() === 'Bearbeiten')!
+    await editBtn.trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Ankündigung bearbeiten')
+    expect((w.findAll('textarea')[0]!.element as HTMLTextAreaElement).value).toBe('API gestört')
+
+    // change the default-locale message and submit — guards the PATCH wiring
+    await w.findAll('textarea')[0]!.setValue('API gestört (Update)')
+    const saveBtn = w.findAll('button').find((b) => b.text() === 'Speichern')!
+    await saveBtn.trigger('click')
+    await flushPromises()
+    expect(api.updateAnnouncement).toHaveBeenCalledTimes(1)
+    const [id, payload] = api.updateAnnouncement.mock.calls[0]!
+    expect(id).toBe('1')
+    expect(payload).toMatchObject({ level: 'ERROR', messages: { de: 'API gestört (Update)' }, defaultLocale: 'de' })
   })
 
   it('toggles active state via update', async () => {

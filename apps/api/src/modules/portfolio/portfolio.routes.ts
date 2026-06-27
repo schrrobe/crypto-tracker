@@ -100,8 +100,9 @@ pricesRoutes.use(requireAuth)
 
 pricesRoutes.post(
   '/refresh',
+  validate(portfolioScopeQuerySchema, 'body'),
   asyncHandler(async (req, res) => {
-    const portfolioId = typeof req.body?.portfolioId === 'string' ? req.body.portfolioId : undefined
+    const { portfolioId } = req.body as { portfolioId?: string }
     const result = await portfolioService.refreshUserPrices(req.userId, portfolioId)
     res.json(result)
   }),

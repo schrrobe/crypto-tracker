@@ -1,6 +1,12 @@
 import type { MessageSchema } from './de'
 
 const en: MessageSchema = {
+  announcement: {
+    level: {
+      error: 'Outage',
+      info: 'Info',
+    },
+  },
   common: {
     cancel: 'Cancel',
     delete: 'Delete',
@@ -48,16 +54,19 @@ const en: MessageSchema = {
     settings: 'Settings',
   },
   portfolios: {
-    title: 'Portfolios',
-    switchTitle: 'Switch portfolio',
-    manage: 'Manage portfolios…',
+    title: 'Tax entities (portfolios)',
+    switchTitle: 'Switch tax entity',
+    manage: 'Manage tax entities…',
+    activeEntity: 'Tax entity',
+    switch: 'switch',
+    switchedTo: 'Now in: {name}',
     default: 'Default',
     sourceCount: '{n} source(s)',
-    create: 'Create portfolio',
-    createTitle: 'New portfolio',
-    renameTitle: 'Rename portfolio',
+    create: 'Create tax entity',
+    createTitle: 'New tax entity',
+    renameTitle: 'Rename tax entity',
     deleteTitle: 'Delete "{label}"?',
-    deleteMessage: 'Only empty portfolios can be deleted.',
+    deleteMessage: 'Only empty tax entities can be deleted.',
   },
   market: {
     title: 'Market',
@@ -148,6 +157,7 @@ const en: MessageSchema = {
   },
   holdings: {
     empty: 'No holdings recorded yet.',
+    addHolding: 'Add holding',
     accountType: {
       SPOT: 'Spot',
       EARN: 'Earn',
@@ -479,8 +489,11 @@ const en: MessageSchema = {
       'Both sides must belong to the same portfolio — portfolios are separate tax entities',
     SWAP_LINKED_TX_IMMUTABLE:
       'This transaction is linked as a swap — please remove the link first',
-    PORTFOLIO_NOT_EMPTY: 'The portfolio still contains sources — please delete the sources first',
-    PORTFOLIO_LAST: 'The last portfolio cannot be deleted',
+    PORTFOLIO_NOT_EMPTY:
+      'This tax entity still contains sources. It is the entity’s full tax history and is not deleted automatically — please remove the sources first',
+    PORTFOLIO_LAST: 'The last tax entity cannot be deleted — there must always be one',
+    PORTFOLIO_REQUIRED: 'Please choose the tax entity this entry belongs to',
+    PORTFOLIO_LABEL_DUPLICATE: 'A tax entity with this name already exists — please choose a unique name',
     INVALID_RESET_TOKEN: 'The link is invalid or expired — request a new one',
     PLAN_UPGRADE_REQUIRED: 'This feature requires Crypto Tracker Pro',
     SURVEY_ALREADY_SUBMITTED: 'You have already answered this survey',

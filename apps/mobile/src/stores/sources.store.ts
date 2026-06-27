@@ -23,7 +23,7 @@ export const useSourcesStore = defineStore('sources', () => {
       await api.post<{ source: SourceDto }>('/sources', {
         type: 'MANUAL',
         label: 'Manuelle Bestände',
-        portfolioId: usePortfoliosStore().scopeId(),
+        portfolioId: usePortfoliosStore().writeScopeId(),
       })
     ).source
     sources.value.push(created)
@@ -41,7 +41,7 @@ export const useSourcesStore = defineStore('sources', () => {
   }
 
   async function create(input: CreateSourceInput): Promise<SourceDto> {
-    const payload = { ...input, portfolioId: input.portfolioId ?? usePortfoliosStore().scopeId() }
+    const payload = { ...input, portfolioId: input.portfolioId ?? usePortfoliosStore().writeScopeId() }
     const created = (await api.post<{ source: SourceDto }>('/sources', payload)).source
     sources.value.push(created)
     return created
@@ -84,7 +84,7 @@ export const useSourcesStore = defineStore('sources', () => {
     try {
       const { results } = await api.post<{ results: Array<{ sourceId: string; run: SyncRunDto }> }>(
         '/sources/sync-all',
-        { portfolioId: usePortfoliosStore().scopeId() },
+        { portfolioId: usePortfoliosStore().writeScopeId() },
       )
       await Promise.all(results.map((r) => waitForRun(r.sourceId, r.run)))
       await load()

@@ -9,6 +9,7 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
+      <PortfolioSwitcher variant="banner" @switched="loadData" />
       <ion-chip v-if="filterLabel" data-testid="tx-source-filter" @click="clearFilter">
         {{ $t('transactions.filteredBySource', { source: filterLabel }) }}
         <ion-icon :icon="closeCircleOutline" />
@@ -165,6 +166,7 @@ import {
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { TransactionDto } from '@crypto-tracker/shared'
+import PortfolioSwitcher from '../../components/PortfolioSwitcher.vue'
 import TransactionFormModal from '../../components/TransactionFormModal.vue'
 import TransferLinkModal from '../../components/TransferLinkModal.vue'
 import SwapLinkModal from '../../components/SwapLinkModal.vue'

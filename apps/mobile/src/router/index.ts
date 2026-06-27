@@ -30,11 +30,16 @@ const routes: Array<RouteRecordRaw> = [
       { path: 'sources', component: () => import('../views/sources/SourcesPage.vue') },
       { path: 'sources/imports', component: () => import('../views/sources/csv/ImportsPage.vue') },
       { path: 'sources/transactions', component: () => import('../views/transactions/TransactionsPage.vue') },
+      // Friendly alias: the transactions list lives under /tabs/sources, but the
+      // intuitive /tabs/transactions deep link must not dead-end on a blank page.
+      { path: 'transactions', redirect: '/tabs/sources/transactions' },
       { path: 'settings', component: () => import('../views/SettingsPage.vue') },
       { path: 'settings/tax-report', component: () => import('../views/tax/TaxReportPage.vue') },
       { path: 'settings/referral', component: () => import('../views/settings/ReferralPage.vue') },
     ],
   },
+  // Catch-all: unknown paths redirect home instead of rendering a blank screen.
+  { path: '/:pathMatch(.*)*', redirect: '/tabs/dashboard' },
 ]
 
 export const router = createRouter({
