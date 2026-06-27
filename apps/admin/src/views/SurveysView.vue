@@ -172,8 +172,13 @@ function targetingSummary(s: SurveyListItemDto): string {
 }
 
 function responseRate(s: SurveyListItemDto): string {
-  const pct = s.eligibleCount > 0 ? Math.round((s.responseCount / s.eligibleCount) * 100) : 0
-  return `${pct}% · ${s.responseCount}/${s.eligibleCount}`
+  // Clamp: eligibleCount is recomputed live while responseCount is historical, so a
+  // responder who later left the segment (plan/currency change, suspension) can push
+  // the ratio over 100%. Show the larger of the two as the denominator so it never
+  // renders e.g. "150% · 3/2".
+  const denom = Math.max(s.eligibleCount, s.responseCount)
+  const pct = denom > 0 ? Math.round((s.responseCount / denom) * 100) : 0
+  return `${pct}% · ${s.responseCount}/${denom}`
 }
 
 function hasNonResponders(s: SurveyListItemDto): boolean {
