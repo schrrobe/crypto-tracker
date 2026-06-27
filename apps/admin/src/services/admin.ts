@@ -20,6 +20,9 @@ import type {
   FreeTextAnswerListDto,
   SurveyListDto,
   SurveyResultsDto,
+  AdminSurveyDetailDto,
+  SurveyAudienceDto,
+  SurveyReminderResultDto,
   UpdateSurveyInput,
   AdminAnnouncementDto,
   AdminAnnouncementListDto,
@@ -106,10 +109,19 @@ export const adminApi = {
   },
 
   surveys: () => api.get<SurveyListDto>('/admin/surveys'),
+  survey: (id: string) => api.get<AdminSurveyDetailDto>(`/admin/surveys/${id}`),
+  surveyAudience: (plans: string[], currencies: string[]) => {
+    const sp = new URLSearchParams()
+    if (plans.length) sp.set('plans', plans.join(','))
+    if (currencies.length) sp.set('currencies', currencies.join(','))
+    const qs = sp.toString()
+    return api.get<SurveyAudienceDto>(`/admin/surveys/audience${qs ? `?${qs}` : ''}`)
+  },
   createSurvey: (input: CreateSurveyInput) => api.post<{ id: string }>('/admin/surveys', input),
   updateSurvey: (id: string, input: UpdateSurveyInput) => api.patch<void>(`/admin/surveys/${id}`, input),
   publishSurvey: (id: string) => api.post<void>(`/admin/surveys/${id}/publish`),
   closeSurvey: (id: string) => api.post<void>(`/admin/surveys/${id}/close`),
+  remindSurvey: (id: string) => api.post<SurveyReminderResultDto>(`/admin/surveys/${id}/remind`),
   deleteSurvey: (id: string) => api.delete<void>(`/admin/surveys/${id}`),
   surveyResults: (id: string) => api.get<SurveyResultsDto>(`/admin/surveys/${id}/results`),
   surveyFreeText: (id: string, params: { questionId: string; q?: string; page?: number; pageSize?: number }) => {

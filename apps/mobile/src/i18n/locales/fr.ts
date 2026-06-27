@@ -445,6 +445,13 @@ const fr: MessageSchema = {
     submit: 'Envoyer',
     submitFailed: "La réponse n'a pas pu être envoyée",
     thanks: 'Merci de votre participation !',
+    anonymousNote: "Ce sondage est anonyme — vos réponses ne sont pas liées à votre identité.",
+    identifiedNote: 'Vos réponses sont liées à votre compte.',
+    optionalHint: 'Répondez à autant de questions que vous le souhaitez.',
+    alreadySubmitted: 'Vous avez déjà répondu à ce sondage.',
+    progress: '{answered} sur {total} répondues',
+    noAnswers: "Veuillez répondre à au moins une question avant d'envoyer.",
+    empty: 'Ce sondage ne contient aucune question.',
   },
   errors: {
     EMAIL_TAKEN: 'Cette adresse e-mail est déjà enregistrée',

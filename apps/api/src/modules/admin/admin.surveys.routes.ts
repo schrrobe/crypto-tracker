@@ -1,8 +1,10 @@
 import { Router } from 'express'
 import {
   createSurveySchema,
+  surveyAudienceQuerySchema,
   surveyFreeTextQuerySchema,
   updateSurveySchema,
+  type SurveyAudienceQuery,
   type SurveyFreeTextQuery,
 } from '@crypto-tracker/shared'
 import { validate } from '../../middleware/validate.middleware'
@@ -24,6 +26,23 @@ adminSurveysRoutes.post(
   validate(createSurveySchema),
   asyncHandler(async (req, res) => {
     res.status(201).json(await surveys.createSurvey(req.adminUser, req.body))
+  }),
+)
+
+// Registered before any "/:id" route so the literal path is not captured as an id.
+adminSurveysRoutes.get(
+  '/audience',
+  validate(surveyAudienceQuerySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    res.json(await surveys.countAudience(req.query as unknown as SurveyAudienceQuery))
+  }),
+)
+
+// Full editable survey (edit-draft mode). After /audience so the literal wins.
+adminSurveysRoutes.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    res.json(await surveys.getSurveyDetail(routeParam(req, 'id')))
   }),
 )
 
@@ -80,9 +99,16 @@ adminSurveysRoutes.get(
   '/:id/free-text/export.csv',
   asyncHandler(async (req, res) => {
     const questionId = String(req.query.questionId ?? '')
-    const csv = await surveys.freeTextCsv(routeParam(req, 'id'), questionId)
+    const csv = await surveys.freeTextCsv(req.adminUser, routeParam(req, 'id'), questionId)
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', 'attachment; filename="survey-free-text.csv"')
     res.send(csv)
+  }),
+)
+
+adminSurveysRoutes.post(
+  '/:id/remind',
+  asyncHandler(async (req, res) => {
+    res.json(await surveys.remindNonResponders(req.adminUser, routeParam(req, 'id')))
   }),
 )
