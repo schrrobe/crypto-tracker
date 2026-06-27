@@ -262,7 +262,12 @@ async function confirmUnlinkSwap(tx: TransactionDto) {
 // it before reloading, otherwise a source-scoped deep link leaves the new
 // portfolio showing an empty/error list.
 async function onPortfolioSwitched() {
-  if (route.query.sourceId) await router.replace({ query: {} })
+  if (route.query.sourceId) {
+    // Strip only the stale source filter; keep any other deep-link query params.
+    const query = { ...route.query }
+    delete query.sourceId
+    await router.replace({ query })
+  }
   await loadData()
 }
 
