@@ -483,6 +483,13 @@ model Survey {
   title       String
   description String?
   status      SurveyStatus     @default(DRAFT)
+  // When true, userId is never exposed in results / free-text listings / CSV.
+  anonymous   Boolean          @default(false)
+  // Targeting: empty array = no restriction on that axis (broadcast to everyone).
+  targetPlans      Plan[]      @default([])
+  targetCurrencies String[]    @default([])
+  // Cooldown anchor for the "remind non-responders" action (notification-fatigue guard).
+  lastRemindedAt DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   publishedAt DateTime?

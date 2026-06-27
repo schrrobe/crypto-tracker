@@ -157,18 +157,24 @@ export async function renamePortfolio(
 export async function deletePortfolio(userId: string, portfolioId: string): Promise<void> {
   const portfolio = await getOwnedPortfolio(userId, portfolioId)
 
-  const sourceCount = await prisma.portfolioSource.count({ where: { portfolioId } })
-  if (sourceCount > 0) {
-    throw AppError.conflict(
-      'PORTFOLIO_NOT_EMPTY',
-      'Dieses Steuersubjekt enthält noch Quellen. Es ist die vollständige Steuerhistorie und wird nicht automatisch mitgelöscht — bitte zuerst die Quellen entfernen',
-    )
-  }
-  // Serialize the last-portfolio check with the delete under a per-user advisory
-  // lock: two concurrent deletes must not both observe total > 1 and wipe the
-  // last tax entity. The count runs inside the locked transaction.
+  // All guards + the delete run in one transaction that first locks the target
+  // portfolio row (FOR UPDATE) and takes a per-user advisory lock:
+  //  - the row lock conflicts with the FK key-share lock a concurrent source
+  //    INSERT takes on the parent, so the source-count check can't be raced
+  //    (no new source slips in between the check and the delete);
+  //  - the advisory lock serializes concurrent deletes for the same user so two
+  //    of them can't both pass the last-portfolio check and wipe the last entity.
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
+    await tx.$executeRaw`SELECT id FROM "Portfolio" WHERE id = ${portfolioId} FOR UPDATE`
+
+    const sourceCount = await tx.portfolioSource.count({ where: { portfolioId } })
+    if (sourceCount > 0) {
+      throw AppError.conflict(
+        'PORTFOLIO_NOT_EMPTY',
+        'Dieses Steuersubjekt enthält noch Quellen. Es ist die vollständige Steuerhistorie und wird nicht automatisch mitgelöscht — bitte zuerst die Quellen entfernen',
+      )
+    }
     const total = await tx.portfolio.count({ where: { userId } })
     if (total <= 1) {
       throw AppError.conflict(
