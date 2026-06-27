@@ -9,7 +9,7 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
-      <PortfolioSwitcher variant="banner" @switched="loadData" />
+      <PortfolioSwitcher variant="banner" @switched="onPortfolioSwitched" />
       <ion-chip v-if="filterLabel" data-testid="tx-source-filter" @click="clearFilter">
         {{ $t('transactions.filteredBySource', { source: filterLabel }) }}
         <ion-icon :icon="closeCircleOutline" />
@@ -256,6 +256,19 @@ async function confirmUnlinkSwap(tx: TransactionDto) {
     ],
   })
   await alert.present()
+}
+
+// On portfolio switch the active source filter belongs to the old entity — drop
+// it before reloading, otherwise a source-scoped deep link leaves the new
+// portfolio showing an empty/error list.
+async function onPortfolioSwitched() {
+  if (route.query.sourceId) {
+    // Strip only the stale source filter; keep any other deep-link query params.
+    const query = { ...route.query }
+    delete query.sourceId
+    await router.replace({ query })
+  }
+  await loadData()
 }
 
 async function loadData() {
