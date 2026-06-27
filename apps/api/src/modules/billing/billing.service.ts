@@ -17,7 +17,12 @@ export function billingEnabled(): boolean {
 // "pay in browser" hint) when Stripe is not configured, instead of showing a
 // button that 503s. The price label is display-only — the real amount is in Stripe.
 export function billingConfig(): { enabled: boolean; priceLabel: string | null } {
-  return { enabled: billingEnabled(), priceLabel: env.STRIPE_PRICE_LABEL ?? null }
+  // Checkout needs both a secret AND a price id; report enabled only when checkout
+  // can actually complete, so the client never shows an Upgrade CTA that 503s.
+  return {
+    enabled: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_PRICE_ID),
+    priceLabel: env.STRIPE_PRICE_LABEL ?? null,
+  }
 }
 
 // Create the Stripe client on demand (reads env at call time → testable without
