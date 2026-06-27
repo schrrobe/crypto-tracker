@@ -13,7 +13,7 @@ taxRoutes.use(requireAuth)
 // The tax report is a Pro feature
 taxRoutes.get(
   '/report',
-  requirePro,
+  requirePro('tax'),
   validate(taxReportQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { year, country, portfolioId } = req.query as unknown as z.infer<typeof taxReportQuerySchema>

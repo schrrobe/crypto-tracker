@@ -44,7 +44,13 @@
         <ion-segment-button value="1y" data-testid="chart-range-1y">
           <ion-label>
             {{ $t('dashboard.range1y') }}
-            <ion-icon v-if="!auth.isPro" :icon="lockClosed" class="lock" aria-hidden="true" />
+            <ion-icon
+              v-if="!auth.isPro"
+              :icon="lockClosedOutline"
+              class="lock"
+              color="medium"
+              aria-hidden="true"
+            />
           </ion-label>
         </ion-segment-button>
       </ion-segment>
@@ -72,7 +78,7 @@ import {
   IonSegmentButton,
   IonSpinner,
 } from '@ionic/vue'
-import { lockClosed } from 'ionicons/icons'
+import { lockClosedOutline } from 'ionicons/icons'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { HistoryRange, PortfolioHistoryDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
@@ -118,7 +124,7 @@ function onRangeChange(ev: CustomEvent) {
   const value = ev.detail.value as HistoryRange
   // 1-year history is Pro — free users get the paywall instead of the range
   if (value === '1y' && !auth.isPro) {
-    openPaywall()
+    openPaywall('history1y')
     // Ionic leaves the tapped (locked) button checked even though `range` never
     // changes. Reset the segment back to the active range so the switcher does
     // not lie about which range the chart is showing.

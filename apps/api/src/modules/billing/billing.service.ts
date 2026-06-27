@@ -12,6 +12,14 @@ export function billingEnabled(): boolean {
   return Boolean(env.STRIPE_SECRET_KEY)
 }
 
+// Public billing config for the client: whether checkout is available and the
+// price label to show on the paywall. Lets the app hide the Upgrade CTA (and the
+// "pay in browser" hint) when Stripe is not configured, instead of showing a
+// button that 503s. The price label is display-only — the real amount is in Stripe.
+export function billingConfig(): { enabled: boolean; priceLabel: string | null } {
+  return { enabled: billingEnabled(), priceLabel: env.STRIPE_PRICE_LABEL ?? null }
+}
+
 // Create the Stripe client on demand (reads env at call time → testable without
 // having to set the key at module import).
 function requireStripe(): Stripe {

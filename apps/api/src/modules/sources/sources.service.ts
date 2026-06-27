@@ -66,7 +66,11 @@ export async function createSource(userId: string, input: CreateSourceInput): Pr
   if ((await getPlan(userId)) !== 'PRO') {
     const count = await prisma.portfolioSource.count({ where: { userId } })
     if (count >= FREE_LIMITS.sources) {
-      throw AppError.upgradeRequired('Im Free-Tarif sind maximal 5 Quellen möglich')
+      throw AppError.upgradeRequired(`Im Free-Tarif sind maximal ${FREE_LIMITS.sources} Quellen möglich`, {
+        feature: 'unlimitedSources',
+        limit: FREE_LIMITS.sources,
+        used: count,
+      })
     }
   }
   const portfolioId = await resolvePortfolioId(userId, input.portfolioId)

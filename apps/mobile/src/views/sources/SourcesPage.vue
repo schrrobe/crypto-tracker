@@ -23,6 +23,12 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
+      <ion-text v-if="!auth.isPro" color="medium">
+        <p class="source-count" data-testid="source-count">
+          <ion-icon v-if="sourcesAtLimit" :icon="lockClosedOutline" />
+          {{ $t('sources.countLimit', { used: sourceTotal, limit: FREE_LIMITS.sources }) }}
+        </p>
+      </ion-text>
       <LoadingSkeleton v-if="pageLoading && sourcesStore.sources.length === 0" />
       <ErrorState v-else-if="pageError && sourcesStore.sources.length === 0" @retry="loadData" />
       <ion-list v-else-if="sourcesStore.sources.length > 0" inset>
@@ -70,7 +76,7 @@
       <div v-else class="empty" data-testid="sources-empty">
         <ion-icon :icon="linkOutline" class="empty-icon" />
         <p>{{ $t('sources.empty') }}</p>
-        <ion-button fill="outline" data-testid="add-source-empty" @click="modalOpen = true">
+        <ion-button fill="outline" data-testid="add-source-empty" @click="onAddSource">
           {{ $t('sources.connectSource') }}
         </ion-button>
       </div>
@@ -99,7 +105,7 @@
       </template>
 
       <ion-fab slot="fixed" vertical="bottom" horizontal="end">
-        <ion-fab-button data-testid="add-source" @click="modalOpen = true">
+        <ion-fab-button data-testid="add-source" @click="onAddSource">
           <ion-icon :icon="addOutline" />
         </ion-fab-button>
       </ion-fab>
@@ -125,14 +131,23 @@ import {
   IonLabel,
   IonList,
   IonPage,
+  IonText,
   IonTitle,
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { addOutline, createOutline, documentAttachOutline, linkOutline, syncOutline, trashOutline } from 'ionicons/icons'
+import {
+  addOutline,
+  createOutline,
+  documentAttachOutline,
+  linkOutline,
+  lockClosedOutline,
+  syncOutline,
+  trashOutline,
+} from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { SourceDto } from '@crypto-tracker/shared'
+import { FREE_LIMITS, type SourceDto } from '@crypto-tracker/shared'
 import AddSourceModal from './AddSourceModal.vue'
 import CsvImportWizard from './csv/CsvImportWizard.vue'
 import PortfolioSwitcher from '../../components/PortfolioSwitcher.vue'
@@ -141,10 +156,31 @@ import ErrorState from '../../components/ErrorState.vue'
 import SyncStatusBadge from '../../components/SyncStatusBadge.vue'
 import { useSourcesStore } from '../../stores/sources.store'
 import { usePortfolioStore } from '../../stores/portfolio.store'
+import { usePortfoliosStore } from '../../stores/portfolios.store'
+import { useAuthStore } from '../../stores/auth.store'
+import { openPaywall } from '../../services/paywall'
 import { t } from '../../i18n'
 
 const sourcesStore = useSourcesStore()
 const portfolio = usePortfolioStore()
+const portfolios = usePortfoliosStore()
+const auth = useAuthStore()
+
+// The Free source limit is user-wide (across all portfolios), so sum the
+// per-portfolio counts rather than the active-portfolio scoped list.
+const sourceTotal = computed(() =>
+  portfolios.portfolios.reduce((n, p) => n + (p.sourceCount ?? 0), 0),
+)
+const sourcesAtLimit = computed(() => !auth.isPro && sourceTotal.value >= FREE_LIMITS.sources)
+function onAddSource() {
+  // Pre-empt the server 402: don't let a Free user fill the whole connect form
+  // (and create a real exchange API key) only to be rejected on save.
+  if (sourcesAtLimit.value) {
+    openPaywall('unlimitedSources')
+    return
+  }
+  modalOpen.value = true
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -158,7 +194,7 @@ async function loadData() {
   pageLoading.value = true
   pageError.value = false
   try {
-    await sourcesStore.load()
+    await Promise.all([sourcesStore.load(), portfolios.load()])
   } catch {
     pageError.value = true
   } finally {

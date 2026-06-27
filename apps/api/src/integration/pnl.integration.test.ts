@@ -40,6 +40,10 @@ describe('PnL (Integration)', () => {
     expect(pos?.valueEur).toBe('50000.00')
     expect(pos?.pnlEur).toBe('30000.00')
     expect(res.body.totalPnlEur).toBe('30000.00')
+    // Coverage: the BTC position has full tx history → covered, nothing excluded
+    expect(res.body.coveredCount).toBe(1)
+    expect(res.body.excludedCount).toBe(0)
+    expect(res.body.excludedValueEur).toBe('0.00')
   })
 
   it('Free: /portfolio/pnl → 402', async () => {
@@ -47,5 +51,6 @@ describe('PnL (Integration)', () => {
     const res = await request(app).get(`${API}/portfolio/pnl`).set(...bearer(user))
     expect(res.status).toBe(402)
     expect(res.body.error.code).toBe('PLAN_UPGRADE_REQUIRED')
+    expect(res.body.error.details?.feature).toBe('pnl')
   })
 })

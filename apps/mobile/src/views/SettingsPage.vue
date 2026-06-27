@@ -66,13 +66,17 @@
         <ion-item>
           <ion-label>
             <p>{{ $t('paywall.planLabel') }}</p>
-            <h3 data-testid="settings-plan">{{ auth.isPro ? 'Pro' : 'Free' }}</h3>
+            <h3 data-testid="settings-plan">
+              <ion-badge :color="auth.isPro ? 'success' : 'medium'">
+                {{ auth.isPro ? $t('paywall.planPro') : $t('paywall.planFree') }}
+              </ion-badge>
+            </h3>
           </ion-label>
           <ion-button
             v-if="!auth.isPro"
             slot="end"
             data-testid="settings-upgrade"
-            @click="openPaywall"
+            @click="openPaywall()"
           >
             {{ $t('paywall.upgrade') }}
           </ion-button>
@@ -86,28 +90,42 @@
             {{ $t('paywall.manage') }}
           </ion-button>
         </ion-item>
-        <!-- Automatic sync (Pro) -->
-        <ion-item>
+        <!-- Automatic sync (Pro) — Free: the whole row opens the paywall, not a
+             tiny lock icon; the toggle only exists (and is actionable) for Pro. -->
+        <ion-item
+          :button="!auth.isPro"
+          :detail="false"
+          data-testid="auto-sync-row"
+          @click="!auth.isPro && openPaywall('autoSync')"
+        >
+          <ion-label class="ion-text-wrap">
+            {{ $t('settings.autoSync') }}
+            <p data-testid="auto-sync-helper">{{ $t('settings.autoSyncHelper') }}</p>
+          </ion-label>
           <ion-toggle
+            v-if="auth.isPro"
+            slot="end"
             :checked="auth.user?.autoSyncEnabled ?? false"
-            :disabled="!auth.isPro"
+            :disabled="autoSyncSaving"
             data-testid="auto-sync-toggle"
             @ionChange="onAutoSync($event.detail.checked)"
-          >
-            {{ $t('settings.autoSync') }}
-          </ion-toggle>
+          />
           <ion-icon
-            v-if="!auth.isPro"
+            v-else
             :icon="lockClosedOutline"
             slot="end"
             color="medium"
             data-testid="auto-sync-lock"
-            @click="openPaywall"
           />
         </ion-item>
-        <!-- Dev toggle (local only) for testing the gating without Stripe -->
-        <ion-item v-if="isDev">
-          <ion-label color="medium">Dev: Plan</ion-label>
+        <ion-text v-if="autoSyncError" color="danger">
+          <p class="portfolio-error" data-testid="auto-sync-error">{{ autoSyncError }}</p>
+        </ion-text>
+        <!-- Dev toggle (local only) for testing the gating without Stripe. Server
+             also enforces APP_ENV===local, so this is inert in any real build —
+             styled as an unmistakable dev-only control regardless. -->
+        <ion-item v-if="isDev" class="dev-only" lines="full">
+          <ion-label color="warning">⚠ DEV ONLY · Plan</ion-label>
           <ion-segment
             slot="end"
             :value="auth.isPro ? 'PRO' : 'FREE'"
@@ -146,8 +164,12 @@
             </ion-button>
           </ion-buttons>
         </ion-item>
-        <ion-item button :detail="false" data-testid="portfolio-create" @click="promptCreatePortfolio">
+        <ion-item button :detail="false" data-testid="portfolio-create" @click="onCreatePortfolio">
           <ion-label color="primary">{{ $t('portfolios.create') }}</ion-label>
+          <ion-note v-if="!auth.isPro" slot="end" data-testid="portfolio-count">
+            {{ portfolios.portfolios.length }}/{{ FREE_LIMITS.portfolios }}
+          </ion-note>
+          <ion-icon v-if="portfolioAtLimit" :icon="lockClosedOutline" slot="end" color="medium" />
         </ion-item>
       </ion-list>
       <ion-text v-if="portfolioError" color="danger">
@@ -185,6 +207,7 @@ import {
   IonLabel,
   IonList,
   IonListHeader,
+  IonNote,
   IonPage,
   IonSegment,
   IonSegmentButton,
@@ -196,10 +219,10 @@ import {
   IonToolbar,
 } from '@ionic/vue'
 import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createOutline, giftOutline, lockClosedOutline, trashOutline } from 'ionicons/icons'
-import type { PortfolioDto } from '@crypto-tracker/shared'
+import { FREE_LIMITS, type PortfolioDto } from '@crypto-tracker/shared'
 import {
   getThemePreference,
   setThemePreference,
@@ -223,7 +246,7 @@ const isDev = import.meta.env.DEV
 
 function openTaxReport() {
   if (auth.isPro) router.push('/tabs/settings/tax-report')
-  else openPaywall()
+  else openPaywall('tax')
 }
 
 function openReferral() {
@@ -238,9 +261,33 @@ async function onDevPlan(plan: 'FREE' | 'PRO') {
   await auth.setDevPlan(plan).catch(() => {})
 }
 
+const autoSyncSaving = ref(false)
+const autoSyncError = ref('')
 async function onAutoSync(enabled: boolean) {
   if (!auth.isPro) return
-  await auth.setAutoSync(enabled).catch(() => {})
+  autoSyncError.value = ''
+  autoSyncSaving.value = true
+  try {
+    await auth.setAutoSync(enabled)
+  } catch (e) {
+    // A failed save used to be swallowed silently, leaving the toggle desynced.
+    autoSyncError.value = apiErrorMessage(e, 'settings.autoSyncFailed')
+  } finally {
+    autoSyncSaving.value = false
+  }
+}
+
+const portfolioAtLimit = computed(
+  () => !auth.isPro && portfolios.portfolios.length >= FREE_LIMITS.portfolios,
+)
+function onCreatePortfolio() {
+  // Pre-empt the server 402: a Free user at the cap goes straight to the paywall
+  // instead of being prompted for a name and then rejected.
+  if (portfolioAtLimit.value) {
+    openPaywall('unlimitedPortfolios')
+    return
+  }
+  promptCreatePortfolio()
 }
 const sources = useSourcesStore()
 const router = useRouter()

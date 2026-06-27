@@ -243,6 +243,12 @@ export interface PortfolioPnlDto {
   totalPnlEur: string
   totalPnlPct: number
   positions: PnlPositionDto[]
+  // Coverage: how many holdings the PnL covers vs. how many are excluded (no
+  // transaction history / partial basis), plus the EUR value not included. Lets
+  // the client disclose that the total is not portfolio-wide.
+  coveredCount: number
+  excludedCount: number
+  excludedValueEur: string
 }
 
 export interface PortfolioHistoryPoint {

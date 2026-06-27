@@ -57,7 +57,11 @@ export async function createPortfolio(userId: string, label: string): Promise<Po
   if ((await getPlan(userId)) !== 'PRO') {
     const count = await prisma.portfolio.count({ where: { userId } })
     if (count >= FREE_LIMITS.portfolios) {
-      throw AppError.upgradeRequired('Im Free-Tarif sind maximal 2 Portfolios möglich')
+      throw AppError.upgradeRequired(`Im Free-Tarif sind maximal ${FREE_LIMITS.portfolios} Portfolios möglich`, {
+        feature: 'unlimitedPortfolios',
+        limit: FREE_LIMITS.portfolios,
+        used: count,
+      })
     }
   }
   const portfolio = await prisma.portfolio.create({

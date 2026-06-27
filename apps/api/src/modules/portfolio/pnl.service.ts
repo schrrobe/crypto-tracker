@@ -58,21 +58,41 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
 
   let totalCostBasis = ZERO
   let totalValue = ZERO
+  // Coverage: holdings we can value (have a price) but exclude from PnL because
+  // they have no transaction history / the basis doesn't cover the held quantity.
+  // Surfaced to the client so the PnL total never reads as portfolio-wide when it
+  // silently omits most of the portfolio.
+  let excludedCount = 0
+  let excludedValue = ZERO
   const positions: PnlPositionDto[] = []
 
   for (const h of bySourceAsset.values()) {
     const basis = costBasis.get(`${h.sourceId}|${h.assetId}`)
     const price = prices.get(h.assetId)
-    if (!basis || !price) continue // no cost basis (snapshot) or no price → no PnL
+    if (!price) continue // no price → can't value it at all, not part of coverage
+
+    const heldValue = h.quantity.mul(price.priceEur)
+
+    // No cost basis (pure snapshot / sync source) → can't compute PnL. Counts as
+    // excluded value so the client can disclose "€X not included".
+    if (!basis) {
+      excludedCount++
+      excludedValue = excludedValue.add(heldValue.abs())
+      continue
+    }
 
     // The cost basis only covers the tracked quantity. If the holding deviates
     // from it (e.g. a sync snapshot with extra staking rewards: 100 coins held,
     // but only 2 from transactions), the value (full quantity) would be computed
-    // against a partial basis and the PnL grossly overstated → skip the position.
+    // against a partial basis and the PnL grossly overstated → exclude the position.
     const coverageDiff = basis.quantity.sub(h.quantity).abs()
-    if (coverageDiff.gt(h.quantity.abs().mul('0.005'))) continue
+    if (coverageDiff.gt(h.quantity.abs().mul('0.005'))) {
+      excludedCount++
+      excludedValue = excludedValue.add(heldValue.abs())
+      continue
+    }
 
-    const valueEur = h.quantity.mul(price.priceEur)
+    const valueEur = heldValue
     const pnlEur = valueEur.sub(basis.costBasisEur)
     const pnlPct = pctOf(pnlEur, basis.costBasisEur)
 
@@ -102,5 +122,10 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
     totalPnlEur: totalPnl.toFixed(2),
     totalPnlPct: pctOf(totalPnl, totalCostBasis),
     positions,
+    // Coverage disclosure: positions covered vs. excluded (no tx history) + the
+    // EUR value left out of the PnL total.
+    coveredCount: positions.length,
+    excludedCount,
+    excludedValueEur: excludedValue.toFixed(2),
   }
 }

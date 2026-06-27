@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express'
 import type { Plan } from '@prisma/client'
+import type { ProFeature } from '@crypto-tracker/shared'
 import { prisma } from '../lib/prisma'
 import { AppError } from '../lib/errors'
 
@@ -28,15 +29,18 @@ export async function getPlan(userId: string): Promise<Plan> {
   return user.plan
 }
 
-// Route guard: Pro only. Precondition: requireAuth ran before (req.userId).
-export const requirePro: RequestHandler = (req, _res, next) => {
-  getPlan(req.userId)
-    .then((plan) => {
-      if (plan !== 'PRO') {
-        next(AppError.upgradeRequired())
-        return
-      }
-      next()
-    })
-    .catch(next)
+// Route guard factory: Pro only. The feature key rides along on the 402 details
+// so the client can show a contextual paywall. Precondition: requireAuth ran (req.userId).
+export function requirePro(feature: ProFeature): RequestHandler {
+  return (req, _res, next) => {
+    getPlan(req.userId)
+      .then((plan) => {
+        if (plan !== 'PRO') {
+          next(AppError.upgradeRequired(undefined, { feature }))
+          return
+        }
+        next()
+      })
+      .catch(next)
+  }
 }

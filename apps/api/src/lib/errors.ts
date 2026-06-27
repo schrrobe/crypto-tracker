@@ -25,8 +25,10 @@ export class AppError extends Error {
     return new AppError(code, 409, message)
   }
 
-  // 402 Payment Required — feature requires a Pro subscription
-  static upgradeRequired(message = 'Diese Funktion erfordert Crypto Tracker Pro') {
-    return new AppError('PLAN_UPGRADE_REQUIRED', 402, message)
+  // 402 Payment Required — feature requires a Pro subscription. `details` carries
+  // a machine-readable discriminator ({ feature, limit?, used? }) so the client can
+  // show contextual, localized paywall copy instead of parsing the German message.
+  static upgradeRequired(message = 'Diese Funktion erfordert Crypto Tracker Pro', details?: unknown) {
+    return new AppError('PLAN_UPGRADE_REQUIRED', 402, message, details)
   }
 }
