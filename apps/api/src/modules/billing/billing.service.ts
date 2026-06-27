@@ -155,9 +155,13 @@ export async function reconcileCheckoutSession(
 
   if (session.payment_status === 'paid' && session.customer && session.subscription) {
     const sub = await s.subscriptions.retrieve(String(session.subscription))
+    // Derive the plan from the CURRENT subscription status, not just "paid": a paid
+    // session can reference an already-canceled sub. Forcing PRO (and stamping
+    // lastStripeEventAt=now) would also suppress the real downgrade event.
+    const active = sub.status === 'active' || sub.status === 'trialing'
     await applyPlanByCustomer(
       String(session.customer),
-      'PRO',
+      active ? 'PRO' : 'FREE',
       sub.id,
       subscriptionPeriodEnd(sub),
       Math.floor(Date.now() / 1000),
@@ -182,15 +186,23 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
   }
 
   // Idempotency: Stripe delivers at-least-once and retries for up to 3 days.
-  // Record the event id and short-circuit on replay so every handler below runs
-  // at most once per event (covers plan writes AND referral commissions).
-  try {
-    await prisma.processedStripeEvent.create({ data: { id: event.id, type: event.type } })
-  } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return
-    throw e
-  }
+  // Skip an event we have already fully processed.
+  if (await prisma.processedStripeEvent.findUnique({ where: { id: event.id } })) return
 
+  await dispatchStripeEvent(s, event)
+
+  // Mark processed only AFTER the handler succeeded, so a transient failure
+  // (subscriptions.retrieve / DB error) is retried by Stripe instead of being
+  // dropped permanently. Concurrent duplicate deliveries are guarded by the unique
+  // id (P2002 → already recorded) and by each handler's own idempotency.
+  await prisma.processedStripeEvent.create({ data: { id: event.id, type: event.type } }).catch((e) => {
+    if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002')) throw e
+  })
+}
+
+// Dispatch a verified Stripe event to its handler. Throwing here prevents the
+// event from being marked processed, so Stripe retries the delivery.
+async function dispatchStripeEvent(s: Stripe, event: Stripe.Event): Promise<void> {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
     const refUserId = session.client_reference_id ?? undefined

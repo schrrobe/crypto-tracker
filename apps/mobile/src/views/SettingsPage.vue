@@ -302,10 +302,12 @@ onIonViewWillEnter(async () => {
   try {
     if (sessionId) await billing.reconcile(sessionId)
     await auth.refreshUser()
+    // Clear the query ONLY on success — otherwise a transient failure would
+    // discard the only session id that can still apply the paid plan.
+    router.replace({ path: '/tabs/settings' })
   } catch {
-    // Webhook may still apply the plan; leave the user on the page either way.
+    // Keep ?session_id so the next view-enter retries the reconcile.
   }
-  router.replace({ path: '/tabs/settings' })
 })
 const theme = ref<ThemePreference>(getThemePreference())
 const locale = ref<LocaleCode>(getLocale())
