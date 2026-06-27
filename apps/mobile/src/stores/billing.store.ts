@@ -37,5 +37,11 @@ export const useBillingStore = defineStore('billing', () => {
     await openExternal(url)
   }
 
-  return { enabled, priceLabel, configLoaded, loadConfig, checkout, openPortal }
+  // Reconcile the plan from a completed Checkout session on success-return, so a
+  // delayed/dropped webhook doesn't leave a paying user on FREE.
+  async function reconcile(sessionId: string): Promise<{ plan: string }> {
+    return api.post<{ plan: string }>('/billing/reconcile', { sessionId })
+  }
+
+  return { enabled, priceLabel, configLoaded, loadConfig, checkout, openPortal, reconcile }
 })
