@@ -233,11 +233,16 @@ async function submit() {
   submitting.value = true
   try {
     const payload = {
-      answers: survey.value.questions.map((q) => ({
-        questionId: q.id,
-        text: q.type === 'FREE_TEXT' ? (answers[q.id]?.text ?? '') : undefined,
-        optionIds: q.type === 'FREE_TEXT' ? undefined : (answers[q.id]?.optionIds ?? []),
-      })),
+      // Only send answered questions. Questions are optional, so serializing skipped
+      // ones would persist empty SurveyAnswer rows and muddy the per-question
+      // answeredCount analytics (skipped recorded alongside real answers).
+      answers: survey.value.questions
+        .filter((q) => isAnswered(q.id))
+        .map((q) => ({
+          questionId: q.id,
+          text: q.type === 'FREE_TEXT' ? (answers[q.id]?.text ?? '') : undefined,
+          optionIds: q.type === 'FREE_TEXT' ? undefined : (answers[q.id]?.optionIds ?? []),
+        })),
     }
     await surveys.submit(survey.value.id, payload)
     submitted.value = true

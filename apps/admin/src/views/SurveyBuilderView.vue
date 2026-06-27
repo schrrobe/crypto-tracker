@@ -96,6 +96,8 @@
         </div>
       </div>
 
+      <p v-if="errors.survey" class="text-xs text-red-600 mb-2">{{ errors.survey }}</p>
+
       <div class="flex gap-2">
         <button class="rounded border border-slate-300 text-sm px-3 py-2 hover:bg-slate-50" @click="addQuestion">
           + Frage hinzufügen
@@ -142,7 +144,11 @@ const saving = ref(false)
 const notEditable = ref(false)
 const audienceCount = ref(0)
 
-const errors = reactive<{ title: string; questions: string[] }>({ title: '', questions: [] })
+const errors = reactive<{ title: string; survey: string; questions: string[] }>({
+  title: '',
+  survey: '',
+  questions: [],
+})
 
 function isChoice(t: QType): boolean {
   return t === 'SINGLE_CHOICE' || t === 'MULTI_CHOICE'
@@ -181,10 +187,15 @@ watch(
 // ── Inline validation ───────────────────────────────────────────────────────
 function validate(): boolean {
   errors.title = ''
+  errors.survey = ''
   errors.questions = questions.value.map(() => '')
   let ok = true
   if (!title.value.trim()) {
     errors.title = 'Titel darf nicht leer sein'
+    ok = false
+  }
+  if (questions.value.length === 0) {
+    errors.survey = 'Mindestens eine Frage ist erforderlich'
     ok = false
   }
   questions.value.forEach((q, i) => {
@@ -216,7 +227,11 @@ async function save() {
       questions: questions.value.map((q) => ({
         type: q.type,
         prompt: q.prompt.trim(),
-        options: isChoice(q.type) ? q.options.map((o) => ({ label: o.label.trim() })) : undefined,
+        options: isChoice(q.type)
+          ? q.options
+              .map((o) => ({ label: o.label.trim() }))
+              .filter((o) => o.label.length > 0)
+          : undefined,
       })),
     }
     if (editId) {

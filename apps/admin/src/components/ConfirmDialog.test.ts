@@ -33,9 +33,16 @@ describe('ConfirmDialog', () => {
 
   it('renders slot content over the message prop', () => {
     const w = mount(ConfirmDialog, {
-      props: { title: 't', confirmLabel: 'OK' },
+      props: { title: 't', confirmLabel: 'OK', message: 'Fallback-Nachricht' },
       slots: { default: '<p>Custom body</p>' },
     })
     expect(w.text()).toContain('Custom body')
+    expect(w.text()).not.toContain('Fallback-Nachricht')
+  })
+
+  it('emits cancel when Escape is pressed', async () => {
+    const w = mount(ConfirmDialog, { props: { title: 't', confirmLabel: 'OK' } })
+    await w.trigger('keydown.esc')
+    expect(w.emitted('cancel')).toBeTruthy()
   })
 })

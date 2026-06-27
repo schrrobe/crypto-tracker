@@ -34,11 +34,14 @@ export function toSurveyDto(s: SurveyWithQuestions): SurveyDto {
   }
 }
 
-// Minimal user fields needed for targeting decisions.
+// Minimal user fields needed for targeting decisions. `suspendedAt` is loaded so the
+// read path can exclude suspended users — they are absent from the eligible-user
+// denominator (eligibleUserWhere has suspendedAt: null), so serving them surveys would
+// be inconsistent.
 async function getTargetableUser(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { plan: true, baseCurrency: true },
+    select: { plan: true, baseCurrency: true, suspendedAt: true },
   })
   if (!user) throw AppError.notFound('Benutzer nicht gefunden')
   return user
@@ -48,6 +51,8 @@ async function getTargetableUser(userId: string) {
 // dashboard banner.
 export async function listPendingSurveys(userId: string): Promise<SurveyDto[]> {
   const user = await getTargetableUser(userId)
+  // Suspended users are not in the eligible audience — show them nothing.
+  if (user.suspendedAt) return []
   const surveys = await prisma.survey.findMany({
     where: {
       status: SurveyStatus.PUBLISHED,
@@ -71,7 +76,10 @@ export async function getPublishedSurvey(userId: string, surveyId: string): Prom
   })
   if (!survey) throw AppError.notFound('Umfrage nicht gefunden')
   const user = await getTargetableUser(userId)
-  if (!userMatchesTarget(user, survey)) throw AppError.notFound('Umfrage nicht gefunden')
+  // Suspended or off-target users get the same 404 as a non-existent survey (no leak).
+  if (user.suspendedAt || !userMatchesTarget(user, survey)) {
+    throw AppError.notFound('Umfrage nicht gefunden')
+  }
   return toSurveyDto(survey)
 }
 
@@ -88,7 +96,9 @@ export async function submitResponse(
   // Same targeting gate as getPublishedSurvey: a user outside the audience cannot submit
   // (404, not 403 — no existence leak), so results never include off-target responses.
   const user = await getTargetableUser(userId)
-  if (!userMatchesTarget(user, survey)) throw AppError.notFound('Umfrage nicht gefunden')
+  if (user.suspendedAt || !userMatchesTarget(user, survey)) {
+    throw AppError.notFound('Umfrage nicht gefunden')
+  }
 
   const questionsById = new Map(survey.questions.map((q) => [q.id, q]))
 

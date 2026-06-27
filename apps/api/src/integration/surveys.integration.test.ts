@@ -234,6 +234,55 @@ describe('Surveys (Integration)', () => {
     expect(audit).not.toBeNull()
   })
 
+  it('Erinnerung: zwei gleichzeitige Remind-Requests senden nur einmal (atomarer Cooldown)', async () => {
+    const admin = await registerUser('survey-remind-race-admin', 'PRO')
+    await makeAdmin(admin)
+    const id = await createPublished(admin, {
+      title: 'Erinnerung-Race',
+      questions: [{ type: 'SINGLE_CHOICE', prompt: 'A oder B?', options: [{ label: 'A' }, { label: 'B' }] }],
+    })
+
+    // Fire two reminders concurrently. The atomic cooldown reservation must let exactly
+    // one through (skippedCooldown=false) and skip the other (skippedCooldown=true).
+    const [a, b] = await Promise.all([
+      request(app).post(`${API}/admin/surveys/${id}/remind`).set(...bearer(admin)),
+      request(app).post(`${API}/admin/surveys/${id}/remind`).set(...bearer(admin)),
+    ])
+    expect(a.status).toBe(200)
+    expect(b.status).toBe(200)
+    const skipped = [a.body.skippedCooldown, b.body.skippedCooldown]
+    expect(skipped.filter((s) => s === false)).toHaveLength(1)
+    expect(skipped.filter((s) => s === true)).toHaveLength(1)
+
+    // Exactly one reminder was audited for this window.
+    const audits = await prisma.auditLog.findMany({
+      where: { action: 'SURVEY_REMINDER_SENT', targetId: id },
+    })
+    expect(audits).toHaveLength(1)
+  })
+
+  it('Gesperrter Nutzer: 404 auf GET /surveys/:id und nicht pending', async () => {
+    const admin = await registerUser('survey-suspended-admin', 'PRO')
+    await makeAdmin(admin)
+    const id = await createPublished(admin, {
+      title: 'Gesperrt',
+      questions: [{ type: 'FREE_TEXT', prompt: 'Feedback?' }],
+    })
+
+    const user = await registerUser('survey-suspended-user', 'PRO')
+    // Survey is reachable before suspension.
+    expect((await request(app).get(`${API}/surveys/${id}`).set(...bearer(user))).status).toBe(200)
+
+    // Suspend the user (token stays valid) — survey must now be invisible.
+    await prisma.user.update({ where: { id: user.userId }, data: { suspendedAt: new Date() } })
+
+    const get = await request(app).get(`${API}/surveys/${id}`).set(...bearer(user))
+    expect(get.status).toBe(404)
+    const pending = await request(app).get(`${API}/surveys/pending`).set(...bearer(user))
+    expect(pending.status).toBe(200)
+    expect(pending.body.surveys.find((s: { id: string }) => s.id === id)).toBeUndefined()
+  })
+
   it('Analytics: eligibleCount/responseRate Nenner und answeredCount Funnel', async () => {
     const admin = await registerUser('survey-analytics-admin', 'PRO')
     await makeAdmin(admin)

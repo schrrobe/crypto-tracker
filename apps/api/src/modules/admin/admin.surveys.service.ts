@@ -370,16 +370,36 @@ export async function remindNonResponders(
   const nonResponderIds = eligible.map((u) => u.id).filter((id) => !respondedIds.has(id))
   const alreadyResponded = eligibleCount - nonResponderIds.length
 
-  // Cooldown: refuse a fresh reminder within the window. Returns state instead of
-  // throwing so the admin UI can show "already reminded recently".
-  const now = Date.now()
-  if (survey.lastRemindedAt && now - survey.lastRemindedAt.getTime() < REMINDER_COOLDOWN_MS) {
+  // Cooldown: atomically reserve the slot BEFORE dispatching. A conditional updateMany
+  // claims the window in a single statement, so two concurrent reminds can never both
+  // pass the check and double-send. Only the request whose updateMany flips
+  // lastRemindedAt (count === 1) proceeds to notify + audit; the loser is treated as a
+  // cooldown skip. Returns state instead of throwing so the admin UI can show
+  // "already reminded recently".
+  const sentAt = new Date()
+  const reserved = await prisma.survey.updateMany({
+    where: {
+      id: surveyId,
+      status: SurveyStatus.PUBLISHED,
+      OR: [
+        { lastRemindedAt: null },
+        { lastRemindedAt: { lt: new Date(sentAt.getTime() - REMINDER_COOLDOWN_MS) } },
+      ],
+    },
+    data: { lastRemindedAt: sentAt },
+  })
+  if (reserved.count === 0) {
+    // Lost the race / still within cooldown \u2014 re-read for the authoritative timestamp.
+    const current = await prisma.survey.findUnique({
+      where: { id: surveyId },
+      select: { lastRemindedAt: true },
+    })
     return {
       notified: 0,
       eligibleCount,
       alreadyResponded,
       skippedCooldown: true,
-      lastRemindedAt: survey.lastRemindedAt.toISOString(),
+      lastRemindedAt: current?.lastRemindedAt?.toISOString() ?? null,
     }
   }
 
@@ -390,8 +410,6 @@ export async function remindNonResponders(
     })
   }
 
-  const sentAt = new Date()
-  await prisma.survey.update({ where: { id: surveyId }, data: { lastRemindedAt: sentAt } })
   await recordAudit({
     actor,
     action: AuditAction.SURVEY_REMINDER_SENT,

@@ -12,12 +12,12 @@
 
     <p v-if="error" class="text-red-600 text-sm mb-3">{{ error }}</p>
 
-    <!-- Loading skeleton -->
-    <div v-if="data === null" class="bg-white rounded-lg shadow-sm p-4 space-y-3">
+    <!-- Loading skeleton (only while a fetch is in flight, never after a failure) -->
+    <div v-if="loading" class="bg-white rounded-lg shadow-sm p-4 space-y-3">
       <div v-for="n in 3" :key="n" class="h-6 bg-slate-100 rounded animate-pulse" />
     </div>
 
-    <div v-else class="bg-white rounded-lg shadow-sm overflow-x-auto">
+    <div v-else-if="data" class="bg-white rounded-lg shadow-sm overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-left text-slate-500">
           <tr>
@@ -155,6 +155,7 @@ import { date } from '../format'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const data = ref<SurveyListDto | null>(null)
+const loading = ref(true)
 const error = ref('')
 const reminding = ref<string | null>(null)
 const reminderMsg = reactive<Record<string, string>>({})
@@ -202,10 +203,13 @@ async function remind(id: string) {
 
 async function reload() {
   error.value = ''
+  loading.value = true
   try {
     data.value = await adminApi.surveys()
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Laden fehlgeschlagen'
+  } finally {
+    loading.value = false
   }
 }
 
@@ -234,24 +238,40 @@ function askDelete(s: SurveyListItemDto) {
 
 async function confirmPublish() {
   const id = publishTarget.value?.id
-  publishTarget.value = null
   if (!id) return
-  await adminApi.publishSurvey(id)
-  await reload()
+  error.value = ''
+  try {
+    await adminApi.publishSurvey(id)
+    publishTarget.value = null
+    await reload()
+  } catch (e) {
+    // Keep the modal open and surface the failure instead of silently dismissing.
+    error.value = e instanceof ApiError ? e.message : 'Veröffentlichen fehlgeschlagen'
+  }
 }
 async function confirmClose() {
   const id = closeTarget.value?.id
-  closeTarget.value = null
   if (!id) return
-  await adminApi.closeSurvey(id)
-  await reload()
+  error.value = ''
+  try {
+    await adminApi.closeSurvey(id)
+    closeTarget.value = null
+    await reload()
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Schließen fehlgeschlagen'
+  }
 }
 async function confirmDelete() {
   const id = deleteTarget.value?.id
-  deleteTarget.value = null
   if (!id) return
-  await adminApi.deleteSurvey(id)
-  await reload()
+  error.value = ''
+  try {
+    await adminApi.deleteSurvey(id)
+    deleteTarget.value = null
+    await reload()
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Löschen fehlgeschlagen'
+  }
 }
 
 onMounted(reload)

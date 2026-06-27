@@ -86,12 +86,12 @@ describe('SurveyPage', () => {
     expect(w.text()).toContain('Farbe?')
   })
 
-  it('submits one answer per question with type-correct shape', async () => {
+  it('omits unanswered questions and sends type-correct shape for answered ones', async () => {
     const w = mountPage()
     await viewEnterCb?.()
     await flushPromises()
 
-    // Select the single-choice option so the submit guard lets it through.
+    // Answer only the single-choice question; leave the free-text blank.
     w.get('[data-testid="survey-single-group"]').trigger('ion-change', { detail: { value: 'o1' } })
     await flushPromises()
 
@@ -101,12 +101,11 @@ describe('SurveyPage', () => {
     expect(submit).toHaveBeenCalledTimes(1)
     const [id, payload] = submit.mock.calls[0]!
     expect(id).toBe('s1')
-    expect(payload.answers).toHaveLength(2)
-    const free = payload.answers.find((a: { questionId: string }) => a.questionId === 'q-free')
-    const single = payload.answers.find((a: { questionId: string }) => a.questionId === 'q-single')
-    // FREE_TEXT carries text (default empty), no optionIds; choice carries optionIds, no text
-    expect(free).toEqual({ questionId: 'q-free', text: '', optionIds: undefined })
-    expect(single).toEqual({ questionId: 'q-single', text: undefined, optionIds: ['o1'] })
+    // Only the answered question is sent — the blank free-text question is omitted
+    // so it doesn't persist an empty SurveyAnswer or count toward answeredCount.
+    expect(payload.answers).toHaveLength(1)
+    expect(payload.answers.find((a: { questionId: string }) => a.questionId === 'q-free')).toBeUndefined()
+    expect(payload.answers[0]).toEqual({ questionId: 'q-single', text: undefined, optionIds: ['o1'] })
   })
 
   it('shows a thank-you state after a successful submit', async () => {
