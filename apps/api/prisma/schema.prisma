@@ -130,6 +130,10 @@ model User {
   payouts       Payout[]
   auditLogs     AuditLog[]        @relation("ActorAudits")
   surveyResponses SurveyResponse[]
+
+  // Admin stats filter/group registrations by createdAt (overview period counts,
+  // growth chart, recent-signups feed). Index so these don't seq-scan User.
+  @@index([createdAt])
 }
 
 // Append-only audit trail of admin actions. targetId is a plain string (no FK)
@@ -190,6 +194,9 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  // activeSessions counts non-expired tokens; the periodic prune deletes expired
+  // ones. Both filter on expiresAt — index it so neither walks the whole table.
+  @@index([expiresAt])
 }
 
 // Passwort-Reset: nur der Hash des opaken Tokens liegt in der DB (wie RefreshToken).
