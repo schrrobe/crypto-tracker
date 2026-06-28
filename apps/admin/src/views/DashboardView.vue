@@ -11,7 +11,14 @@
     </div>
     <p v-if="error" class="text-red-600 mb-4">{{ error }}</p>
 
-    <HealthBadges :data="health" />
+    <HealthSummary
+      :overall="overall"
+      :last-success-at="lastSuccessAt"
+      :is-stale="isStale"
+      :refreshing="refreshing"
+      @refresh="refresh"
+    />
+    <HealthBadges :checks="sortedChecks" :stale="isStale" :loading="loading" />
     <AttentionPanel :data="attention" />
 
     <div v-if="o" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
@@ -22,7 +29,11 @@
       <KpiCard label="Aktive Sessions" :value="o.activeSessions" />
       <KpiCard label="Aktive Abos" :value="o.activeSubscriptions" />
       <KpiCard label="MRR (Proxy)" :value="money(o.mrrProxyCents)" />
-      <KpiCard label="Offene Payouts" :value="earnings(o.referral.byCurrency, 'owedCents')" :sub="`${o.referral.activeReferrers} Referrer`" />
+      <KpiCard
+        label="Referral Pro-Tage"
+        :value="o.referral.proDaysGranted"
+        :sub="`${o.referral.proConversions} Konversionen · ${o.referral.activeReferrers} Referrer`"
+      />
       <KpiCard v-if="churn" label="Abgelaufene Pro" :value="churn.expiredPro" :sub="`${churn.expiringSoon7d} laufen bald ab`" />
     </div>
 
@@ -91,12 +102,13 @@ import type {
   AdminChurnDto,
   AdminActivityDto,
   AdminAttentionDto,
-  AdminHealthDto,
 } from '@crypto-tracker/shared'
 import { adminApi } from '../services/admin'
-import { money, earnings } from '../format'
+import { money } from '../format'
+import { useHealth } from '../composables/useHealth'
 import KpiCard from '../components/KpiCard.vue'
 import AttentionPanel from '../components/AttentionPanel.vue'
+import HealthSummary from '../components/HealthSummary.vue'
 import HealthBadges from '../components/HealthBadges.vue'
 
 const o = ref<AdminOverviewDto | null>(null)
@@ -104,7 +116,7 @@ const growth = ref<AdminGrowthPointDto[]>([])
 const churn = ref<AdminChurnDto | null>(null)
 const activity = ref<AdminActivityDto | null>(null)
 const attention = ref<AdminAttentionDto | null>(null)
-const health = ref<AdminHealthDto | null>(null)
+const { sortedChecks, overall, loading, isStale, refreshing, lastSuccessAt, refresh } = useHealth()
 const lastUpdated = ref('')
 const error = ref('')
 const ranges = [7, 30, 90]
@@ -138,27 +150,30 @@ async function setRange(d: number) {
 }
 
 async function loadAll() {
+  // Health owns its own lifecycle (stale/loading/refreshing) inside useHealth
+  // and never throws, so it runs alongside the card fetches without coupling
+  // its failures to the global error banner.
+  const healthP = refresh()
   try {
-    const [ov, gr, ch, ac, at, he] = await Promise.all([
+    const [ov, gr, ch, ac, at] = await Promise.all([
       adminApi.overview(),
       adminApi.growth(range.value),
       adminApi.churn(),
       adminApi.activity(),
       adminApi.attention(),
-      adminApi.health(),
     ])
     o.value = ov
     growth.value = gr.points
     churn.value = ch
     activity.value = ac
     attention.value = at
-    health.value = he
     error.value = ''
     lastUpdated.value = new Date().toLocaleTimeString('de-DE')
   } catch {
     // Keep previous values on a failed refresh; only flag on initial load.
     if (!o.value) error.value = 'Daten konnten nicht geladen werden.'
   }
+  await healthP
 }
 
 let timer: ReturnType<typeof setInterval> | undefined
