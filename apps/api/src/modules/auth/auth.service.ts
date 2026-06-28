@@ -51,6 +51,15 @@ function toUserDto(user: {
   }
 }
 
+// Delete refresh tokens whose expiry has passed. Logout/rotation/account-delete
+// already prune per-user, but tokens of users who never return would otherwise
+// accumulate forever and inflate the activeSessions scan. Run periodically from
+// the worker. Idempotent; safe to call concurrently.
+export async function pruneExpiredRefreshTokens(now: Date = new Date()): Promise<{ deleted: number }> {
+  const { count } = await prisma.refreshToken.deleteMany({ where: { expiresAt: { lt: now } } })
+  return { deleted: count }
+}
+
 async function issueTokens(userId: string): Promise<{ accessToken: string; refreshToken: string }> {
   const refreshToken = generateRefreshToken()
   await prisma.refreshToken.create({

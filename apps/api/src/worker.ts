@@ -3,6 +3,7 @@ import { env } from './config/env'
 import { redisConnection, SYNC_QUEUE_NAME } from './modules/sync/sync.queue'
 import { enqueueAutoSync, executeSyncRun, reapStaleRuns } from './modules/sync/sync.service'
 import { refreshAllHeldPrices } from './coingecko/price.service'
+import { pruneExpiredRefreshTokens } from './modules/auth/auth.service'
 
 // Queue worker for background sync + price-refresh / auto-sync / stale-run-reaper crons.
 // Runs as its own process: pnpm --filter @crypto-tracker/api dev:worker
@@ -20,6 +21,7 @@ if (!env.REDIS_URL) {
 const PRICE_REFRESH_EVERY_MS = 15 * 60 * 1000
 const AUTO_SYNC_EVERY_MS = env.AUTO_SYNC_EVERY_MINUTES * 60 * 1000
 const REAP_STALE_EVERY_MS = 5 * 60 * 1000
+const PRUNE_TOKENS_EVERY_MS = 6 * 60 * 60 * 1000
 
 // Structured single-line JSON logs so an operator can grep/correlate by runId.
 function log(event: string, fields: Record<string, unknown> = {}): void {
@@ -50,6 +52,11 @@ const worker = new Worker(
       if (result.reaped > 0) log('reap-stale', { reaped: result.reaped })
       return
     }
+    if (job.name === 'prune-tokens') {
+      const result = await pruneExpiredRefreshTokens()
+      if (result.deleted > 0) log('prune-tokens', { deleted: result.deleted })
+      return
+    }
   },
   // Concurrency 1: spares provider rate limits (same reasoning as syncAllSources)
   { connection: redisConnection(), concurrency: 1 },
@@ -76,12 +83,15 @@ await queue.upsertJobScheduler('price-refresh-schedule', { every: PRICE_REFRESH_
 await queue.upsertJobScheduler('auto-sync-schedule', { every: AUTO_SYNC_EVERY_MS }, { name: 'auto-sync' })
 // Reaper: marks crashed RUNNING runs as ERROR/STALE
 await queue.upsertJobScheduler('reap-stale-schedule', { every: REAP_STALE_EVERY_MS }, { name: 'reap-stale' })
+// Prune: deletes expired refresh tokens so they don't accumulate
+await queue.upsertJobScheduler('prune-tokens-schedule', { every: PRUNE_TOKENS_EVERY_MS }, { name: 'prune-tokens' })
 
 log('worker-started', {
   queue: SYNC_QUEUE_NAME,
   priceRefreshMin: PRICE_REFRESH_EVERY_MS / 60000,
   autoSyncMin: AUTO_SYNC_EVERY_MS / 60000,
   reapStaleMin: REAP_STALE_EVERY_MS / 60000,
+  pruneTokensMin: PRUNE_TOKENS_EVERY_MS / 60000,
 })
 
 async function shutdown() {
