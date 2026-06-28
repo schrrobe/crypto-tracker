@@ -7,7 +7,6 @@ const ZERO: AdminAttentionDto = {
   sourcesInError: 0,
   failedImports: 0,
   stalePriceCache: 0,
-  pendingPayouts: 0,
   expiringSoonPro: 0,
   suspendedUsers: 0,
 }

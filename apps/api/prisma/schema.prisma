@@ -103,23 +103,21 @@ model User {
   stripeCustomerId     String?    @unique
   stripeSubscriptionId String?
   planUntil            DateTime?
+  // Referral reward Pro-time, independent of Stripe's planUntil so a billing
+  // webhook can't overwrite it and a cancellation can't wipe it. Entitlement is
+  // PRO when Stripe-active OR referralProUntil is in the future (see getPlan()).
+  referralProUntil     DateTime?
   createdAt     DateTime          @default(now())
   // Referral program: own shareable code + who invited this user (self-relation).
   referralCode  String?           @unique
   referredById  String?
   referredBy    User?             @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
   referrals     User[]            @relation("Referrals")
-  // Payout bank details: IBAN encrypted at rest (like ExchangeCredential), BIC/holder plaintext.
-  encryptedIban String?
-  ibanPreview   String?
-  bankBic       String?
-  bankHolder    String?
   sources       PortfolioSource[]
   portfolios    Portfolio[]
   refreshTokens RefreshToken[]
   passwordResetTokens PasswordResetToken[]
-  commissionsEarned ReferralCommission[] @relation("Earned")
-  payouts       Payout[]
+  referralRewards ReferralReward[] @relation("RewardEarned")
   auditLogs     AuditLog[]        @relation("ActorAudits")
   surveyResponses SurveyResponse[]
 }
@@ -141,36 +139,23 @@ model AuditLog {
   @@index([targetId])
 }
 
-// Earnings ledger: 20% of each Pro invoice paid by an invited user.
-// payoutId == null → still owed; set → bundled into a Payout (paid out).
-model ReferralCommission {
-  id              String   @id @default(uuid())
-  referrerId      String
-  referredUserId  String
-  stripeInvoiceId String   @unique
-  amountCents     Int
-  currency        String
-  payoutId        String?
-  voidedAt        DateTime?
-  createdAt       DateTime @default(now())
-  referrer        User     @relation("Earned", fields: [referrerId], references: [id], onDelete: Cascade)
-  payout          Payout?  @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+// Referral reward ledger — grants of free Pro-time, not cash.
+// Idempotent per idempotencyKey so a webhook retry or double signup can't double-grant:
+//   kind=SIGNUP     → invitee got Pro-days for registering with a code (key "signup:<inviteeId>")
+//   kind=CONVERSION → referrer got Pro-days on the invitee's first Pro payment (key "conversion:<referredUserId>")
+// referredUserId is a plain string (no FK) so the entry survives deletion of the referred user.
+model ReferralReward {
+  id             String    @id @default(uuid())
+  userId         String
+  kind           String
+  idempotencyKey String    @unique
+  referredUserId String?
+  grantedDays    Int
+  voidedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  user           User      @relation("RewardEarned", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([referrerId])
-  @@index([payoutId])
-}
-
-// One manual bank-transfer payout bundling a referrer's owed commissions.
-model Payout {
-  id          String               @id @default(uuid())
-  referrerId  String
-  amountCents Int
-  currency    String
-  createdAt   DateTime             @default(now())
-  referrer    User                 @relation(fields: [referrerId], references: [id], onDelete: Cascade)
-  commissions ReferralCommission[]
-
-  @@index([referrerId])
+  @@index([userId])
 }
 
 model RefreshToken {

@@ -38,7 +38,6 @@ const text: Record<Severity, string> = { red: 'text-red-600', amber: 'text-amber
 const defs: { key: keyof AdminAttentionDto; label: string; severity: Severity; to: string }[] = [
   { key: 'sourcesInError', label: 'Quellen im Fehlerstatus', severity: 'red', to: '/sync-health' },
   { key: 'failedImports', label: 'Fehlgeschlagene CSV-Imports', severity: 'red', to: '/imports' },
-  { key: 'pendingPayouts', label: 'Offene Auszahlungen', severity: 'amber', to: '/referrals' },
   { key: 'stalePriceCache', label: 'Veralteter Preis-Cache', severity: 'amber', to: '/price-cache' },
   { key: 'expiringSoonPro', label: 'Pro läuft bald ab', severity: 'amber', to: '/churn' },
   { key: 'suspendedUsers', label: 'Gesperrte Konten', severity: 'neutral', to: '/users' },

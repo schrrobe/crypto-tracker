@@ -13,7 +13,8 @@ import {
 import { sendMail } from '../../lib/mailer'
 import { env } from '../../config/env'
 import { cancelSubscription } from '../billing/billing.service'
-import { generateUniqueReferralCode, resolveReferrerId } from '../referral/referral.service'
+import { effectivePlan } from '../../middleware/plan.middleware'
+import { generateUniqueReferralCode, resolveReferrerId, grantSignupReward } from '../referral/referral.service'
 
 export interface UserDto {
   id: string
@@ -36,6 +37,8 @@ function toUserDto(user: {
   email: string
   baseCurrency: string
   plan: 'FREE' | 'PRO'
+  planUntil: Date | null
+  referralProUntil: Date | null
   isAdmin: boolean
   autoSyncEnabled: boolean
   createdAt: Date
@@ -44,7 +47,8 @@ function toUserDto(user: {
     id: user.id,
     email: user.email,
     baseCurrency: user.baseCurrency,
-    plan: user.plan,
+    // Report the EFFECTIVE plan so an active referral bonus shows as PRO in the app.
+    plan: effectivePlan(user),
     isAdmin: user.isAdmin,
     autoSyncEnabled: user.autoSyncEnabled,
     createdAt: user.createdAt.toISOString(),
@@ -75,7 +79,7 @@ export async function register(
   }
   // Attribute the invite (unknown codes are silently ignored) and mint an own code.
   const referredById = await resolveReferrerId(referralCode)
-  const user = await prisma.user.create({
+  let user = await prisma.user.create({
     data: {
       email: normalizedEmail,
       passwordHash: await argon2.hash(password),
@@ -85,6 +89,12 @@ export async function register(
       portfolios: { create: { label: 'Mein Portfolio', isDefault: true } },
     },
   })
+  // Invitee reward: registering with a valid code grants the new user free Pro-days.
+  // Re-read so the returned DTO reflects the granted referralProUntil (effective PRO).
+  if (referredById) {
+    await grantSignupReward(user.id)
+    user = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+  }
   return { user: toUserDto(user), ...(await issueTokens(user.id)) }
 }
 
@@ -221,10 +231,10 @@ export async function deleteAccount(userId: string): Promise<void> {
     }
   }
   await prisma.$transaction([
-    // referredUserId has no FK (so commission audit survives referrer deletion),
-    // so commissions earned *for inviting this user* must be removed explicitly —
-    // otherwise they orphan and keep inflating admin owed/paid totals.
-    prisma.referralCommission.deleteMany({ where: { referredUserId: userId } }),
+    // Rewards earned BY this user cascade via the userId FK. Conversion rewards
+    // earned by OTHERS for inviting this user reference referredUserId (no FK),
+    // so remove those explicitly to avoid orphaned ledger rows.
+    prisma.referralReward.deleteMany({ where: { referredUserId: userId } }),
     prisma.portfolioSource.deleteMany({ where: { userId } }),
     prisma.portfolio.deleteMany({ where: { userId } }),
     prisma.user.delete({ where: { id: userId } }),

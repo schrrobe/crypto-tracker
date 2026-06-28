@@ -3,7 +3,7 @@ import type { Plan } from '@prisma/client'
 import { env } from '../../config/env'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
-import { recordCommissionForInvoice } from '../referral/referral.service'
+import { grantConversionReward, voidConversionReward } from '../referral/referral.service'
 
 // Billing is only active when a Stripe secret is configured. Without a key the
 // endpoints return 503 (BILLING_DISABLED); locally the plan is tested via the
@@ -125,12 +125,13 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
     await applyPlanByCustomer(String(sub.customer), active ? 'PRO' : 'FREE', sub.id, subscriptionPeriodEnd(sub))
     return
   }
-  // Recurring referral commission: each paid invoice of an invited user credits
-  // their referrer 20% (idempotent per invoice id).
+  // Referral conversion reward: when an invited user first pays for Pro, credit
+  // their referrer free Pro-days (once per invited user, idempotent — see
+  // grantConversionReward). No cash, no recurring payout.
   if (event.type === 'invoice.paid') {
     const invoice = event.data.object as Stripe.Invoice
-    if (!invoice.customer || !invoice.id || invoice.amount_paid <= 0) return
-    // Only reward genuine subscription charges — skip prorations, manual one-off
+    if (!invoice.customer || invoice.amount_paid <= 0) return
+    // Only count genuine subscription charges — skip prorations, manual one-off
     // invoices, etc. (Stripe emits invoice.paid for those too).
     if (invoice.billing_reason !== 'subscription_create' && invoice.billing_reason !== 'subscription_cycle') return
     const payer = await prisma.user.findUnique({
@@ -138,12 +139,21 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
       select: { id: true, referredById: true },
     })
     if (!payer?.referredById) return
-    await recordCommissionForInvoice({
-      referredUserId: payer.id,
-      referrerId: payer.referredById,
-      stripeInvoiceId: invoice.id,
-      amountPaidCents: invoice.amount_paid,
-      currency: invoice.currency,
+    await grantConversionReward(payer.id, payer.referredById)
+    return
+  }
+
+  // Refund / chargeback on a referred user's payment voids the conversion reward
+  // (audit + accurate metrics). Granted Pro-days are not clawed back — see
+  // voidConversionReward. Matched by Stripe customer, so it covers any invoice.
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object as Stripe.Charge
+    if (!charge.customer) return
+    const payer = await prisma.user.findUnique({
+      where: { stripeCustomerId: String(charge.customer) },
+      select: { id: true },
     })
+    if (!payer) return
+    await voidConversionReward(payer.id)
   }
 }

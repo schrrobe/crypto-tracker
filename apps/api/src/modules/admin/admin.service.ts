@@ -2,7 +2,7 @@ import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import type {
   AdminAssetsDto,
-  AdminCommissionDto,
+  AdminReferralRewardDto,
   AdminGrowthPointDto,
   AdminImportsDto,
   AdminOverviewDto,
@@ -14,7 +14,6 @@ import type {
 } from '@crypto-tracker/shared'
 import { Prisma } from '@prisma/client'
 import type { AdminAttentionDto, AdminChurnDto, AdminSourceDto } from '@crypto-tracker/shared'
-import { earningsByCurrency, listPendingPayouts } from '../referral/referral.service'
 import { deleteAccount } from '../auth/auth.service'
 import { requestSync } from '../sync/sync.service'
 import { toSyncRunDto } from '../sync/syncRun.mapper'
@@ -42,9 +41,9 @@ export async function getOverview(): Promise<AdminOverviewDto> {
     prev7d,
     prev30d,
     activeSessions,
-    owed,
-    paid,
+    proDaysAgg,
     referrers,
+    proConversions,
     invited,
   ] = await Promise.all([
     prisma.user.count(),
@@ -56,18 +55,18 @@ export async function getOverview(): Promise<AdminOverviewDto> {
     prisma.user.count({ where: { createdAt: { gte: daysAgo(14), lt: daysAgo(7) } } }),
     prisma.user.count({ where: { createdAt: { gte: daysAgo(60), lt: daysAgo(30) } } }),
     prisma.refreshToken.count({ where: { expiresAt: { gt: now } } }),
-    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { voidedAt: null } }),
-    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { payoutId: { not: null }, voidedAt: null } }),
-    prisma.referralCommission.findMany({ where: { voidedAt: null }, select: { referrerId: true }, distinct: ['referrerId'] }),
+    // Referral program is reward-based (free Pro-days), not cash: total days granted,
+    // distinct referrers who earned a conversion reward, and total conversions.
+    prisma.referralReward.aggregate({ _sum: { grantedDays: true }, where: { voidedAt: null } }),
+    prisma.referralReward.findMany({
+      where: { voidedAt: null, kind: 'CONVERSION' },
+      select: { userId: true },
+      distinct: ['userId'],
+    }),
+    prisma.referralReward.count({ where: { voidedAt: null, kind: 'CONVERSION' } }),
     prisma.user.count({ where: { referredById: { not: null } } }),
   ])
   const freeUsers = totalUsers - proUsers
-  const paidByCurrency = new Map(paid.map((r) => [r.currency, r._sum.amountCents ?? 0]))
-  const referralByCurrency = owed.map((r) => {
-    const total = r._sum.amountCents ?? 0
-    const paidCents = paidByCurrency.get(r.currency) ?? 0
-    return { currency: r.currency, owedCents: total - paidCents, paidCents }
-  })
   return {
     totalUsers,
     proUsers,
@@ -81,9 +80,10 @@ export async function getOverview(): Promise<AdminOverviewDto> {
     activeSubscriptions,
     mrrProxyCents: activeSubscriptions * PRO_PRICE_CENTS,
     referral: {
-      byCurrency: referralByCurrency,
       activeReferrers: referrers.length,
       invitedUsers: invited,
+      proConversions,
+      proDaysGranted: proDaysAgg._sum.grantedDays ?? 0,
     },
   }
 }
@@ -312,13 +312,13 @@ export async function getUserDetail(id: string): Promise<AdminUserDetailDto> {
     },
   })
   if (!u) throw AppError.notFound('User nicht gefunden')
-  // Compute earnings directly (no getReferralOverview — that one writes a
-  // referralCode on read and loads full invited/commission lists).
-  const [holdingsCount, activeSessions, invitedCount, earnings] = await Promise.all([
+  // Referral Pro-days earned directly (no getReferralOverview — that one writes a
+  // referralCode on read and loads the full invited list).
+  const [holdingsCount, activeSessions, invitedCount, proDaysAgg] = await Promise.all([
     prisma.holding.count({ where: { source: { userId: id } } }),
     prisma.refreshToken.count({ where: { userId: id, expiresAt: { gt: new Date() } } }),
     prisma.user.count({ where: { referredById: id } }),
-    earningsByCurrency(id),
+    prisma.referralReward.aggregate({ _sum: { grantedDays: true }, where: { userId: id, voidedAt: null } }),
   ])
   return {
     id: u.id,
@@ -334,7 +334,7 @@ export async function getUserDetail(id: string): Promise<AdminUserDetailDto> {
     holdingsCount,
     invitedCount,
     activeSessions,
-    earnings,
+    referralProDaysEarned: proDaysAgg._sum.grantedDays ?? 0,
   }
 }
 
@@ -414,7 +414,7 @@ export async function setAdmin(actor: AuditActor, id: string, isAdmin: boolean):
 export async function getAttention(): Promise<AdminAttentionDto> {
   const now = new Date()
   const in7d = new Date(Date.now() + 7 * DAY_MS)
-  const [sourcesErrRows, failedImports, stalePriceCache, pending, expiringSoonPro, suspendedUsers] =
+  const [sourcesErrRows, failedImports, stalePriceCache, expiringSoonPro, suspendedUsers] =
     await Promise.all([
       // Sources whose most recent SyncRun errored (current broken state).
       // DISTINCT ON is backed by @@index([sourceId, startedAt]) (loose index scan
@@ -426,7 +426,6 @@ export async function getAttention(): Promise<AdminAttentionDto> {
         ) latest WHERE latest.status = 'ERROR'`,
       prisma.csvImport.count({ where: { status: 'FAILED' } }),
       prisma.assetPrice.count({ where: { fetchedAt: { lt: new Date(Date.now() - 60 * 60 * 1000) } } }),
-      listPendingPayouts(),
       prisma.user.count({ where: { plan: 'PRO', planUntil: { gte: now, lte: in7d } } }),
       prisma.user.count({ where: { suspendedAt: { not: null } } }),
     ])
@@ -434,7 +433,6 @@ export async function getAttention(): Promise<AdminAttentionDto> {
     sourcesInError: sourcesErrRows[0]?.c ?? 0,
     failedImports,
     stalePriceCache,
-    pendingPayouts: pending.length,
     expiringSoonPro,
     suspendedUsers,
   }
@@ -479,62 +477,22 @@ export async function revokeSessions(actor: AuditActor, id: string): Promise<num
 
 // --- Referral admin ---------------------------------------------------------
 
-export async function listCommissions(referrerId?: string): Promise<AdminCommissionDto[]> {
-  const rows = await prisma.referralCommission.findMany({
-    where: referrerId ? { referrerId } : {},
+// Recent referral reward grants (read-only). No cash, no payouts — the program
+// grants free Pro-days, so admin visibility is the ledger, not a payout queue.
+export async function listReferralRewards(): Promise<AdminReferralRewardDto[]> {
+  const rows = await prisma.referralReward.findMany({
     orderBy: { createdAt: 'desc' },
     take: 200,
-    include: { referrer: { select: { email: true } } },
+    include: { user: { select: { email: true } } },
   })
-  return rows.map((c) => ({
-    id: c.id,
-    referrerEmail: c.referrer.email,
-    referredUserId: c.referredUserId,
-    amountCents: c.amountCents,
-    currency: c.currency,
-    payoutId: c.payoutId,
-    voidedAt: c.voidedAt?.toISOString() ?? null,
-    createdAt: c.createdAt.toISOString(),
-  }))
-}
-
-export async function voidCommission(actor: AuditActor, id: string): Promise<void> {
-  const c = await prisma.referralCommission.findUnique({
-    where: { id },
-    select: { payoutId: true, voidedAt: true, amountCents: true, currency: true, referrerId: true },
-  })
-  if (!c) throw AppError.notFound('Kommission nicht gefunden')
-  if (c.payoutId) throw AppError.badRequest('ALREADY_PAID', 'Bereits ausgezahlte Kommission kann nicht storniert werden')
-  // Atomic conditional update — closes the race against settlePayout: only voids
-  // while still unpaid+unvoided. count===0 → another tx paid/voided it meanwhile.
-  const { count } = await prisma.referralCommission.updateMany({
-    where: { id, payoutId: null, voidedAt: null },
-    data: { voidedAt: new Date() },
-  })
-  if (count === 0) {
-    throw AppError.badRequest('ALREADY_PAID', 'Kommission wurde zwischenzeitlich ausgezahlt oder storniert')
-  }
-  await recordAudit({
-    actor,
-    action: AuditAction.COMMISSION_VOIDED,
-    targetType: 'COMMISSION',
-    targetId: id,
-    metadata: { amountCents: c.amountCents, currency: c.currency, referrerId: c.referrerId },
-  })
-}
-
-export async function listPayoutHistory(): Promise<{ id: string; referrerEmail: string; amountCents: number; currency: string; createdAt: string }[]> {
-  const rows = await prisma.payout.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 200,
-    include: { referrer: { select: { email: true } } },
-  })
-  return rows.map((p) => ({
-    id: p.id,
-    referrerEmail: p.referrer.email,
-    amountCents: p.amountCents,
-    currency: p.currency,
-    createdAt: p.createdAt.toISOString(),
+  return rows.map((r) => ({
+    id: r.id,
+    userEmail: r.user.email,
+    kind: r.kind as AdminReferralRewardDto['kind'],
+    grantedDays: r.grantedDays,
+    referredUserId: r.referredUserId,
+    voidedAt: r.voidedAt?.toISOString() ?? null,
+    createdAt: r.createdAt.toISOString(),
   }))
 }
 

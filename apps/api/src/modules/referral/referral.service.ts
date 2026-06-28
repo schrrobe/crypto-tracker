@@ -1,19 +1,21 @@
 import { randomBytes } from 'node:crypto'
 import { env } from '../../config/env'
 import { prisma } from '../../lib/prisma'
-import { decryptSecret, encryptSecret, keyPreview } from '../../lib/crypto'
-import { AppError } from '../../lib/errors'
-import type {
-  BankDetailsInput,
-  ReferralBankDto,
-  ReferralDto,
-  ReferralEarningsDto,
-} from '@crypto-tracker/shared'
+import { effectivePlan } from '../../middleware/plan.middleware'
+import type { ReferralDto } from '@crypto-tracker/shared'
 
 // Unambiguous alphabet (no 0/O/1/I) for human-shareable codes.
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_LEN = 8
-const COMMISSION_RATE = 0.2
+
+// Reward economics: both sides earn free Pro-time, never cash.
+//  - Invitee gets REWARD_DAYS the moment they register with a valid code (drives code entry).
+//  - Referrer gets REWARD_DAYS once, when the invitee first converts to a paid Pro plan
+//    (real reward gated behind a real payment → fraud-resistant, near-zero marginal cost).
+export const REWARD_DAYS = 30
+const DAY_MS = 24 * 60 * 60 * 1000
+
+type RewardKind = 'SIGNUP' | 'CONVERSION'
 
 function randomCode(): string {
   const bytes = randomBytes(CODE_LEN)
@@ -39,35 +41,6 @@ export async function resolveReferrerId(code: string | undefined): Promise<strin
   return referrer?.id ?? null
 }
 
-// Idempotently record a 20% commission for a paid Pro invoice of an invited user.
-// Safe to call repeatedly for the same invoice (unique stripeInvoiceId).
-export async function recordCommissionForInvoice(input: {
-  referredUserId: string
-  referrerId: string
-  stripeInvoiceId: string
-  amountPaidCents: number
-  currency: string
-}): Promise<void> {
-  if (input.amountPaidCents <= 0) return
-  const amountCents = Math.floor(input.amountPaidCents * COMMISSION_RATE)
-  if (amountCents <= 0) return
-  try {
-    await prisma.referralCommission.create({
-      data: {
-        referrerId: input.referrerId,
-        referredUserId: input.referredUserId,
-        stripeInvoiceId: input.stripeInvoiceId,
-        amountCents,
-        currency: input.currency,
-      },
-    })
-  } catch (e) {
-    // Duplicate invoice (unique constraint) → already credited, ignore.
-    if (isUniqueViolation(e)) return
-    throw e
-  }
-}
-
 function isUniqueViolation(e: unknown): boolean {
   return Boolean(e && typeof e === 'object' && 'code' in e && (e as { code?: string }).code === 'P2002')
 }
@@ -77,6 +50,78 @@ function maskEmail(email: string): string {
   if (!local || !domain) return '***'
   const head = local.slice(0, 1)
   return `${head}***@${domain}`
+}
+
+// Atomically record a reward (idempotent via idempotencyKey) AND extend the
+// recipient's referralProUntil. The unique key makes a webhook retry or a double
+// signup a no-op: if the ledger row already exists, no second grant happens.
+//
+//   referralProUntil:  now ──┐
+//                            ├─ base = max(now, current) ──► base + REWARD_DAYS
+//   current bonus end ───────┘   (stacks on a still-active bonus, never shortens it)
+async function grantReward(input: {
+  userId: string
+  kind: RewardKind
+  idempotencyKey: string
+  referredUserId: string | null
+}): Promise<void> {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.referralReward.create({
+        data: {
+          userId: input.userId,
+          kind: input.kind,
+          idempotencyKey: input.idempotencyKey,
+          referredUserId: input.referredUserId,
+          grantedDays: REWARD_DAYS,
+        },
+      })
+      const u = await tx.user.findUnique({ where: { id: input.userId }, select: { referralProUntil: true } })
+      const now = Date.now()
+      const base = u?.referralProUntil && u.referralProUntil.getTime() > now ? u.referralProUntil.getTime() : now
+      await tx.user.update({
+        where: { id: input.userId },
+        data: { referralProUntil: new Date(base + REWARD_DAYS * DAY_MS) },
+      })
+    })
+  } catch (e) {
+    if (isUniqueViolation(e)) return // already granted — idempotent no-op
+    throw e
+  }
+}
+
+// Invitee reward: granted once when a user registers with a valid code.
+export async function grantSignupReward(inviteeId: string): Promise<void> {
+  await grantReward({
+    userId: inviteeId,
+    kind: 'SIGNUP',
+    idempotencyKey: `signup:${inviteeId}`,
+    referredUserId: null,
+  })
+}
+
+// Referrer reward: granted once when an invited user first converts to paid Pro.
+// Self-referral guard (defense in depth) — the referrer must not be the referred user.
+export async function grantConversionReward(referredUserId: string, referrerId: string): Promise<void> {
+  if (referrerId === referredUserId) return
+  await grantReward({
+    userId: referrerId,
+    kind: 'CONVERSION',
+    idempotencyKey: `conversion:${referredUserId}`,
+    referredUserId,
+  })
+}
+
+// Refund / chargeback: void the conversion reward for audit + accurate metrics.
+// Already-granted Pro-days are intentionally NOT clawed back — the marginal cost of
+// granted Pro-time is near zero (unlike cash), so retroactively stripping consumed
+// days is not worth the complexity. Returns how many rewards were voided.
+export async function voidConversionReward(referredUserId: string): Promise<number> {
+  const res = await prisma.referralReward.updateMany({
+    where: { kind: 'CONVERSION', referredUserId, voidedAt: null },
+    data: { voidedAt: new Date() },
+  })
+  return res.count
 }
 
 // Build the referral overview for a user, generating their code on first access.
@@ -92,123 +137,29 @@ export async function getReferralOverview(userId: string): Promise<ReferralDto> 
 
   const invited = await prisma.user.findMany({
     where: { referredById: userId },
-    select: { email: true, plan: true, createdAt: true },
+    select: { email: true, plan: true, planUntil: true, referralProUntil: true, createdAt: true },
     orderBy: { createdAt: 'desc' },
   })
 
-  const earnings = await earningsByCurrency(userId)
+  // Pro-days earned + conversions, from the non-voided reward ledger.
+  const rewards = await prisma.referralReward.findMany({
+    where: { userId, voidedAt: null },
+    select: { kind: true, grantedDays: true },
+  })
+  const earnedProDays = rewards.reduce((acc, r) => acc + r.grantedDays, 0)
+  const proConversions = rewards.filter((r) => r.kind === 'CONVERSION').length
 
   return {
     code: user.referralCode!,
     link: `${env.APP_PUBLIC_URL}/register?ref=${user.referralCode}`,
     invitedCount: invited.length,
-    earnings,
+    proConversions,
+    earnedProDays,
+    rewardDays: REWARD_DAYS,
     invited: invited.map((i) => ({
       emailMasked: maskEmail(i.email),
       joinedAt: i.createdAt.toISOString(),
-      isPro: i.plan === 'PRO',
+      isPro: effectivePlan(i) === 'PRO',
     })),
   }
-}
-
-// Owed (payoutId null) and paid (payoutId set) totals, grouped by currency.
-// Voided commissions are excluded. Returns one entry per currency.
-export async function earningsByCurrency(referrerId: string): Promise<ReferralEarningsDto[]> {
-  const rows = await prisma.referralCommission.groupBy({
-    by: ['currency'],
-    where: { referrerId, voidedAt: null },
-    _sum: { amountCents: true },
-  })
-  const paidRows = await prisma.referralCommission.groupBy({
-    by: ['currency'],
-    where: { referrerId, voidedAt: null, payoutId: { not: null } },
-    _sum: { amountCents: true },
-  })
-  const paidByCurrency = new Map(paidRows.map((r) => [r.currency, r._sum.amountCents ?? 0]))
-  return rows.map((r) => {
-    const total = r._sum.amountCents ?? 0
-    const paidCents = paidByCurrency.get(r.currency) ?? 0
-    return { currency: r.currency, owedCents: total - paidCents, paidCents }
-  })
-}
-
-export async function getBankDetails(userId: string): Promise<ReferralBankDto | null> {
-  const user = await prisma.user.findUnique({ where: { id: userId } })
-  if (!user?.encryptedIban || !user.ibanPreview) return null
-  return {
-    holder: user.bankHolder ?? '',
-    bic: user.bankBic ?? '',
-    ibanPreview: user.ibanPreview,
-  }
-}
-
-export async function saveBankDetails(userId: string, input: BankDetailsInput): Promise<ReferralBankDto> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      encryptedIban: encryptSecret(input.iban),
-      ibanPreview: keyPreview(input.iban),
-      bankBic: input.bic,
-      bankHolder: input.holder,
-    },
-  })
-  return { holder: input.holder, bic: input.bic, ibanPreview: keyPreview(input.iban) }
-}
-
-// --- Admin (payout) ---------------------------------------------------------
-
-export interface PendingPayout {
-  referrerId: string
-  email: string
-  owedCents: number
-  currency: string
-  holder: string | null
-  bic: string | null
-  iban: string | null // full, decrypted — admin only, for the bank transfer
-}
-
-// One pending payout per (referrer, currency) over all unpaid commissions.
-export async function listPendingPayouts(): Promise<PendingPayout[]> {
-  const grouped = await prisma.referralCommission.groupBy({
-    by: ['referrerId', 'currency'],
-    where: { payoutId: null, voidedAt: null },
-    _sum: { amountCents: true },
-  })
-  const referrers = await prisma.user.findMany({
-    where: { id: { in: grouped.map((g) => g.referrerId) } },
-    select: { id: true, email: true, bankHolder: true, bankBic: true, encryptedIban: true },
-  })
-  const byId = new Map(referrers.map((r) => [r.id, r]))
-  return grouped.map((g) => {
-    const u = byId.get(g.referrerId)
-    return {
-      referrerId: g.referrerId,
-      email: u?.email ?? '',
-      owedCents: g._sum.amountCents ?? 0,
-      currency: g.currency,
-      holder: u?.bankHolder ?? null,
-      bic: u?.bankBic ?? null,
-      iban: u?.encryptedIban ? decryptSecret(u.encryptedIban) : null,
-    }
-  })
-}
-
-// Bundle a referrer's unpaid commissions (one currency) into a Payout, marking them paid.
-export async function settlePayout(referrerId: string, currency: string): Promise<{ id: string; amountCents: number; currency: string }> {
-  return prisma.$transaction(async (tx) => {
-    const unpaid = await tx.referralCommission.findMany({
-      where: { referrerId, currency, payoutId: null, voidedAt: null },
-      select: { id: true, amountCents: true },
-    })
-    if (unpaid.length === 0) throw AppError.notFound('Keine offenen Kommissionen')
-    const amountCents = unpaid.reduce((acc, c) => acc + c.amountCents, 0)
-    const payout = await tx.payout.create({
-      data: { referrerId, amountCents, currency },
-    })
-    await tx.referralCommission.updateMany({
-      where: { id: { in: unpaid.map((c) => c.id) } },
-      data: { payoutId: payout.id },
-    })
-    return { id: payout.id, amountCents, currency }
-  })
 }

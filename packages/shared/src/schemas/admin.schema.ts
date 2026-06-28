@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import type { ReferralEarningsDto } from './referral.schema'
 
 // --- Stats ------------------------------------------------------------------
 
@@ -17,9 +16,10 @@ export interface AdminOverviewDto {
   activeSubscriptions: number
   mrrProxyCents: number
   referral: {
-    byCurrency: ReferralEarningsDto[]
     activeReferrers: number
     invitedUsers: number
+    proConversions: number
+    proDaysGranted: number
   }
 }
 
@@ -88,16 +88,17 @@ export interface AdminUserDetailDto extends AdminUserListItemDto {
   holdingsCount: number
   invitedCount: number
   activeSessions: number
-  earnings: ReferralEarningsDto[]
+  // Total free Pro-days this user has earned from the referral program (non-voided).
+  referralProDaysEarned: number
 }
 
-export interface AdminCommissionDto {
+// One referral reward grant, for the admin referral view.
+export interface AdminReferralRewardDto {
   id: string
-  referrerEmail: string
-  referredUserId: string
-  amountCents: number
-  currency: string
-  payoutId: string | null
+  userEmail: string
+  kind: 'SIGNUP' | 'CONVERSION'
+  grantedDays: number
+  referredUserId: string | null
   voidedAt: string | null
   createdAt: string
 }
@@ -155,7 +156,6 @@ export interface AdminAttentionDto {
   sourcesInError: number
   failedImports: number
   stalePriceCache: number
-  pendingPayouts: number
   expiringSoonPro: number
   suspendedUsers: number
 }
