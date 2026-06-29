@@ -33,7 +33,9 @@ const EVENT_RUN = Date.now()
 let eventSeq = 0
 async function fireEvent(event: Record<string, unknown>) {
   eventSeq += 1
-  fakeEvent = { id: `evt_ref_${EVENT_RUN}_${eventSeq}`, created: 1000 + eventSeq, ...event }
+  // Spread event FIRST so the generated unique id/created always win — a caller's
+  // fixed id must never collapse two deliveries into one webhook-dedup hit.
+  fakeEvent = { ...event, id: `evt_ref_${EVENT_RUN}_${eventSeq}`, created: 1000 + eventSeq }
   const { handleWebhookEvent } = await import('../modules/billing/billing.service')
   await handleWebhookEvent(Buffer.from('{}'), 'sig')
 }
@@ -61,7 +63,15 @@ async function fireInvoicePaid(
 }
 
 async function fireChargeRefunded(chargeId: string) {
-  await fireEvent({ id: `evt_${chargeId}_refund`, type: 'charge.refunded', data: { object: { id: chargeId } } })
+  await fireEvent({ type: 'charge.refunded', data: { object: { id: chargeId } } })
+}
+
+// Save valid bank details (required before a payout can be settled).
+async function setBank(user: Awaited<ReturnType<typeof registerUser>>) {
+  await request(app)
+    .put(`${API}/referral/bank`)
+    .set(...bearer(user))
+    .send({ iban: 'DE89 3704 0044 0532 0130 00', bic: 'COBADEFFXXX', holder: 'Test Holder' })
 }
 
 // Make all of a referrer's commissions immediately payable (simulate clearing elapsed).
@@ -166,6 +176,7 @@ describe('Referral (Integration)', () => {
     const customer = `cus_${invitedId}`
     await prisma.user.update({ where: { id: invitedId }, data: { stripeCustomerId: customer } })
     await fireInvoicePaid(customer, `in_admin_${invitedId}`, 5000) // 1000 cents commission
+    await setBank(referrer)
 
     const nonAdmin = await request(app).get(`${API}/admin/referral/payouts`).set(...bearer(referrer))
     expect(nonAdmin.status).toBe(404)
@@ -269,6 +280,7 @@ describe('Referral (Integration)', () => {
     await prisma.user.update({ where: { id: invitedId }, data: { stripeCustomerId: customer } })
     await fireInvoicePaid(customer, `in_race_${invitedId}`, 5000) // 1000 commission
     await makePayable(referrer.userId)
+    await setBank(referrer)
 
     const { settlePayout } = await import('../modules/referral/referral.service')
     const results = await Promise.allSettled([
@@ -299,6 +311,7 @@ describe('Referral (Integration)', () => {
     const charge = `ch_rap_${invitedId}`
     await fireInvoicePaid(customer, `in_rap_${invitedId}`, 5000, 'subscription_cycle', charge)
     await makePayable(referrer.userId)
+    await setBank(referrer)
 
     const { settlePayout, reverseCommission } = await import('../modules/referral/referral.service')
     const payout = await settlePayout(referrer.userId, 'eur')

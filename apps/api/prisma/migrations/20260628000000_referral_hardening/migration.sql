@@ -21,6 +21,8 @@ ALTER TABLE "ReferralCommission" ALTER COLUMN "payableAt" SET NOT NULL;
 -- Backfill status from the old nullable-column model.
 UPDATE "ReferralCommission" SET "status" = 'REVERSED', "reversedAt" = "voidedAt", "reversalReason" = 'admin_void' WHERE "voidedAt" IS NOT NULL;
 UPDATE "ReferralCommission" SET "status" = 'PAID' WHERE "payoutId" IS NOT NULL AND "voidedAt" IS NULL;
+-- Legacy unpaid, non-voided rows are past their (backfilled) clearing window → CONFIRMED.
+UPDATE "ReferralCommission" SET "status" = 'CONFIRMED' WHERE "payoutId" IS NULL AND "voidedAt" IS NULL;
 
 -- referredUserId becomes nullable so a deleted referred user can SET NULL.
 ALTER TABLE "ReferralCommission" ALTER COLUMN "referredUserId" DROP NOT NULL;
@@ -36,6 +38,8 @@ UPDATE "ReferralCommission" SET "referredUserId" = NULL
 CREATE INDEX "ReferralCommission_referrerId_currency_status_idx" ON "ReferralCommission"("referrerId", "currency", "status");
 CREATE INDEX "ReferralCommission_status_payableAt_idx" ON "ReferralCommission"("status", "payableAt");
 CREATE INDEX "ReferralCommission_stripeChargeId_idx" ON "ReferralCommission"("stripeChargeId");
+-- FK index: ON DELETE SET NULL on referredUserId would otherwise scan the table on user deletes.
+CREATE INDEX "ReferralCommission_referredUserId_idx" ON "ReferralCommission"("referredUserId");
 
 -- Referential integrity for the referred user.
 ALTER TABLE "ReferralCommission" ADD CONSTRAINT "ReferralCommission_referredUserId_fkey"

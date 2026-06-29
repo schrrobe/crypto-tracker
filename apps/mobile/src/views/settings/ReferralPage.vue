@@ -164,7 +164,9 @@ const error = ref('')
 
 const valid = computed(() => holder.value.trim().length > 0 && iban.value.trim().length > 0 && bic.value.trim().length > 0)
 
-const thresholdCents = computed(() => r.value?.payoutThresholdCents ?? 0)
+// Fail closed: a missing threshold must NOT make every balance payable (which would
+// expose the bank form early and render "0.00 EUR" copy). Treat absent as unreachable.
+const thresholdCents = computed(() => r.value?.payoutThresholdCents ?? Number.POSITIVE_INFINITY)
 // Payable once any currency's owed balance clears the threshold.
 const payable = computed(() => (r.value?.earnings ?? []).some((e) => e.owedCents >= thresholdCents.value))
 const hasPending = computed(() => (r.value?.earnings ?? []).some((e) => e.pendingCents > 0))

@@ -98,18 +98,21 @@ export async function reverseCommission(input: {
   const commission = await prisma.referralCommission.findFirst({ where })
   if (!commission) return { reversed: false, alreadyPaid: false }
   if (commission.status === 'REVERSED') return { reversed: false, alreadyPaid: Boolean(commission.payoutId) }
-  const alreadyPaid = Boolean(commission.payoutId)
-  await prisma.referralCommission.update({
+  // Read payoutId from the POST-update row, not the pre-read one: a settlePayout
+  // that claimed this commission between our findFirst and update would otherwise
+  // be missed, hiding a manual-reclaim case.
+  const updated = await prisma.referralCommission.update({
     where: { id: commission.id },
     data: { status: 'REVERSED', reversedAt: new Date(), reversalReason: input.reason },
   })
+  const alreadyPaid = Boolean(updated.payoutId)
   if (alreadyPaid) {
     // Money already left in payout `payoutId`; reversing now creates a negative
     // balance the admin must reclaim manually. Loud, alertable log — there is no
     // automatic clawback of a sent bank transfer.
     console.error(
-      `[referral] REVERSAL_AFTER_PAYOUT commission=${commission.id} referrer=${commission.referrerId} ` +
-        `payout=${commission.payoutId} amount=${commission.amountCents} ${commission.currency} reason=${input.reason} ` +
+      `[referral] REVERSAL_AFTER_PAYOUT commission=${updated.id} referrer=${updated.referrerId} ` +
+        `payout=${updated.payoutId} amount=${updated.amountCents} ${updated.currency} reason=${input.reason} ` +
         `— admin must reclaim; referrer balance is now negative`,
     )
   }
@@ -315,21 +318,33 @@ export async function settlePayout(
       where: { id: referrerId },
       select: { encryptedIban: true, ibanPreview: true, bankBic: true, bankHolder: true },
     })
+    // Never mark commissions PAID against a payout with no valid bank target:
+    // reject when bank details are missing or the stored IBAN can't be decrypted.
+    if (!user?.encryptedIban || !user.bankHolder) {
+      throw AppError.badRequest('BANK_DETAILS_MISSING', 'Keine Bankdaten hinterlegt')
+    }
+    try {
+      decryptSecret(user.encryptedIban)
+    } catch {
+      throw AppError.badRequest('BANK_DETAILS_INVALID', 'Bankdaten konnten nicht entschlüsselt werden')
+    }
     const payout = await tx.payout.create({
       data: {
         referrerId,
         amountCents,
         currency,
         status: 'CREATED',
-        snapshotIban: user?.encryptedIban ?? null,
-        snapshotIbanPreview: user?.ibanPreview ?? null,
-        snapshotBic: user?.bankBic ?? null,
-        snapshotHolder: user?.bankHolder ?? null,
+        snapshotIban: user.encryptedIban,
+        snapshotIbanPreview: user.ibanPreview ?? null,
+        snapshotBic: user.bankBic ?? null,
+        snapshotHolder: user.bankHolder,
       },
     })
-    // Claim ONLY rows still unclaimed — closes the double-payout race.
+    // Claim ONLY rows still payable + unclaimed — guard must mirror payableWhere()
+    // so a refund/admin reversal between findMany and this claim can't be
+    // overwritten back to PAID. count mismatch → concurrent change → roll back.
     const { count } = await tx.referralCommission.updateMany({
-      where: { id: { in: payable.map((c) => c.id) }, payoutId: null },
+      where: { id: { in: payable.map((c) => c.id) }, ...payableWhere(now) },
       data: { payoutId: payout.id, status: 'PAID' },
     })
     if (count !== payable.length) {

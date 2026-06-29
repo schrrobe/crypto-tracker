@@ -189,6 +189,7 @@ model ReferralCommission {
 
   @@index([referrerId])
   @@index([payoutId])
+  @@index([referredUserId])
   @@index([referrerId, currency, status])
   @@index([status, payableAt])
   @@index([stripeChargeId])

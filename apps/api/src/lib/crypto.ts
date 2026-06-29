@@ -19,7 +19,9 @@ function keyForVersion(version: string): Buffer {
 
 export function encryptSecret(plaintext: string): string {
   const iv = randomBytes(12)
-  const cipher = createCipheriv('aes-256-gcm', KEY, iv)
+  // Use the key for the CURRENT version tag, so the tag and the key can never
+  // diverge when KEY_VERSION is bumped for rotation.
+  const cipher = createCipheriv('aes-256-gcm', keyForVersion(KEY_VERSION), iv)
   const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
   const authTag = cipher.getAuthTag()
   return [KEY_VERSION, ...[iv, authTag, ciphertext].map((b) => b.toString('base64'))].join(':')

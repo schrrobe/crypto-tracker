@@ -256,10 +256,12 @@ async function dispatchStripeEvent(s: Stripe, event: Stripe.Event): Promise<void
     // invoices, etc. (Stripe emits invoice.paid for those too).
     if (invoice.billing_reason !== 'subscription_create' && invoice.billing_reason !== 'subscription_cycle') return
     if (!payer?.referredById) return
-    // Net basis: prefer total ex-tax (after discounts, before VAT), then subtotal,
-    // then amount_paid. Never pay commission on tax we remit to the state.
-    const inv = invoice as Stripe.Invoice & { total_excluding_tax?: number | null; subtotal?: number | null }
-    const netAmountCents = inv.total_excluding_tax ?? inv.subtotal ?? invoice.amount_paid
+    // Net basis: total ex-tax (after discounts, before VAT). On a paid/finalized
+    // invoice it is always present. Fall back to amount_paid (post-discount, what
+    // the customer actually paid) — NOT subtotal, which ignores invoice-level
+    // discounts and would overstate the commission on a discounted invoice.
+    const inv = invoice as Stripe.Invoice & { total_excluding_tax?: number | null }
+    const netAmountCents = inv.total_excluding_tax ?? invoice.amount_paid
     await recordCommissionForInvoice({
       referredUserId: payer.id,
       referrerId: payer.referredById,
