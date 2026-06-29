@@ -26,10 +26,14 @@ async function registerWithCode(prefix: string, referralCode?: string) {
 // (ProcessedStripeEvent on event.id) never fires here — duplicate-invoice
 // idempotency is exercised at the invoice level (stripeInvoiceId unique), which
 // is the contract these tests verify.
+// Run-unique prefix: ProcessedStripeEvent (event.id) persists across runs in the
+// shared test DB, so a fixed counter would collide with a prior run's rows and get
+// deduped. Date.now() makes every run's ids fresh.
+const EVENT_RUN = Date.now()
 let eventSeq = 0
 async function fireEvent(event: Record<string, unknown>) {
   eventSeq += 1
-  fakeEvent = { id: `evt_${eventSeq}`, created: 1000 + eventSeq, ...event }
+  fakeEvent = { id: `evt_ref_${EVENT_RUN}_${eventSeq}`, created: 1000 + eventSeq, ...event }
   const { handleWebhookEvent } = await import('../modules/billing/billing.service')
   await handleWebhookEvent(Buffer.from('{}'), 'sig')
 }
