@@ -119,6 +119,7 @@ model User {
   refreshTokens RefreshToken[]
   passwordResetTokens PasswordResetToken[]
   commissionsEarned ReferralCommission[] @relation("Earned")
+  commissionsReceived ReferralCommission[] @relation("Received")
   payouts       Payout[]
   auditLogs     AuditLog[]        @relation("ActorAudits")
   surveyResponses SurveyResponse[]
@@ -141,34 +142,80 @@ model AuditLog {
   @@index([targetId])
 }
 
-// Earnings ledger: 20% of each Pro invoice paid by an invited user.
-// payoutId == null → still owed; set → bundled into a Payout (paid out).
+// Lifecycle of a referral commission. State, not nullable-column smuggling.
+//   PENDING   → created, inside the refund/clearing window (not yet payable)
+//   CONFIRMED → clearing window passed, refund-safe → payable
+//   PAID      → bundled into a settled Payout
+//   REVERSED  → invoice refunded/disputed/voided, or admin-voided (no payout)
+enum CommissionStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  REVERSED
+}
+
+// Earnings ledger: 20% of the net (ex-VAT) amount of each Pro invoice paid by an
+// invited user. status drives payability; payableAt = createdAt + clearing window.
 model ReferralCommission {
-  id              String   @id @default(uuid())
-  referrerId      String
-  referredUserId  String
-  stripeInvoiceId String   @unique
-  amountCents     Int
-  currency        String
-  payoutId        String?
-  voidedAt        DateTime?
-  createdAt       DateTime @default(now())
-  referrer        User     @relation("Earned", fields: [referrerId], references: [id], onDelete: Cascade)
-  payout          Payout?  @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  id                   String           @id @default(uuid())
+  referrerId           String
+  referredUserId       String?
+  stripeInvoiceId      String           @unique
+  // Stripe charge / subscription behind the invoice — lets refund & dispute
+  // events (which carry charge/PI, not invoice) map back to this commission.
+  stripeChargeId       String?
+  stripeSubscriptionId String?
+  amountCents          Int
+  currency             String
+  status               CommissionStatus @default(PENDING)
+  payableAt            DateTime
+  payoutId             String?
+  reversedAt           DateTime?
+  reversalReason       String?
+  // Legacy manual-void timestamp; kept for history. New reversals also set status=REVERSED.
+  voidedAt             DateTime?
+  createdAt            DateTime         @default(now())
+  referrer             User             @relation("Earned", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredUser         User?            @relation("Received", fields: [referredUserId], references: [id], onDelete: SetNull)
+  payout               Payout?          @relation(fields: [payoutId], references: [id], onDelete: SetNull)
 
   @@index([referrerId])
   @@index([payoutId])
+  @@index([referrerId, currency, status])
+  @@index([status, payableAt])
+  @@index([stripeChargeId])
 }
 
-// One manual bank-transfer payout bundling a referrer's owed commissions.
+// Lifecycle of a manual bank-transfer payout.
+//   CREATED   → bundled, awaiting the real bank transfer
+//   SETTLED   → admin confirmed the transfer went out
+//   FAILED    → transfer failed; commissions get unbundled back to CONFIRMED
+//   CANCELLED → payout voided before transfer; commissions unbundled
+enum PayoutStatus {
+  CREATED
+  SETTLED
+  FAILED
+  CANCELLED
+}
+
+// One manual bank-transfer payout bundling a referrer's payable commissions.
+// Bank details are SNAPSHOT at settle time so a later bank-detail edit can never
+// redirect an in-flight payout.
 model Payout {
-  id          String               @id @default(uuid())
-  referrerId  String
-  amountCents Int
-  currency    String
-  createdAt   DateTime             @default(now())
-  referrer    User                 @relation(fields: [referrerId], references: [id], onDelete: Cascade)
-  commissions ReferralCommission[]
+  id            String               @id @default(uuid())
+  referrerId    String
+  amountCents   Int
+  currency      String
+  status        PayoutStatus         @default(CREATED)
+  failureReason String?
+  // Frozen bank target at settle time.
+  snapshotIban       String?
+  snapshotIbanPreview String?
+  snapshotBic        String?
+  snapshotHolder     String?
+  createdAt     DateTime             @default(now())
+  referrer      User                 @relation(fields: [referrerId], references: [id], onDelete: Cascade)
+  commissions   ReferralCommission[]
 
   @@index([referrerId])
 }

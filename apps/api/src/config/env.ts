@@ -63,6 +63,13 @@ const envSchema = z.object({
   MIN_CLIENT_VERSION_IOS: z.string().optional(),
   APP_STORE_URL_IOS: z.string().url().optional(),
   APP_STORE_URL_ANDROID: z.string().url().optional(),
+  // Referral clearing window (days): a commission stays PENDING this long after the
+  // invoice is paid, covering the refund/dispute window, before it becomes payable.
+  REFERRAL_CLEARING_DAYS: z.coerce.number().int().nonnegative().default(30),
+  // Minimum payable balance (per currency, in cents) before a payout can be settled.
+  // Avoids wiring tiny transfers whose bank cost exceeds the commission.
+  REFERRAL_PAYOUT_MIN_CENTS: z.coerce.number().int().nonnegative().default(5000),
+
   // Only for tests/local development: deterministic prices and providers instead of real APIs
   FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   FAKE_PROVIDERS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),

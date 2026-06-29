@@ -25,6 +25,7 @@ export interface InvitedAccountDto {
 // Earnings are tracked per currency — commissions in different currencies must
 // never be summed together (each Stripe invoice keeps its own currency).
 export interface ReferralEarningsDto {
+  pendingCents: number
   owedCents: number
   paidCents: number
   currency: string

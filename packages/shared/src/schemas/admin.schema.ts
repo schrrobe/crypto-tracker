@@ -94,7 +94,7 @@ export interface AdminUserDetailDto extends AdminUserListItemDto {
 export interface AdminCommissionDto {
   id: string
   referrerEmail: string
-  referredUserId: string
+  referredUserId: string | null
   amountCents: number
   currency: string
   payoutId: string | null

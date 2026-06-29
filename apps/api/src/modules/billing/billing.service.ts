@@ -3,7 +3,7 @@ import type { Plan } from '@prisma/client'
 import { env } from '../../config/env'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
-import { recordCommissionForInvoice } from '../referral/referral.service'
+import { recordCommissionForInvoice, reverseCommission } from '../referral/referral.service'
 
 // Billing is only active when a Stripe secret is configured. Without a key the
 // endpoints return 503 (BILLING_DISABLED); locally the plan is tested via the
@@ -120,6 +120,14 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
     throw AppError.badRequest('WEBHOOK_SIGNATURE', 'Ungültige Stripe-Signatur')
   }
 
+  // Idempotency is per-handler: invoice.paid is unique on stripeInvoiceId,
+  // reverseCommission is idempotent on commission status, applyPlan is idempotent.
+  // Cross-event-type dedup is owned by the billing-hardening branch's
+  // ProcessedStripeEvent table; reconcile onto it at merge.
+  await processWebhookEvent(s, event)
+}
+
+async function processWebhookEvent(s: Stripe, event: Stripe.Event): Promise<void> {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
     if (session.customer && session.subscription) {
@@ -139,7 +147,7 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
     return
   }
   // Recurring referral commission: each paid invoice of an invited user credits
-  // their referrer 20% (idempotent per invoice id).
+  // their referrer 20% of NET revenue (ex-VAT, ex-discount), idempotent per invoice.
   if (event.type === 'invoice.paid') {
     const invoice = event.data.object as Stripe.Invoice
     if (!invoice.customer || !invoice.id || invoice.amount_paid <= 0) return
@@ -151,12 +159,44 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
       select: { id: true, referredById: true },
     })
     if (!payer?.referredById) return
+    // Net basis: prefer total ex-tax (after discounts, before VAT), then subtotal,
+    // then amount_paid. Never pay commission on tax we remit to the state.
+    const inv = invoice as Stripe.Invoice & { total_excluding_tax?: number | null; subtotal?: number | null }
+    const netAmountCents = inv.total_excluding_tax ?? inv.subtotal ?? invoice.amount_paid
     await recordCommissionForInvoice({
       referredUserId: payer.id,
       referrerId: payer.referredById,
       stripeInvoiceId: invoice.id,
-      amountPaidCents: invoice.amount_paid,
+      netAmountCents,
       currency: invoice.currency,
+      stripeChargeId: stripeIdOf((invoice as { charge?: unknown }).charge),
+      stripeSubscriptionId: stripeIdOf((invoice as { subscription?: unknown }).subscription),
     })
+    return
   }
+  // Clawback: a refunded charge reverses the matching commission (whole, conservatively).
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object as Stripe.Charge
+    await reverseCommission({ stripeChargeId: charge.id, reason: 'charge.refunded' })
+    return
+  }
+  // Clawback: a disputed/charged-back payment reverses the commission.
+  if (event.type === 'charge.dispute.created') {
+    const dispute = event.data.object as Stripe.Dispute
+    await reverseCommission({ stripeChargeId: stripeIdOf(dispute.charge), reason: 'charge.dispute.created' })
+    return
+  }
+  // Clawback: a voided invoice reverses the commission booked for it.
+  if (event.type === 'invoice.voided') {
+    const invoice = event.data.object as Stripe.Invoice
+    if (invoice.id) await reverseCommission({ stripeInvoiceId: invoice.id, reason: 'invoice.voided' })
+    return
+  }
+}
+
+// Stripe fields are id-or-expanded-object-or-null; normalize to the id string.
+function stripeIdOf(value: unknown): string | null {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object' && 'id' in value) return String((value as { id: unknown }).id)
+  return null
 }
