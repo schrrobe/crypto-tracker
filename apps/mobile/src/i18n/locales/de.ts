@@ -162,6 +162,13 @@ const de = {
     save: 'Speichern',
     saved: 'Bankdaten gespeichert',
     saveFailed: 'Bankdaten konnten nicht gespeichert werden',
+    valueProp: 'Verdiene 20 % von jeder Pro-Zahlung deiner eingeladenen Freunde.',
+    valuePropNote: 'Wiederkehrend, solange dein Freund Pro nutzt.',
+    earningsPending: 'In Prüfung',
+    earningsPendingNote: 'Wird nach Ablauf der Rückerstattungsfrist bestätigt.',
+    payoutsPreparing: 'Auszahlungen sind in Vorbereitung. Sammle weiter Provisionen — sobald Auszahlungen freigeschaltet sind, kannst du hier deine Bankdaten hinterlegen.',
+    thresholdHint: 'Auszahlung ab {amount}. Sammle weiter Provisionen.',
+    bankEncryptedHint: 'Deine IBAN wird verschlüsselt gespeichert; wir zeigen nur die letzten 4 Stellen.',
   },
   update: {
     title: 'Update erforderlich',

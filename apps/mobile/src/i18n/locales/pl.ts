@@ -163,6 +163,13 @@ const pl: MessageSchema = {
     save: 'Zapisz',
     saved: 'Dane bankowe zapisane',
     saveFailed: 'Nie udało się zapisać danych bankowych',
+    valueProp: 'Zarabiaj 20% z każdej płatności Pro zaproszonych znajomych.',
+    valuePropNote: 'Cyklicznie, dopóki znajomy korzysta z Pro.',
+    earningsPending: 'W trakcie weryfikacji',
+    earningsPendingNote: 'Potwierdzane po upływie okresu zwrotu.',
+    payoutsPreparing: 'Wypłaty są przygotowywane. Zbieraj dalej prowizje — gdy wypłaty zostaną uruchomione, będzie można tu dodać dane bankowe.',
+    thresholdHint: 'Wypłata od {amount}. Zbieraj dalej prowizje.',
+    bankEncryptedHint: 'Twój IBAN jest przechowywany w postaci zaszyfrowanej; pokazujemy tylko ostatnie 4 cyfry.',
   },
   update: {
     title: 'Wymagana aktualizacja',

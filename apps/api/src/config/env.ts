@@ -69,6 +69,10 @@ const envSchema = z.object({
   // Minimum payable balance (per currency, in cents) before a payout can be settled.
   // Avoids wiring tiny transfers whose bank cost exceeds the commission.
   REFERRAL_PAYOUT_MIN_CENTS: z.coerce.number().int().nonnegative().default(5000),
+  // Master switch for live payouts. Stays false until the launch gate is met
+  // (security + legal hardening). While false the app must NOT collect bank
+  // details or imply money is coming — see the bank-gate in ReferralPage.
+  REFERRAL_PAYOUTS_LIVE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 
   // Only for tests/local development: deterministic prices and providers instead of real APIs
   FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),

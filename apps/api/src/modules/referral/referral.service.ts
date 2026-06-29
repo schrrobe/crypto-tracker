@@ -156,6 +156,8 @@ export async function getReferralOverview(userId: string): Promise<ReferralDto> 
       joinedAt: i.createdAt.toISOString(),
       isPro: i.plan === 'PRO',
     })),
+    payoutsEnabled: env.REFERRAL_PAYOUTS_LIVE,
+    payoutThresholdCents: env.REFERRAL_PAYOUT_MIN_CENTS,
   }
 }
 
