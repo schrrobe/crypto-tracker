@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import type { Plan } from '@prisma/client'
+import { Prisma, type Plan } from '@prisma/client'
 import { env } from '../../config/env'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
@@ -48,12 +48,16 @@ export async function createCheckoutSession(userId: string): Promise<string> {
   const s = requireStripe()
   if (!env.STRIPE_PRICE_ID) throw new AppError('BILLING_DISABLED', 503, 'Kein Stripe-Preis konfiguriert')
   const customer = await getOrCreateCustomer(userId)
+  // The session id is echoed back on the success URL so the client can reconcile
+  // the plan immediately, without waiting for the (possibly delayed) webhook.
+  const successBase = env.STRIPE_SUCCESS_URL ?? `${env.APP_PUBLIC_URL}/tabs/settings`
+  const sep = successBase.includes('?') ? '&' : '?'
   const session = await s.checkout.sessions.create({
     mode: 'subscription',
     customer,
     line_items: [{ price: env.STRIPE_PRICE_ID, quantity: 1 }],
     client_reference_id: userId,
-    success_url: env.STRIPE_SUCCESS_URL ?? `${env.APP_PUBLIC_URL}/tabs/settings?upgrade=success`,
+    success_url: `${successBase}${sep}upgrade=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: env.STRIPE_CANCEL_URL ?? `${env.APP_PUBLIC_URL}/tabs/settings`,
   })
   if (!session.url) throw new AppError('BILLING_ERROR', 502, 'Stripe lieferte keine Checkout-URL')
@@ -90,10 +94,28 @@ async function applyPlanByCustomer(
   customerId: string,
   plan: Plan,
   subscriptionId: string | null,
-  periodEndSec?: number | null,
+  periodEndSec: number | null,
+  eventAtSec: number,
+  fallbackUserId?: string,
 ): Promise<void> {
-  const user = await prisma.user.findUnique({ where: { stripeCustomerId: customerId } })
-  if (!user) return
+  let user = await prisma.user.findUnique({ where: { stripeCustomerId: customerId } })
+  // Mapping fallback: a checkout event carries client_reference_id (our userId).
+  // If the customer→user link is missing (race with getOrCreateCustomer, or an
+  // out-of-band customer), resolve by userId and heal the link.
+  if (!user && fallbackUserId) {
+    user = await prisma.user.findUnique({ where: { id: fallbackUserId } })
+    if (user && !user.stripeCustomerId) {
+      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } })
+    }
+  }
+  if (!user) {
+    console.warn(`[billing] webhook for unknown Stripe customer ${customerId} — no user matched`)
+    return
+  }
+  // Ordering guard: ignore events older than the last plan-affecting one we applied,
+  // so a retried/out-of-order subscription event can't overwrite newer state.
+  const eventAt = new Date(eventAtSec * 1000)
+  if (user.lastStripeEventAt && eventAt < user.lastStripeEventAt) return
   await prisma.user.update({
     where: { id: user.id },
     data: {
@@ -103,8 +125,51 @@ async function applyPlanByCustomer(
       // checkout.session.completed provides none, and if this event arrived after a
       // subscription.updated, it would otherwise erase a valid expiry date.
       ...(periodEndSec ? { planUntil: new Date(periodEndSec * 1000) } : {}),
+      lastStripeEventAt: eventAt,
     },
   })
+}
+
+// Reconcile the plan from a completed Checkout session on the success-return,
+// closing the "paid but webhook delayed/dropped" gap. Authoritative on-demand
+// read of Stripe state; ownership is verified against the caller.
+export async function reconcileCheckoutSession(
+  userId: string,
+  sessionId: string,
+): Promise<{ plan: Plan }> {
+  const s = requireStripe()
+  let session: Stripe.Checkout.Session
+  try {
+    session = await s.checkout.sessions.retrieve(sessionId)
+  } catch {
+    throw AppError.notFound('Checkout-Sitzung nicht gefunden')
+  }
+  // 404 (not 403) for a session that isn't this user's — don't reveal it exists.
+  const ownsByRef = session.client_reference_id === userId
+  let ownsByCustomer = false
+  if (!ownsByRef && session.customer) {
+    const me = await prisma.user.findUnique({ where: { id: userId }, select: { stripeCustomerId: true } })
+    ownsByCustomer = Boolean(me?.stripeCustomerId) && me?.stripeCustomerId === String(session.customer)
+  }
+  if (!ownsByRef && !ownsByCustomer) throw AppError.notFound('Checkout-Sitzung nicht gefunden')
+
+  if (session.payment_status === 'paid' && session.customer && session.subscription) {
+    const sub = await s.subscriptions.retrieve(String(session.subscription))
+    // Derive the plan from the CURRENT subscription status, not just "paid": a paid
+    // session can reference an already-canceled sub. Forcing PRO (and stamping
+    // lastStripeEventAt=now) would also suppress the real downgrade event.
+    const active = sub.status === 'active' || sub.status === 'trialing'
+    await applyPlanByCustomer(
+      String(session.customer),
+      active ? 'PRO' : 'FREE',
+      sub.id,
+      subscriptionPeriodEnd(sub),
+      Math.floor(Date.now() / 1000),
+      userId,
+    )
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
+  return { plan: user?.plan ?? 'FREE' }
 }
 
 // Webhook: verify the signature, then set the plan based on the subscription.
@@ -120,30 +185,57 @@ export async function handleWebhookEvent(rawBody: Buffer, signature: string | un
     throw AppError.badRequest('WEBHOOK_SIGNATURE', 'Ungültige Stripe-Signatur')
   }
 
-  // Idempotency is per-handler: invoice.paid is unique on stripeInvoiceId,
-  // reverseCommission is idempotent on commission status, applyPlan is idempotent.
-  // Cross-event-type dedup is owned by the billing-hardening branch's
-  // ProcessedStripeEvent table; reconcile onto it at merge.
-  await processWebhookEvent(s, event)
+  // Idempotency: Stripe delivers at-least-once and retries for up to 3 days.
+  // Skip an event we have already fully processed.
+  if (await prisma.processedStripeEvent.findUnique({ where: { id: event.id } })) return
+
+  await dispatchStripeEvent(s, event)
+
+  // Mark processed only AFTER the handler succeeded, so a transient failure
+  // (subscriptions.retrieve / DB error) is retried by Stripe instead of being
+  // dropped permanently. Concurrent duplicate deliveries are guarded by the unique
+  // id (P2002 → already recorded) and by each handler's own idempotency.
+  await prisma.processedStripeEvent.create({ data: { id: event.id, type: event.type } }).catch((e) => {
+    if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002')) throw e
+  })
 }
 
-async function processWebhookEvent(s: Stripe, event: Stripe.Event): Promise<void> {
+// Dispatch a verified Stripe event to its handler. Throwing here prevents the
+// event from being marked processed, so Stripe retries the delivery.
+async function dispatchStripeEvent(s: Stripe, event: Stripe.Event): Promise<void> {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
+    const refUserId = session.client_reference_id ?? undefined
     if (session.customer && session.subscription) {
       // Load the subscription so planUntil is set immediately on upgrade
       // (the session itself carries no period end).
       const sub = await s.subscriptions.retrieve(String(session.subscription))
-      await applyPlanByCustomer(String(session.customer), 'PRO', sub.id, subscriptionPeriodEnd(sub))
+      await applyPlanByCustomer(String(session.customer), 'PRO', sub.id, subscriptionPeriodEnd(sub), event.created, refUserId)
     } else if (session.customer) {
-      await applyPlanByCustomer(String(session.customer), 'PRO', null)
+      await applyPlanByCustomer(String(session.customer), 'PRO', null, null, event.created, refUserId)
     }
     return
   }
   if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
     const sub = event.data.object as Stripe.Subscription
     const active = sub.status === 'active' || sub.status === 'trialing'
-    await applyPlanByCustomer(String(sub.customer), active ? 'PRO' : 'FREE', sub.id, subscriptionPeriodEnd(sub))
+    await applyPlanByCustomer(String(sub.customer), active ? 'PRO' : 'FREE', sub.id, subscriptionPeriodEnd(sub), event.created)
+    return
+  }
+  // Dunning signal. We deliberately do NOT downgrade here: Stripe retries the
+  // failed invoice over several days, then fires subscription.updated/deleted
+  // (handled above) which performs the actual downgrade. Record the failure for
+  // support visibility and keep Pro until the subscription truly ends.
+  if (event.type === 'invoice.payment_failed') {
+    const invoice = event.data.object as Stripe.Invoice
+    if (!invoice.customer) return
+    const res = await prisma.user.updateMany({
+      where: { stripeCustomerId: String(invoice.customer) },
+      data: { paymentFailedAt: new Date(event.created * 1000) },
+    })
+    if (res.count === 0) {
+      console.warn(`[billing] invoice.payment_failed for unknown Stripe customer ${invoice.customer}`)
+    }
     return
   }
   // Recurring referral commission: each paid invoice of an invited user credits
@@ -151,13 +243,18 @@ async function processWebhookEvent(s: Stripe, event: Stripe.Event): Promise<void
   if (event.type === 'invoice.paid') {
     const invoice = event.data.object as Stripe.Invoice
     if (!invoice.customer || !invoice.id || invoice.amount_paid <= 0) return
+    const payer = await prisma.user.findUnique({
+      where: { stripeCustomerId: String(invoice.customer) },
+      select: { id: true, referredById: true, paymentFailedAt: true },
+    })
+    // Any successful charge clears a prior dunning marker (independent of the
+    // referral-only billing_reason filter below).
+    if (payer?.paymentFailedAt) {
+      await prisma.user.update({ where: { id: payer.id }, data: { paymentFailedAt: null } })
+    }
     // Only reward genuine subscription charges — skip prorations, manual one-off
     // invoices, etc. (Stripe emits invoice.paid for those too).
     if (invoice.billing_reason !== 'subscription_create' && invoice.billing_reason !== 'subscription_cycle') return
-    const payer = await prisma.user.findUnique({
-      where: { stripeCustomerId: String(invoice.customer) },
-      select: { id: true, referredById: true },
-    })
     if (!payer?.referredById) return
     // Net basis: prefer total ex-tax (after discounts, before VAT), then subtotal,
     // then amount_paid. Never pay commission on tax we remit to the state.

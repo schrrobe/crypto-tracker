@@ -217,10 +217,11 @@ import {
   IonTitle,
   IonToggle,
   IonToolbar,
+  onIonViewWillEnter,
 } from '@ionic/vue'
 import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { createOutline, giftOutline, lockClosedOutline, trashOutline } from 'ionicons/icons'
 import { FREE_LIMITS, type PortfolioDto } from '@crypto-tracker/shared'
 import {
@@ -291,6 +292,23 @@ function onCreatePortfolio() {
 }
 const sources = useSourcesStore()
 const router = useRouter()
+const route = useRoute()
+
+// Returning from Stripe Checkout: reconcile the plan immediately instead of
+// waiting for the webhook, then drop the query so a refresh doesn't re-run it.
+onIonViewWillEnter(async () => {
+  if (route.query.upgrade !== 'success') return
+  const sessionId = typeof route.query.session_id === 'string' ? route.query.session_id : ''
+  try {
+    if (sessionId) await billing.reconcile(sessionId)
+    await auth.refreshUser()
+    // Clear the query ONLY on success — otherwise a transient failure would
+    // discard the only session id that can still apply the paid plan.
+    router.replace({ path: '/tabs/settings' })
+  } catch {
+    // Keep ?session_id so the next view-enter retries the reconcile.
+  }
+})
 const theme = ref<ThemePreference>(getThemePreference())
 const locale = ref<LocaleCode>(getLocale())
 

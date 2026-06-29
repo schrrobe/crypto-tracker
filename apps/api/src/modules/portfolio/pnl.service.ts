@@ -23,15 +23,20 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
   const costBasis = computeHoldingsCostBasis(txs)
 
   const holdings = await prisma.holding.findMany({
-    where: { source: { userId, portfolioId: pid } },
+    where: {
+      source: { userId, portfolioId: pid },
+      // PnL is a spot cost-basis concept. MARGIN/FUTURES have no spot FIFO basis
+      // and can be negative (liabilities) — they have their own uPnL path and must
+      // not be netted into spot quantity or inflate the excluded-value disclosure.
+      accountType: { in: ['SPOT', 'EARN'] },
+    },
     include: { asset: true, source: true },
   })
   const prices = await getLatestPrices(holdings.map((h) => h.assetId))
 
-  // Combine holdings across account types (SPOT/EARN/MARGIN/FUTURES) per (source, asset):
-  // the FIFO cost basis is account-type-independent (transactions don't know an
-  // account type). Without summing, an asset spread across several account types
-  // would count the basis multiple times or fail the coverage check.
+  // Combine the remaining long holdings (SPOT + EARN) per (source, asset): the FIFO
+  // cost basis is transaction-derived and account-type-independent, so an asset
+  // split across spot and earn must be summed to match the basis quantity once.
   interface AggHolding {
     sourceId: string
     assetId: string
@@ -67,6 +72,7 @@ export async function getPnl(userId: string, portfolioId?: string): Promise<Port
   const positions: PnlPositionDto[] = []
 
   for (const h of bySourceAsset.values()) {
+    if (h.quantity.lte(0)) continue // defensive: only long positions have spot PnL
     const basis = costBasis.get(`${h.sourceId}|${h.assetId}`)
     const price = prices.get(h.assetId)
     if (!price) continue // no price → can't value it at all, not part of coverage
