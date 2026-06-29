@@ -41,24 +41,36 @@ export async function resolveReferrerId(code: string | undefined): Promise<strin
 
 // Idempotently record a 20% commission for a paid Pro invoice of an invited user.
 // Safe to call repeatedly for the same invoice (unique stripeInvoiceId).
+// netAmountCents must be the NET (ex-VAT, ex-discount) revenue — never the gross
+// amount_paid — so we never pay commission on tax we remit to the state.
+// The commission starts PENDING and only becomes payable after the clearing window.
 export async function recordCommissionForInvoice(input: {
   referredUserId: string
   referrerId: string
   stripeInvoiceId: string
-  amountPaidCents: number
+  netAmountCents: number
   currency: string
+  stripeChargeId?: string | null
+  stripeSubscriptionId?: string | null
 }): Promise<void> {
-  if (input.amountPaidCents <= 0) return
-  const amountCents = Math.floor(input.amountPaidCents * COMMISSION_RATE)
+  // Self-referral guard: a user can never earn a commission on their own payment.
+  if (input.referrerId === input.referredUserId) return
+  if (input.netAmountCents <= 0) return
+  const amountCents = Math.floor(input.netAmountCents * COMMISSION_RATE)
   if (amountCents <= 0) return
+  const payableAt = new Date(Date.now() + env.REFERRAL_CLEARING_DAYS * 24 * 60 * 60 * 1000)
   try {
     await prisma.referralCommission.create({
       data: {
         referrerId: input.referrerId,
         referredUserId: input.referredUserId,
         stripeInvoiceId: input.stripeInvoiceId,
+        stripeChargeId: input.stripeChargeId ?? null,
+        stripeSubscriptionId: input.stripeSubscriptionId ?? null,
         amountCents,
         currency: input.currency,
+        status: 'PENDING',
+        payableAt,
       },
     })
   } catch (e) {
@@ -66,6 +78,45 @@ export async function recordCommissionForInvoice(input: {
     if (isUniqueViolation(e)) return
     throw e
   }
+}
+
+// Reverse (claw back) a commission when the underlying payment is refunded,
+// disputed, or the invoice is voided. Idempotent. If the commission was already
+// paid out, it is still marked REVERSED — the resulting negative balance must be
+// surfaced to the admin (the money already left). Matches by invoice or charge id.
+export async function reverseCommission(input: {
+  stripeInvoiceId?: string | null
+  stripeChargeId?: string | null
+  reason: string
+}): Promise<{ reversed: boolean; alreadyPaid: boolean }> {
+  const where = input.stripeInvoiceId
+    ? { stripeInvoiceId: input.stripeInvoiceId }
+    : input.stripeChargeId
+      ? { stripeChargeId: input.stripeChargeId }
+      : null
+  if (!where) return { reversed: false, alreadyPaid: false }
+  const commission = await prisma.referralCommission.findFirst({ where })
+  if (!commission) return { reversed: false, alreadyPaid: false }
+  if (commission.status === 'REVERSED') return { reversed: false, alreadyPaid: Boolean(commission.payoutId) }
+  // Read payoutId from the POST-update row, not the pre-read one: a settlePayout
+  // that claimed this commission between our findFirst and update would otherwise
+  // be missed, hiding a manual-reclaim case.
+  const updated = await prisma.referralCommission.update({
+    where: { id: commission.id },
+    data: { status: 'REVERSED', reversedAt: new Date(), reversalReason: input.reason },
+  })
+  const alreadyPaid = Boolean(updated.payoutId)
+  if (alreadyPaid) {
+    // Money already left in payout `payoutId`; reversing now creates a negative
+    // balance the admin must reclaim manually. Loud, alertable log — there is no
+    // automatic clawback of a sent bank transfer.
+    console.error(
+      `[referral] REVERSAL_AFTER_PAYOUT commission=${updated.id} referrer=${updated.referrerId} ` +
+        `payout=${updated.payoutId} amount=${updated.amountCents} ${updated.currency} reason=${input.reason} ` +
+        `— admin must reclaim; referrer balance is now negative`,
+    )
+  }
+  return { reversed: true, alreadyPaid }
 }
 
 function isUniqueViolation(e: unknown): boolean {
@@ -108,28 +159,46 @@ export async function getReferralOverview(userId: string): Promise<ReferralDto> 
       joinedAt: i.createdAt.toISOString(),
       isPro: i.plan === 'PRO',
     })),
+    payoutsEnabled: env.REFERRAL_PAYOUTS_LIVE,
+    payoutThresholdCents: env.REFERRAL_PAYOUT_MIN_CENTS,
   }
 }
 
-// Owed (payoutId null) and paid (payoutId set) totals, grouped by currency.
-// Voided commissions are excluded. Returns one entry per currency.
+// Per-currency earnings split by lifecycle. REVERSED commissions are excluded.
+//   pending = not yet payable (inside clearing window), not paid
+//   owed    = payable (clearing passed), not yet in a payout
+//   paid    = settled into a payout
 export async function earningsByCurrency(referrerId: string): Promise<ReferralEarningsDto[]> {
-  const rows = await prisma.referralCommission.groupBy({
-    by: ['currency'],
-    where: { referrerId, voidedAt: null },
-    _sum: { amountCents: true },
-  })
-  const paidRows = await prisma.referralCommission.groupBy({
-    by: ['currency'],
-    where: { referrerId, voidedAt: null, payoutId: { not: null } },
-    _sum: { amountCents: true },
-  })
-  const paidByCurrency = new Map(paidRows.map((r) => [r.currency, r._sum.amountCents ?? 0]))
-  return rows.map((r) => {
-    const total = r._sum.amountCents ?? 0
-    const paidCents = paidByCurrency.get(r.currency) ?? 0
-    return { currency: r.currency, owedCents: total - paidCents, paidCents }
-  })
+  const now = new Date()
+  const live = { referrerId, status: { not: 'REVERSED' as const } }
+  const [pendingRows, owedRows, paidRows] = await Promise.all([
+    prisma.referralCommission.groupBy({
+      by: ['currency'],
+      where: { ...live, payoutId: null, payableAt: { gt: now } },
+      _sum: { amountCents: true },
+    }),
+    prisma.referralCommission.groupBy({
+      by: ['currency'],
+      where: { ...live, payoutId: null, payableAt: { lte: now } },
+      _sum: { amountCents: true },
+    }),
+    prisma.referralCommission.groupBy({
+      by: ['currency'],
+      where: { ...live, payoutId: { not: null } },
+      _sum: { amountCents: true },
+    }),
+  ])
+  const sum = (rows: typeof pendingRows) => new Map(rows.map((r) => [r.currency, r._sum.amountCents ?? 0]))
+  const pending = sum(pendingRows)
+  const owed = sum(owedRows)
+  const paid = sum(paidRows)
+  const currencies = new Set([...pending.keys(), ...owed.keys(), ...paid.keys()])
+  return [...currencies].map((currency) => ({
+    currency,
+    pendingCents: pending.get(currency) ?? 0,
+    owedCents: owed.get(currency) ?? 0,
+    paidCents: paid.get(currency) ?? 0,
+  }))
 }
 
 export async function getBankDetails(userId: string): Promise<ReferralBankDto | null> {
@@ -165,13 +234,22 @@ export interface PendingPayout {
   holder: string | null
   bic: string | null
   iban: string | null // full, decrypted — admin only, for the bank transfer
+  bankError: boolean // true if the stored IBAN could not be decrypted
+  belowThreshold: boolean // true if owed < REFERRAL_PAYOUT_MIN_CENTS
 }
 
-// One pending payout per (referrer, currency) over all unpaid commissions.
+// Only payable commissions count: clearing window passed (payableAt ≤ now), not
+// reversed, not yet in a payout.
+function payableWhere(now: Date) {
+  return { payoutId: null, status: { not: 'REVERSED' as const }, payableAt: { lte: now } }
+}
+
+// One pending payout per (referrer, currency) over all PAYABLE commissions.
 export async function listPendingPayouts(): Promise<PendingPayout[]> {
+  const now = new Date()
   const grouped = await prisma.referralCommission.groupBy({
     by: ['referrerId', 'currency'],
-    where: { payoutId: null, voidedAt: null },
+    where: payableWhere(now),
     _sum: { amountCents: true },
   })
   const referrers = await prisma.user.findMany({
@@ -181,34 +259,132 @@ export async function listPendingPayouts(): Promise<PendingPayout[]> {
   const byId = new Map(referrers.map((r) => [r.id, r]))
   return grouped.map((g) => {
     const u = byId.get(g.referrerId)
+    // Per-row decrypt: a single corrupt/rotated IBAN must not 500 the whole list.
+    let iban: string | null = null
+    let bankError = false
+    if (u?.encryptedIban) {
+      try {
+        iban = decryptSecret(u.encryptedIban)
+      } catch {
+        bankError = true
+      }
+    }
+    const owedCents = g._sum.amountCents ?? 0
     return {
       referrerId: g.referrerId,
       email: u?.email ?? '',
-      owedCents: g._sum.amountCents ?? 0,
+      owedCents,
       currency: g.currency,
       holder: u?.bankHolder ?? null,
       bic: u?.bankBic ?? null,
-      iban: u?.encryptedIban ? decryptSecret(u.encryptedIban) : null,
+      iban,
+      bankError,
+      belowThreshold: owedCents < env.REFERRAL_PAYOUT_MIN_CENTS,
     }
   })
 }
 
-// Bundle a referrer's unpaid commissions (one currency) into a Payout, marking them paid.
-export async function settlePayout(referrerId: string, currency: string): Promise<{ id: string; amountCents: number; currency: string }> {
+// Promote PENDING commissions whose clearing window has elapsed to CONFIRMED.
+// Reporting-only (payability is computed from payableAt); call from the worker.
+export async function confirmDueCommissions(): Promise<number> {
+  const { count } = await prisma.referralCommission.updateMany({
+    where: { status: 'PENDING', payableAt: { lte: new Date() } },
+    data: { status: 'CONFIRMED' },
+  })
+  return count
+}
+
+// Bundle a referrer's PAYABLE commissions (one currency) into a Payout.
+// Race-safe: the status-guarded updateMany only claims rows still payoutId=null,
+// and we assert the claimed count matches what we summed — otherwise a concurrent
+// settle grabbed some rows and we roll back. Bank details are snapshot onto the
+// payout so a later edit can't redirect the transfer. Enforces the min threshold.
+export async function settlePayout(
+  referrerId: string,
+  currency: string,
+): Promise<{ id: string; amountCents: number; currency: string }> {
+  const now = new Date()
   return prisma.$transaction(async (tx) => {
-    const unpaid = await tx.referralCommission.findMany({
-      where: { referrerId, currency, payoutId: null, voidedAt: null },
+    const payable = await tx.referralCommission.findMany({
+      where: { referrerId, currency, ...payableWhere(now) },
       select: { id: true, amountCents: true },
     })
-    if (unpaid.length === 0) throw AppError.notFound('Keine offenen Kommissionen')
-    const amountCents = unpaid.reduce((acc, c) => acc + c.amountCents, 0)
+    if (payable.length === 0) throw AppError.notFound('Keine auszahlbaren Kommissionen')
+    const amountCents = payable.reduce((acc, c) => acc + c.amountCents, 0)
+    if (amountCents < env.REFERRAL_PAYOUT_MIN_CENTS) {
+      throw AppError.badRequest('BELOW_THRESHOLD', 'Betrag unter der Auszahlungsschwelle')
+    }
+    const user = await tx.user.findUnique({
+      where: { id: referrerId },
+      select: { encryptedIban: true, ibanPreview: true, bankBic: true, bankHolder: true },
+    })
+    // Never mark commissions PAID against a payout with no valid bank target:
+    // reject when bank details are missing or the stored IBAN can't be decrypted.
+    if (!user?.encryptedIban || !user.bankHolder) {
+      throw AppError.badRequest('BANK_DETAILS_MISSING', 'Keine Bankdaten hinterlegt')
+    }
+    try {
+      decryptSecret(user.encryptedIban)
+    } catch {
+      throw AppError.badRequest('BANK_DETAILS_INVALID', 'Bankdaten konnten nicht entschlüsselt werden')
+    }
     const payout = await tx.payout.create({
-      data: { referrerId, amountCents, currency },
+      data: {
+        referrerId,
+        amountCents,
+        currency,
+        status: 'CREATED',
+        snapshotIban: user.encryptedIban,
+        snapshotIbanPreview: user.ibanPreview ?? null,
+        snapshotBic: user.bankBic ?? null,
+        snapshotHolder: user.bankHolder,
+      },
     })
-    await tx.referralCommission.updateMany({
-      where: { id: { in: unpaid.map((c) => c.id) } },
-      data: { payoutId: payout.id },
+    // Claim ONLY rows still payable + unclaimed — guard must mirror payableWhere()
+    // so a refund/admin reversal between findMany and this claim can't be
+    // overwritten back to PAID. count mismatch → concurrent change → roll back.
+    const { count } = await tx.referralCommission.updateMany({
+      where: { id: { in: payable.map((c) => c.id) }, ...payableWhere(now) },
+      data: { payoutId: payout.id, status: 'PAID' },
     })
+    if (count !== payable.length) {
+      // A concurrent settle claimed some of these rows; abort cleanly.
+      throw AppError.conflict('SETTLE_CONFLICT', 'Auszahlung kollidierte mit einem parallelen Vorgang')
+    }
     return { id: payout.id, amountCents, currency }
   })
+}
+
+// Reverse a payout that failed at the bank: unbundle its commissions back to
+// CONFIRMED (payable again) and mark the payout FAILED/CANCELLED. Reversed
+// commissions stay reversed. Audited by the caller.
+export async function unbundlePayout(
+  payoutId: string,
+  outcome: 'FAILED' | 'CANCELLED',
+  failureReason?: string,
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const payout = await tx.payout.findUnique({ where: { id: payoutId } })
+    if (!payout) throw AppError.notFound('Payout nicht gefunden')
+    if (payout.status === 'SETTLED') {
+      throw AppError.badRequest('ALREADY_SETTLED', 'Ausgezahlter Payout kann nicht rückabgewickelt werden')
+    }
+    await tx.referralCommission.updateMany({
+      where: { payoutId, status: 'PAID' },
+      data: { payoutId: null, status: 'CONFIRMED' },
+    })
+    await tx.payout.update({
+      where: { id: payoutId },
+      data: { status: outcome, failureReason: failureReason ?? null },
+    })
+  })
+}
+
+// Mark a CREATED payout as SETTLED once the admin has sent the real transfer.
+export async function markPayoutSettled(payoutId: string): Promise<void> {
+  const { count } = await prisma.payout.updateMany({
+    where: { id: payoutId, status: 'CREATED' },
+    data: { status: 'SETTLED' },
+  })
+  if (count === 0) throw AppError.badRequest('INVALID_STATE', 'Payout ist nicht im Status CREATED')
 }

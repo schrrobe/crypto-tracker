@@ -56,9 +56,9 @@ export async function getOverview(): Promise<AdminOverviewDto> {
     prisma.user.count({ where: { createdAt: { gte: daysAgo(14), lt: daysAgo(7) } } }),
     prisma.user.count({ where: { createdAt: { gte: daysAgo(60), lt: daysAgo(30) } } }),
     prisma.refreshToken.count({ where: { expiresAt: { gt: now } } }),
-    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { voidedAt: null } }),
-    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { payoutId: { not: null }, voidedAt: null } }),
-    prisma.referralCommission.findMany({ where: { voidedAt: null }, select: { referrerId: true }, distinct: ['referrerId'] }),
+    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { status: { not: 'REVERSED' } } }),
+    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { payoutId: { not: null }, status: { not: 'REVERSED' } } }),
+    prisma.referralCommission.findMany({ where: { status: { not: 'REVERSED' } }, select: { referrerId: true }, distinct: ['referrerId'] }),
     prisma.user.count({ where: { referredById: { not: null } } }),
   ])
   const freeUsers = totalUsers - proUsers
@@ -66,7 +66,9 @@ export async function getOverview(): Promise<AdminOverviewDto> {
   const referralByCurrency = owed.map((r) => {
     const total = r._sum.amountCents ?? 0
     const paidCents = paidByCurrency.get(r.currency) ?? 0
-    return { currency: r.currency, owedCents: total - paidCents, paidCents }
+    // Admin liability view: owedCents = all non-reversed not-yet-paid (clearing
+    // not split out here); pendingCents tracked per-user in the referral overview.
+    return { currency: r.currency, pendingCents: 0, owedCents: total - paidCents, paidCents }
   })
   return {
     totalUsers,
@@ -506,10 +508,10 @@ export async function voidCommission(actor: AuditActor, id: string): Promise<voi
   if (!c) throw AppError.notFound('Kommission nicht gefunden')
   if (c.payoutId) throw AppError.badRequest('ALREADY_PAID', 'Bereits ausgezahlte Kommission kann nicht storniert werden')
   // Atomic conditional update — closes the race against settlePayout: only voids
-  // while still unpaid+unvoided. count===0 → another tx paid/voided it meanwhile.
+  // while still unpaid + not reversed. count===0 → another tx paid/reversed it meanwhile.
   const { count } = await prisma.referralCommission.updateMany({
-    where: { id, payoutId: null, voidedAt: null },
-    data: { voidedAt: new Date() },
+    where: { id, payoutId: null, status: { not: 'REVERSED' } },
+    data: { status: 'REVERSED', reversedAt: new Date(), reversalReason: 'admin_void', voidedAt: new Date() },
   })
   if (count === 0) {
     throw AppError.badRequest('ALREADY_PAID', 'Kommission wurde zwischenzeitlich ausgezahlt oder storniert')

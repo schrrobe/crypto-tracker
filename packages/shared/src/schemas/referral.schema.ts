@@ -25,6 +25,7 @@ export interface InvitedAccountDto {
 // Earnings are tracked per currency — commissions in different currencies must
 // never be summed together (each Stripe invoice keeps its own currency).
 export interface ReferralEarningsDto {
+  pendingCents: number
   owedCents: number
   paidCents: number
   currency: string
@@ -36,6 +37,11 @@ export interface ReferralDto {
   invitedCount: number
   earnings: ReferralEarningsDto[]
   invited: InvitedAccountDto[]
+  // payoutsEnabled: are live payouts switched on? While false the UI must not
+  // collect bank details or imply money is coming.
+  payoutsEnabled: boolean
+  // Minimum payable balance (cents) before bank details are requested / a payout runs.
+  payoutThresholdCents: number
 }
 
 // Bank details as returned to the owner: never the full IBAN, only a preview.

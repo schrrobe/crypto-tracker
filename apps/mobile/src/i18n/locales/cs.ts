@@ -163,6 +163,13 @@ const cs: MessageSchema = {
     save: 'Uložit',
     saved: 'Bankovní údaje uloženy',
     saveFailed: 'Bankovní údaje se nepodařilo uložit',
+    valueProp: 'Vydělávej 20 % z každé platby Pro od pozvaných přátel.',
+    valuePropNote: 'Opakovaně, dokud tvůj přítel používá Pro.',
+    earningsPending: 'Ověřuje se',
+    earningsPendingNote: 'Potvrzeno po uplynutí lhůty pro vrácení peněz.',
+    payoutsPreparing: 'Výplaty se připravují. Sbírej dál provize — jakmile budou výplaty spuštěny, budeš zde moci zadat bankovní údaje.',
+    thresholdHint: 'Výplata od {amount}. Sbírej dál provize.',
+    bankEncryptedHint: 'Tvůj IBAN je uložen šifrovaně; zobrazujeme jen poslední 4 číslice.',
   },
   update: {
     title: 'Vyžadována aktualizace',
