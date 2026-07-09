@@ -1,3 +1,20 @@
+## Cross-agent planning and review protocol
+
+`AGENTS.md` is the shared source of truth for both Codex and Claude Code when working in this repository. Keep common project rules here, and keep agent-specific additions in that agent's own instruction file.
+
+For non-trivial changes, start by creating or updating `docs/agent-handoff/current-plan.md` before implementation. The plan should state the goal, relevant context, likely files, implementation steps, test plan, risks or assumptions, and open questions.
+
+When Codex is asked to review a Claude Code plan, Codex should review skeptically for correctness, missing context, risky assumptions, scope creep, and test gaps. Codex should not implement changes during plan review unless explicitly asked.
+
+Use this structured Codex review format:
+
+- Verdict
+- Blockers
+- Risks
+- Missing tests
+- Suggested plan changes
+- Questions for Claude Code
+
 ## RTK / Shell commands
 
 For shell and development commands, prefer RTK-wrapped commands when useful.
