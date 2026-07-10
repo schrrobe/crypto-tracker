@@ -1,6 +1,7 @@
 import type { ProviderId } from '@prisma/client'
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Litecoin/Dogecoin balance via the Blockchair dashboards API (no API key required).
 // Both chains return the same response shape — data[address].address.balance in
@@ -35,7 +36,7 @@ function makeBlockchairProvider(config: ChainConfig): WalletProvider {
     },
 
     async fetchBalances(address: string): Promise<RawBalance[]> {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `https://api.blockchair.com/${config.chain}/dashboards/address/${encodeURIComponent(address)}?limit=0`,
       )
       // Blockchair signals limits with its own HTTP codes: 402 (request limit),

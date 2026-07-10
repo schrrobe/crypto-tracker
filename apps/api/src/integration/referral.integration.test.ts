@@ -118,6 +118,12 @@ describe('Referral (Integration)', () => {
       .set(...bearer(user))
       .send({ iban: 'not-an-iban', bic: 'COBADEFFXXX', holder: 'X' })
     expect(bad.status).toBe(400)
+
+    const badChecksum = await request(app)
+      .put(`${API}/referral/bank`)
+      .set(...bearer(user))
+      .send({ iban: 'DE88 3704 0044 0532 0130 00', bic: 'COBADEFFXXX', holder: 'X' })
+    expect(badChecksum.status).toBe(400)
   })
 
   it('Admin-Payout: ohne Admin 404, mit Admin listen + settlen', async () => {
@@ -150,5 +156,40 @@ describe('Referral (Integration)', () => {
     const eurAfter = after.body.earnings.find((e: { currency: string }) => e.currency === 'eur')
     expect(eurAfter.owedCents).toBe(0)
     expect(eurAfter.paidCents).toBe(1000)
+  })
+
+  it('paralleles Settlement erzeugt genau einen Payout', async () => {
+    const referrer = await registerUser('ref-race-r', 'FREE')
+    const { body: ref } = await request(app).get(`${API}/referral`).set(...bearer(referrer))
+    const invitedId = await registerWithCode('ref-race-i', ref.code)
+    const customer = `cus_${invitedId}`
+    await prisma.user.update({ where: { id: invitedId }, data: { stripeCustomerId: customer } })
+    await fireInvoicePaid(customer, `in_race_${invitedId}`, 5000)
+
+    const admin = await registerUser('ref-race-admin', 'FREE')
+    await makeAdmin(admin)
+    const settle = () => request(app)
+      .post(`${API}/admin/referral/payouts/${referrer.userId}/settle`)
+      .set(...bearer(admin))
+      .send({ currency: 'eur' })
+    const results = await Promise.all([settle(), settle()])
+
+    expect(results.map((r) => r.status).sort()).toEqual([200, 404])
+    expect(await prisma.payout.count({ where: { referrerId: referrer.userId } })).toBe(1)
+  })
+
+  it('Konto-Löschung bewahrt Kommissionshistorie und Referrer-Snapshot', async () => {
+    const referrer = await registerUser('ref-delete-r', 'FREE')
+    const { body: ref } = await request(app).get(`${API}/referral`).set(...bearer(referrer))
+    const invitedId = await registerWithCode('ref-delete-i', ref.code)
+    const customer = `cus_${invitedId}`
+    await prisma.user.update({ where: { id: invitedId }, data: { stripeCustomerId: customer } })
+    await fireInvoicePaid(customer, `in_delete_${invitedId}`, 1000)
+
+    await request(app).delete(`${API}/auth/me`).set(...bearer(referrer)).expect(204)
+
+    const rows = await prisma.referralCommission.findMany({ where: { referrerId: referrer.userId } })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.referrerEmail).toBe(referrer.email)
   })
 })

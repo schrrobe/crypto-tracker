@@ -32,7 +32,7 @@ afterEach(() => vi.unstubAllGlobals())
 describe('api.client', () => {
   it('hängt den Bearer-Token an und parst JSON', async () => {
     const { api, setTokens } = await loadClient()
-    setTokens({ accessToken: 'token-1', refreshToken: 'refresh-1' })
+    await setTokens({ accessToken: 'token-1', refreshToken: 'refresh-1' })
     const fn = mockFetch(() => ({ status: 200, body: { hello: 'welt' } }))
 
     const result = await api.get<{ hello: string }>('/health')
@@ -43,7 +43,7 @@ describe('api.client', () => {
 
   it('401 → Refresh → Retry mit neuem Token', async () => {
     const { api, setTokens, getRefreshToken } = await loadClient()
-    setTokens({ accessToken: 'alt', refreshToken: 'refresh-alt' })
+    await setTokens({ accessToken: 'alt', refreshToken: 'refresh-alt' })
 
     const calls: string[] = []
     mockFetch((url, init) => {
@@ -65,7 +65,7 @@ describe('api.client', () => {
 
   it('parallele 401er teilen sich einen einzigen Refresh', async () => {
     const { api, setTokens } = await loadClient()
-    setTokens({ accessToken: 'alt', refreshToken: 'refresh-alt' })
+    await setTokens({ accessToken: 'alt', refreshToken: 'refresh-alt' })
 
     let refreshCalls = 0
     mockFetch((url, init) => {
@@ -87,7 +87,7 @@ describe('api.client', () => {
 
   it('fehlgeschlagener Refresh: Tokens weg, auth:expired-Event, Fehler propagiert', async () => {
     const { api, setTokens, getRefreshToken } = await loadClient()
-    setTokens({ accessToken: 'alt', refreshToken: 'refresh-abgelaufen' })
+    await setTokens({ accessToken: 'alt', refreshToken: 'refresh-abgelaufen' })
 
     const expired = vi.fn()
     window.addEventListener('auth:expired', expired)
@@ -104,7 +104,7 @@ describe('api.client', () => {
 
   it('Auth-Routen lösen keinen Refresh-Loop aus', async () => {
     const { api, setTokens } = await loadClient()
-    setTokens({ accessToken: 'alt', refreshToken: 'vorhanden' })
+    await setTokens({ accessToken: 'alt', refreshToken: 'vorhanden' })
     const fn = mockFetch(() => ({ status: 401, body: { error: { code: 'UNAUTHORIZED' } } }))
 
     await expect(api.post('/auth/login', { email: 'a@b.c', password: 'x' })).rejects.toMatchObject({
@@ -128,14 +128,14 @@ describe('api.client', () => {
 
   it('204 liefert undefined statt JSON-Parse-Fehler', async () => {
     const { api, setTokens } = await loadClient()
-    setTokens({ accessToken: 't', refreshToken: 'r' })
+    await setTokens({ accessToken: 't', refreshToken: 'r' })
     mockFetch(() => ({ status: 204 }))
     await expect(api.delete('/sources/abc')).resolves.toBeUndefined()
   })
 
   it('API-Fehler werden als ApiError mit Code und Message geworfen', async () => {
     const { api, ApiError, setTokens } = await loadClient()
-    setTokens({ accessToken: 't', refreshToken: 'r' })
+    await setTokens({ accessToken: 't', refreshToken: 'r' })
     mockFetch(() => ({
       status: 409,
       body: { error: { code: 'EMAIL_TAKEN', message: 'Diese E-Mail-Adresse ist bereits registriert' } },

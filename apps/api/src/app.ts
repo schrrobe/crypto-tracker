@@ -30,7 +30,7 @@ export function createApp() {
   // the network without hardcoding the host IP. No wildcard in prod.
   const PRIVATE_LAN_ORIGIN =
     /^https?:\/\/(localhost|127\.0\.0\.1|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2})(:\d+)?$/
-  const isLocal = env.APP_ENV === 'local'
+  const isLocal = env.APP_ENV === 'local' && env.NODE_ENV !== 'production'
   app.use(
     cors({
       origin(origin, cb) {

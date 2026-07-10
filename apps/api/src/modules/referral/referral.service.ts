@@ -9,6 +9,7 @@ import type {
   ReferralDto,
   ReferralEarningsDto,
 } from '@crypto-tracker/shared'
+import { AuditAction, recordAudit, type AuditActor } from '../admin/audit.service'
 
 // Unambiguous alphabet (no 0/O/1/I) for human-shareable codes.
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -51,10 +52,18 @@ export async function recordCommissionForInvoice(input: {
   if (input.amountPaidCents <= 0) return
   const amountCents = Math.floor(input.amountPaidCents * COMMISSION_RATE)
   if (amountCents <= 0) return
+  const referrer = await prisma.user.findUnique({
+    where: { id: input.referrerId },
+    select: { email: true },
+  })
+  // The referrer may have deleted their account between invoice creation and
+  // delivery. Without a live identity there is no new payable beneficiary.
+  if (!referrer) return
   try {
     await prisma.referralCommission.create({
       data: {
         referrerId: input.referrerId,
+        referrerEmail: referrer.email,
         referredUserId: input.referredUserId,
         stripeInvoiceId: input.stripeInvoiceId,
         amountCents,
@@ -170,7 +179,7 @@ export interface PendingPayout {
 // One pending payout per (referrer, currency) over all unpaid commissions.
 export async function listPendingPayouts(): Promise<PendingPayout[]> {
   const grouped = await prisma.referralCommission.groupBy({
-    by: ['referrerId', 'currency'],
+    by: ['referrerId', 'referrerEmail', 'currency'],
     where: { payoutId: null, voidedAt: null },
     _sum: { amountCents: true },
   })
@@ -183,7 +192,7 @@ export async function listPendingPayouts(): Promise<PendingPayout[]> {
     const u = byId.get(g.referrerId)
     return {
       referrerId: g.referrerId,
-      email: u?.email ?? '',
+      email: u?.email ?? g.referrerEmail,
       owedCents: g._sum.amountCents ?? 0,
       currency: g.currency,
       holder: u?.bankHolder ?? null,
@@ -194,21 +203,40 @@ export async function listPendingPayouts(): Promise<PendingPayout[]> {
 }
 
 // Bundle a referrer's unpaid commissions (one currency) into a Payout, marking them paid.
-export async function settlePayout(referrerId: string, currency: string): Promise<{ id: string; amountCents: number; currency: string }> {
+export async function settlePayout(
+  referrerId: string,
+  currency: string,
+  actor?: AuditActor,
+): Promise<{ id: string; amountCents: number; currency: string }> {
   return prisma.$transaction(async (tx) => {
+    // Serialize one beneficiary/currency ledger. Without this lock, two admin
+    // requests can read the same unpaid rows and create duplicate payouts.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${referrerId}:${currency}`}))`
     const unpaid = await tx.referralCommission.findMany({
       where: { referrerId, currency, payoutId: null, voidedAt: null },
-      select: { id: true, amountCents: true },
+      select: { id: true, amountCents: true, referrerEmail: true },
     })
     if (unpaid.length === 0) throw AppError.notFound('Keine offenen Kommissionen')
     const amountCents = unpaid.reduce((acc, c) => acc + c.amountCents, 0)
     const payout = await tx.payout.create({
-      data: { referrerId, amountCents, currency },
+      data: { referrerId, referrerEmail: unpaid[0]!.referrerEmail, amountCents, currency },
     })
-    await tx.referralCommission.updateMany({
-      where: { id: { in: unpaid.map((c) => c.id) } },
+    const updated = await tx.referralCommission.updateMany({
+      where: { id: { in: unpaid.map((c) => c.id) }, payoutId: null, voidedAt: null },
       data: { payoutId: payout.id },
     })
+    if (updated.count !== unpaid.length) {
+      throw AppError.conflict('PAYOUT_RACE', 'Kommissionen wurden zwischenzeitlich verändert')
+    }
+    if (actor) {
+      await recordAudit({
+        actor,
+        action: AuditAction.PAYOUT_SETTLED,
+        targetType: 'PAYOUT',
+        targetId: payout.id,
+        metadata: { referrerId, amountCents, currency },
+      }, tx)
+    }
     return { id: payout.id, amountCents, currency }
   })
 }

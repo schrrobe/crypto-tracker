@@ -19,7 +19,7 @@ export function isNativeClient(req: Request): boolean {
 function cookieOptions() {
   return {
     httpOnly: true,
-    secure: env.APP_ENV !== 'local', // local runs over http (localhost)
+    secure: env.NODE_ENV === 'production' || env.APP_ENV !== 'local', // local development runs over http
     sameSite: 'lax' as const,
     path: COOKIE_PATH,
   }

@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto'
 import { Prisma, type CsvImport } from '@prisma/client'
-import { EXCHANGE_PROVIDERS, type CsvImportDto, type CsvUploadResponse, type ImportErrorRow } from '@crypto-tracker/shared'
+import {
+  EXCHANGE_PROVIDERS,
+  FREE_LIMITS,
+  type CsvImportDto,
+  type CsvUploadResponse,
+  type ImportErrorRow,
+} from '@crypto-tracker/shared'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import { parseCsv, suggestMappingWithPreset } from '../../csv/csv.parser'
@@ -16,6 +22,8 @@ import { resolveAssetsBySymbol } from '../assets/asset-resolution.service'
 import { refreshPrices } from '../../coingecko/price.service'
 import { computeNetBalances, type NetBalanceTx } from '../transactions/tx-net-balance'
 import { resolvePortfolioId, resolvePortfolioIdForWrite } from '../portfolios/portfolios.service'
+import { getPlan } from '../../middleware/plan.middleware'
+import { MANUAL_TX_SOURCE_LABEL } from '../transactions/transactions.service'
 
 const PREVIEW_ROWS = 10
 
@@ -60,28 +68,48 @@ export async function uploadCsv(
   })
   const duplicateCsvSource = priorImport?.source.label ?? null
 
-  const source = await prisma.portfolioSource.create({
-    data: {
-      userId,
-      portfolioId: pid,
-      type: 'CSV_IMPORT',
-      provider: 'GENERIC_CSV',
-      label: label?.trim() || file.originalname,
-    },
-  })
-  const record = await prisma.csvImport.create({
-    data: {
-      sourceId: source.id,
-      filename: file.originalname,
-      kind,
-      status: 'PENDING_MAPPING',
-      preset, // persisted so confirm parses deterministically, no header re-detection
-      rawPreview: { headers, rows: rows.slice(0, PREVIEW_ROWS) },
-      rawRows: rows,
-      totalRows: rows.length,
-      contentHash,
-    },
-    include: { source: { select: { label: true } } },
+  const plan = await getPlan(userId)
+  const sourceLabel = label?.trim() || file.originalname.slice(0, 60) || 'CSV-Import'
+  // Source + import row are one unit. The same per-user advisory lock as the
+  // regular source endpoint prevents CSV uploads from bypassing/racing the Free
+  // source quota, and a failed import-row insert cannot leave an orphan source.
+  const record = await prisma.$transaction(async (tx) => {
+    if (plan !== 'PRO') {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
+      const count = await tx.portfolioSource.count({
+        where: { userId, NOT: { type: 'MANUAL', label: MANUAL_TX_SOURCE_LABEL } },
+      })
+      if (count >= FREE_LIMITS.sources) {
+        throw AppError.upgradeRequired(`Im Free-Tarif sind maximal ${FREE_LIMITS.sources} Quellen möglich`, {
+          feature: 'unlimitedSources',
+          limit: FREE_LIMITS.sources,
+          used: count,
+        })
+      }
+    }
+    const source = await tx.portfolioSource.create({
+      data: {
+        userId,
+        portfolioId: pid,
+        type: 'CSV_IMPORT',
+        provider: 'GENERIC_CSV',
+        label: sourceLabel,
+      },
+    })
+    return tx.csvImport.create({
+      data: {
+        sourceId: source.id,
+        filename: file.originalname,
+        kind,
+        status: 'PENDING_MAPPING',
+        preset, // persisted so confirm parses deterministically, no header re-detection
+        rawPreview: { headers, rows: rows.slice(0, PREVIEW_ROWS) },
+        rawRows: rows,
+        totalRows: rows.length,
+        contentHash,
+      },
+      include: { source: { select: { label: true } } },
+    })
   })
 
   // Active duplicate detection: exchange either chosen explicitly (covers all 11)
@@ -264,11 +292,16 @@ async function confirmTransactionImport(
     })
   }
 
-  const [, , , updated] = await prisma.$transaction([
-    prisma.transaction.deleteMany({ where: { sourceId: record.sourceId } }),
-    prisma.transaction.createMany({ data: txRows }),
-    prisma.holding.deleteMany({ where: { sourceId: record.sourceId } }),
-    prisma.csvImport.update({
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.transaction.deleteMany({ where: { sourceId: record.sourceId } })
+    await tx.transaction.createMany({ data: txRows })
+    await tx.holding.deleteMany({ where: { sourceId: record.sourceId } })
+    if (holdings.length > 0) {
+      await tx.holding.createMany({
+        data: holdings.map((h) => ({ sourceId: record.sourceId, assetId: h.assetId, quantity: h.quantity })),
+      })
+    }
+    return tx.csvImport.update({
       where: { id: record.id },
       data: {
         status: valid.length > 0 ? 'COMPLETED' : 'FAILED',
@@ -278,13 +311,8 @@ async function confirmTransactionImport(
         rawRows: Prisma.DbNull,
       },
       include: { source: { select: { label: true } } },
-    }),
-  ])
-  if (holdings.length > 0) {
-    await prisma.holding.createMany({
-      data: holdings.map((h) => ({ sourceId: record.sourceId, assetId: h.assetId, quantity: h.quantity })),
     })
-  }
+  })
 
   await refreshPrices(holdings.map((h) => h.assetId))
   return toImportDto(updated)

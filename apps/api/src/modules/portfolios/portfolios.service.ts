@@ -116,23 +116,31 @@ export async function createPortfolio(userId: string, label: string): Promise<Po
   // Free quota enforced atomically: a per-user advisory lock serializes the
   // count+create so two concurrent requests can't both pass the check (TOCTOU)
   // and exceed FREE_LIMITS.portfolios. Same lock pattern as deletePortfolio.
-  const portfolio = await prisma.$transaction(async (tx) => {
-    if (plan !== 'PRO') {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
-      const count = await tx.portfolio.count({ where: { userId } })
-      if (count >= FREE_LIMITS.portfolios) {
-        throw AppError.upgradeRequired(`Im Free-Tarif sind maximal ${FREE_LIMITS.portfolios} Portfolios möglich`, {
-          feature: 'unlimitedPortfolios',
-          limit: FREE_LIMITS.portfolios,
-          used: count,
-        })
+  let portfolio: PortfolioWithCount
+  try {
+    portfolio = await prisma.$transaction(async (tx) => {
+      if (plan !== 'PRO') {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
+        const count = await tx.portfolio.count({ where: { userId } })
+        if (count >= FREE_LIMITS.portfolios) {
+          throw AppError.upgradeRequired(`Im Free-Tarif sind maximal ${FREE_LIMITS.portfolios} Portfolios möglich`, {
+            feature: 'unlimitedPortfolios',
+            limit: FREE_LIMITS.portfolios,
+            used: count,
+          })
+        }
       }
-    }
-    return tx.portfolio.create({
-      data: { userId, label: label.trim() },
-      include: { _count: { select: { sources: true } } },
+      return tx.portfolio.create({
+        data: { userId, label: label.trim() },
+        include: { _count: { select: { sources: true } } },
+      })
     })
-  })
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw AppError.conflict('PORTFOLIO_LABEL_DUPLICATE', 'Es gibt bereits ein Steuersubjekt mit diesem Namen')
+    }
+    throw error
+  }
   return toPortfolioDto(portfolio)
 }
 
@@ -143,11 +151,19 @@ export async function renamePortfolio(
 ): Promise<PortfolioDto> {
   await getOwnedPortfolio(userId, portfolioId)
   await assertLabelAvailable(userId, label, portfolioId)
-  const portfolio = await prisma.portfolio.update({
-    where: { id: portfolioId },
-    data: { label: label.trim() },
-    include: { _count: { select: { sources: true } } },
-  })
+  let portfolio: PortfolioWithCount
+  try {
+    portfolio = await prisma.portfolio.update({
+      where: { id: portfolioId },
+      data: { label: label.trim() },
+      include: { _count: { select: { sources: true } } },
+    })
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw AppError.conflict('PORTFOLIO_LABEL_DUPLICATE', 'Es gibt bereits ein Steuersubjekt mit diesem Namen')
+    }
+    throw error
+  }
   return toPortfolioDto(portfolio)
 }
 

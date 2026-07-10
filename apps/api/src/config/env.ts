@@ -79,6 +79,14 @@ if (!parsed.success) {
 
 export const env = parsed.data
 
+// Never let a production Node process silently inherit the permissive local
+// behavior when APP_ENV was forgotten. Local mode enables fake providers, LAN
+// CORS, insecure cookies and the plan test switch, so production must fail closed.
+if (env.NODE_ENV === 'production' && env.APP_ENV === 'local') {
+  console.error('NODE_ENV=production erfordert APP_ENV=dev oder APP_ENV=prod.')
+  process.exit(1)
+}
+
 // In dev/prod the local defaults are forbidden — startup is refused.
 if (env.APP_ENV !== 'local') {
   const usedDefaults = [env.JWT_SECRET, env.JWT_REFRESH_SECRET, env.ENCRYPTION_KEY].filter((s) =>
@@ -94,6 +102,25 @@ if (env.APP_ENV !== 'local') {
   }
   if (env.FAKE_PRICES || env.FAKE_PROVIDERS) {
     console.error(`APP_ENV=${env.APP_ENV}: FAKE_PRICES/FAKE_PROVIDERS sind nur in local erlaubt.`)
+    process.exit(1)
+  }
+}
+
+// Password-reset tokens must never fall back to application logs in production.
+// Require a complete transport instead of starting a deployment with a reset flow
+// that neither reaches users nor keeps its bearer token confidential.
+if (env.APP_ENV === 'prod') {
+  const missingSmtp = [
+    ['SMTP_HOST', env.SMTP_HOST],
+    ['SMTP_PORT', env.SMTP_PORT],
+    ['SMTP_FROM', env.SMTP_FROM],
+  ].filter(([, value]) => value === undefined || value === '')
+  if (missingSmtp.length > 0) {
+    console.error(`APP_ENV=prod: SMTP-Konfiguration unvollständig (${missingSmtp.map(([name]) => name).join(', ')}).`)
+    process.exit(1)
+  }
+  if (!env.APP_PUBLIC_URL.startsWith('https://')) {
+    console.error('APP_ENV=prod: APP_PUBLIC_URL muss HTTPS verwenden.')
     process.exit(1)
   }
 }

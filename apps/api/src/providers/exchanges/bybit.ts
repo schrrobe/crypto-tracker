@@ -7,6 +7,7 @@ import {
   type RawBalance,
   type RawPosition,
 } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Bybit REST API v5: GET /v5/account/wallet-balance (Unified Trading Account)
 // with HMAC-SHA256 signature. Requires an API key with read-only permission.
@@ -51,7 +52,7 @@ async function fetchBybitBalances(creds: ExchangeCredentials): Promise<RawBalanc
   if (!creds.apiSecret) throw new ProviderError('INVALID_API_KEY', 'Bybit: API-Secret fehlt')
   const timestamp = Date.now().toString()
 
-  const res = await fetch(`${BASE_URL}${WALLET_PATH}?${QUERY}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}${WALLET_PATH}?${QUERY}`, {
     headers: {
       'X-BAPI-API-KEY': creds.apiKey,
       'X-BAPI-TIMESTAMP': timestamp,
@@ -128,7 +129,7 @@ const SETTLE_COINS = ['USDT', 'USDC'] as const
 async function fetchBybitPositionsFor(creds: ExchangeCredentials, settleCoin: string): Promise<RawPosition[]> {
   const timestamp = Date.now().toString()
   const query = `category=linear&settleCoin=${settleCoin}`
-  const res = await fetch(`${BASE_URL}/v5/position/list?${query}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/v5/position/list?${query}`, {
     headers: {
       'X-BAPI-API-KEY': creds.apiKey,
       'X-BAPI-TIMESTAMP': timestamp,

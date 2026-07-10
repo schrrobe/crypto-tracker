@@ -2,7 +2,8 @@
   "name": "crypto-tracker",
   "private": true,
   "engines": {
-    "node": ">=22"
+    "node": ">=22",
+    "pnpm": "11.10.0"
   },
   "scripts": {
     "dev": "concurrently -n api,app -c blue,green \"pnpm dev:api\" \"pnpm dev:app\"",
@@ -17,6 +18,7 @@
     "queue:up": "docker compose up -d redis",
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @crypto-tracker/api db:migrate",
+    "db:deploy": "pnpm --filter @crypto-tracker/api db:deploy",
     "db:seed": "pnpm --filter @crypto-tracker/api db:seed",
     "db:studio": "pnpm --filter @crypto-tracker/api db:studio",
     "build": "pnpm -r build",
@@ -34,15 +36,5 @@
     "globals": "^17.6.0",
     "prettier": "^3.8.4",
     "typescript-eslint": "^8.61.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "argon2",
-      "@prisma/client",
-      "@prisma/engines",
-      "prisma",
-      "esbuild",
-      "vue-demi"
-    ]
   }
 }

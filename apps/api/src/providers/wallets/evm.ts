@@ -1,6 +1,7 @@
 import type { ProviderId } from '@prisma/client'
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Generic EVM chain provider: eth_getBalance + a curated ERC-20 list via
 // eth_call balanceOf. Ethereum itself stays in ethereum.ts (its own RPC from
@@ -29,7 +30,7 @@ interface RpcResponse<T> {
 }
 
 async function rpc<T>(rpcUrl: string, method: string, params: unknown[]): Promise<T> {
-  const res = await fetch(rpcUrl, {
+  const res = await fetchWithTimeout(rpcUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),

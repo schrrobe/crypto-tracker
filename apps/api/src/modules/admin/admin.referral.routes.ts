@@ -5,7 +5,6 @@ import { asyncHandler } from '../../lib/asyncHandler'
 import { AppError } from '../../lib/errors'
 import { listPendingPayouts, settlePayout } from '../referral/referral.service'
 import * as admin from './admin.service'
-import { AuditAction, recordAudit } from './audit.service'
 
 export const adminReferralRoutes = Router()
 
@@ -19,22 +18,17 @@ adminReferralRoutes.get(
   asyncHandler(async (_req, res) => res.json({ payouts: await admin.listPayoutHistory() })),
 )
 
-const settleSchema = z.object({ currency: z.string().min(1) })
+const settleSchema = z.object({
+  currency: z.string().trim().toLowerCase().regex(/^[a-z]{3}$/),
+})
 
 adminReferralRoutes.post(
   '/payouts/:referrerId/settle',
   validate(settleSchema),
   asyncHandler(async (req, res) => {
-    const { referrerId } = req.params
-    if (!referrerId) throw AppError.notFound()
-    const payout = await settlePayout(referrerId, req.body.currency)
-    await recordAudit({
-      actor: req.adminUser,
-      action: AuditAction.PAYOUT_SETTLED,
-      targetType: 'PAYOUT',
-      targetId: payout.id,
-      metadata: { referrerId, amountCents: payout.amountCents, currency: payout.currency },
-    })
+    const referrerId = z.string().uuid().safeParse(req.params.referrerId)
+    if (!referrerId.success) throw AppError.notFound()
+    const payout = await settlePayout(referrerId.data, req.body.currency, req.adminUser)
     res.json(payout)
   }),
 )

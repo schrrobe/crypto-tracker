@@ -8,6 +8,7 @@ import {
   type RawPosition,
 } from '../provider.types'
 import { safeSubFetch } from './account-snapshot'
+import { fetchWithTimeout } from '../http'
 
 // OKX REST API v5: GET /api/v5/account/balance with HMAC-SHA256 signature (Base64).
 // Requires an API key with only the "Read" permission plus a passphrase.
@@ -50,7 +51,7 @@ async function fetchOkxBalances(creds: ExchangeCredentials): Promise<RawBalance[
   if (!creds.passphrase) throw new ProviderError('INVALID_API_KEY', 'OKX: Passphrase fehlt')
   const timestamp = new Date().toISOString()
 
-  const res = await fetch(`${BASE_URL}${BALANCE_PATH}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}${BALANCE_PATH}`, {
     headers: {
       'OK-ACCESS-KEY': creds.apiKey,
       'OK-ACCESS-SIGN': okxSignature(timestamp, 'GET', BALANCE_PATH, '', creds.apiSecret),
@@ -92,7 +93,7 @@ async function fetchOkxBalances(creds: ExchangeCredentials): Promise<RawBalance[
 // (key without permission for this account type), spot sync continues.
 async function okxSubGet<T>(path: string, creds: ExchangeCredentials): Promise<T[]> {
   const timestamp = new Date().toISOString()
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}${path}`, {
     headers: {
       'OK-ACCESS-KEY': creds.apiKey,
       'OK-ACCESS-SIGN': okxSignature(timestamp, 'GET', path, '', creds.apiSecret as string),

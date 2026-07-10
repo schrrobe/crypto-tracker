@@ -21,8 +21,24 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
     next(AppError.unauthorized())
     return
   }
-  req.userId = userId
-  next()
+  // Access tokens live for 15 minutes. Re-check the account so deletion and an
+  // admin suspension revoke that access immediately instead of leaving global
+  // authenticated mutations available until JWT expiry.
+  prisma.user
+    .findUnique({ where: { id: userId }, select: { suspendedAt: true } })
+    .then((user) => {
+      if (!user) {
+        next(AppError.unauthorized())
+        return
+      }
+      if (user.suspendedAt) {
+        next(new AppError('ACCOUNT_SUSPENDED', 403, 'Dieses Konto ist gesperrt'))
+        return
+      }
+      req.userId = userId
+      next()
+    })
+    .catch(next)
 }
 
 // Admin gate: valid Bearer token AND the user has isAdmin. Non-admins (and

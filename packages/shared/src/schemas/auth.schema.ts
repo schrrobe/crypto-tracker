@@ -42,6 +42,7 @@ export interface UserDto {
   email: string
   baseCurrency: string
   plan: Plan
+  isAdmin: boolean
   autoSyncEnabled: boolean
   createdAt: string
 }

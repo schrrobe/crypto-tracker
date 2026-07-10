@@ -144,6 +144,12 @@ describe('Admin (Integration)', () => {
     const dbUser = await prisma.user.findUnique({ where: { id: target.userId } })
     expect(dbUser?.suspendedAt).not.toBeNull()
 
+    // The already-issued access token is revoked immediately, not after its
+    // 15-minute JWT expiry.
+    const stillAuthed = await request(app).get(`${API}/market`).set(...bearer(target))
+    expect(stillAuthed.status).toBe(403)
+    expect(stillAuthed.body.error.code).toBe('ACCOUNT_SUSPENDED')
+
     // Login blocked
     const login = await request(app)
       .post(`${API}/auth/login`)
@@ -201,6 +207,37 @@ describe('Admin (Integration)', () => {
 
     const audit = await request(app).get(`${API}/admin/audit?action=ADMIN_ROLE_CHANGED`).set(...bearer(admin))
     expect(audit.body.audit.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('parallele Kreuz-Degradierung bewahrt mindestens einen Admin', async () => {
+    const a = await registerUser('role-race-a', 'FREE')
+    const b = await registerUser('role-race-b', 'FREE')
+    // Isolate the invariant from admins created by earlier integration cases.
+    await prisma.user.updateMany({ data: { isAdmin: false } })
+    await Promise.all([makeAdmin(a), makeAdmin(b)])
+
+    const demote = (actor: typeof a, targetId: string) => request(app)
+      .patch(`${API}/admin/users/${targetId}/admin`)
+      .set(...bearer(actor))
+      .send({ isAdmin: false })
+    const results = await Promise.all([demote(a, b.userId), demote(b, a.userId)])
+
+    expect(results.map((r) => r.status).sort()).toEqual([204, 400])
+    expect(await prisma.user.count({ where: { isAdmin: true } })).toBe(1)
+  })
+
+  it('der letzte aktive Admin kann sich nicht selbst sperren', async () => {
+    const admin = await registerUser('suspend-last-admin', 'FREE')
+    await prisma.user.updateMany({ data: { isAdmin: false } })
+    await makeAdmin(admin)
+
+    const result = await request(app)
+      .post(`${API}/admin/users/${admin.userId}/suspend`)
+      .set(...bearer(admin))
+
+    expect(result.status).toBe(400)
+    expect(result.body.error.code).toBe('CANNOT_SUSPEND_LAST_ADMIN')
+    expect((await prisma.user.findUnique({ where: { id: admin.userId } }))?.suspendedAt).toBeNull()
   })
 
   it('Dashboard: overview liefert activeSessions + Deltas; activity liefert Signups + Audit', async () => {

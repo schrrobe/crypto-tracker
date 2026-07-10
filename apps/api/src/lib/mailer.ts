@@ -36,12 +36,16 @@ export async function verifySmtp(): Promise<void> {
 
 export async function sendMail(mail: Mail): Promise<void> {
   if (!transporter) {
-    // Console fallback: no SMTP configured (local/dev without mail server)
-    console.info(
-      `[mailer] Kein SMTP konfiguriert — E-Mail an ${mail.to} nicht versendet.\n` +
-        `Betreff: ${mail.subject}\n${mail.text}`,
-    )
-    return
+    // The token-bearing console fallback is strictly local. Dev/prod logs are
+    // commonly shipped to third parties and must never contain reset links.
+    if (env.APP_ENV === 'local' && env.NODE_ENV !== 'production') {
+      console.info(
+        `[mailer] Kein SMTP konfiguriert — E-Mail an ${mail.to} nicht versendet.\n` +
+          `Betreff: ${mail.subject}\n${mail.text}`,
+      )
+      return
+    }
+    throw new Error('SMTP ist nicht konfiguriert')
   }
   await transporter.sendMail({
     from: env.SMTP_FROM ?? env.SMTP_USER ?? 'no-reply@crypto-tracker.local',

@@ -42,7 +42,7 @@
           >{{ formatCurrency(holding.valueEur, 'EUR') }}</ion-note>
           <ion-buttons slot="end">
             <ion-button
-              v-if="holding.valueEur === null && holding.asset.coingeckoId === null"
+              v-if="auth.user?.isAdmin && holding.valueEur === null && holding.asset.coingeckoId === null"
               color="warning"
               :aria-label="$t('holdings.mapPrice')"
               :title="$t('holdings.mapPrice')"
@@ -171,11 +171,13 @@ import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
+import { useAuthStore } from '../stores/auth.store'
 import { t } from '../i18n'
 import { formatCurrency, formatQuantity } from '../services/format'
 import { balancesHidden, toggleBalances } from '../services/privacy'
 
 const portfolio = usePortfolioStore()
+const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 

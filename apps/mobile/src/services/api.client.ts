@@ -5,7 +5,7 @@
 // Native clients signal this via the X-Client: native header.
 
 import { Capacitor } from '@capacitor/core'
-import { getStored, removeStored, setStored } from './storage'
+import { getStored, removeStoredDurable, setStoredDurable } from './storage'
 
 // Dev: if VITE_API_URL is unset, derive the API host from where the app is
 // served — so the same build works on localhost and over the LAN (phone uses
@@ -31,12 +31,21 @@ export const isNativePlatform = Capacitor.isNativePlatform()
 
 let accessToken: string | null = null
 
-export function setTokens(tokens: { accessToken: string; refreshToken?: string } | null): void {
-  accessToken = tokens?.accessToken ?? null
+export async function setTokens(tokens: { accessToken: string; refreshToken?: string } | null): Promise<void> {
   // Web: the refresh token lives in the httpOnly cookie → store nothing in JS.
-  if (!isNativePlatform) return
-  if (tokens?.refreshToken) setStored(REFRESH_KEY, tokens.refreshToken)
-  else removeStored(REFRESH_KEY)
+  if (!isNativePlatform) {
+    accessToken = tokens?.accessToken ?? null
+    return
+  }
+  if (tokens?.refreshToken) {
+    await setStoredDurable(REFRESH_KEY, tokens.refreshToken)
+    accessToken = tokens.accessToken
+    return
+  }
+  // Clear in-memory authorization immediately even if secure-storage cleanup
+  // fails. Callers still receive the persistence error and can surface it.
+  accessToken = null
+  await removeStoredDurable(REFRESH_KEY)
 }
 
 export function getRefreshToken(): string | null {
@@ -91,11 +100,11 @@ async function tryRefresh(): Promise<boolean> {
       body,
     })
     if (!res.ok) {
-      setTokens(null)
+      await setTokens(null)
       return false
     }
     const data = await res.json()
-    setTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken })
+    await setTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken })
     return true
   })().finally(() => {
     refreshPromise = null

@@ -102,6 +102,8 @@ model User {
   autoSyncEnabled Boolean         @default(true)
   stripeCustomerId     String?    @unique
   stripeSubscriptionId String?
+  // Short reservation preventing parallel Checkout sessions/subscriptions.
+  stripeCheckoutPendingUntil DateTime?
   planUntil            DateTime?
   // Stripe event ordering guard: the `created` of the last plan-affecting event
   // applied. A webhook delivered/processed out of order (older `created`) is ignored
@@ -126,8 +128,6 @@ model User {
   portfolios    Portfolio[]
   refreshTokens RefreshToken[]
   passwordResetTokens PasswordResetToken[]
-  commissionsEarned ReferralCommission[] @relation("Earned")
-  payouts       Payout[]
   auditLogs     AuditLog[]        @relation("ActorAudits")
   surveyResponses SurveyResponse[]
 }
@@ -154,6 +154,9 @@ model AuditLog {
 model ReferralCommission {
   id              String   @id @default(uuid())
   referrerId      String
+  // Snapshot retained after account deletion; referrerId intentionally has no FK
+  // so financial liabilities and payout audit history cannot cascade away.
+  referrerEmail   String
   referredUserId  String
   stripeInvoiceId String   @unique
   amountCents     Int
@@ -161,7 +164,6 @@ model ReferralCommission {
   payoutId        String?
   voidedAt        DateTime?
   createdAt       DateTime @default(now())
-  referrer        User     @relation("Earned", fields: [referrerId], references: [id], onDelete: Cascade)
   payout          Payout?  @relation(fields: [payoutId], references: [id], onDelete: SetNull)
 
   @@index([referrerId])
@@ -172,10 +174,10 @@ model ReferralCommission {
 model Payout {
   id          String               @id @default(uuid())
   referrerId  String
+  referrerEmail String
   amountCents Int
   currency    String
   createdAt   DateTime             @default(now())
-  referrer    User                 @relation(fields: [referrerId], references: [id], onDelete: Cascade)
   commissions ReferralCommission[]
 
   @@index([referrerId])

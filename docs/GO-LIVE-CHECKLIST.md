@@ -10,11 +10,11 @@
 - [ ] **Hosting entschieden** (VPS / Fly.io / Render / GCP …) für API + statische Web-App.
 - [ ] **Managed PostgreSQL** (Backups + PITR aktiviert), `DATABASE_URL` gesetzt.
 - [ ] API-Build & Migrationen: `pnpm --filter @crypto-tracker/api build`, dann
-      `prisma migrate deploy` (NICHT `migrate dev`/`reset` auf prod).
+      `pnpm db:deploy` (NICHT `migrate dev`/`reset` auf prod).
 - [ ] Web-App-Build: `pnpm --filter @crypto-tracker/mobile build` → `dist/` hinter Reverse-Proxy
       (nginx/Caddy) mit **HTTPS**.
 - [ ] **Reverse-Proxy/HTTPS** terminiert; HTTP→HTTPS-Redirect; sinnvolle Security-Header (helmet ist aktiv).
-- [ ] Optional: **Redis** + Worker-Prozess (`dev:worker`) für Background-Sync/Preis-Cron, falls genutzt
+- [ ] Optional: **Redis** + Worker-Prozess (`start:worker`) für Background-Sync/Preis-Cron, falls genutzt
       (`REDIS_URL`).
 
 ## 2. Secrets & Environment (`APP_ENV=prod`)

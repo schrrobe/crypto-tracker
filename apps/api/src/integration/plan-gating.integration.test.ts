@@ -51,6 +51,20 @@ describe('Plan-Gating (Integration)', () => {
     await createManualSource(user, 'Quelle 6 Pro')
   })
 
+  it('Free: CSV-Upload kann das Quellenlimit nicht umgehen', async () => {
+    const user = await registerUser('gate-csv', 'FREE')
+    for (let i = 0; i < 5; i++) await createManualSource(user, `CSV-Limit ${i}`)
+
+    const upload = await request(app)
+      .post(`${API}/imports`)
+      .set(...bearer(user))
+      .field('kind', 'BALANCES')
+      .attach('file', Buffer.from('Coin,Amount\nBTC,1\n'), 'limit.csv')
+
+    expect(upload.status).toBe(402)
+    expect(upload.body.error.details).toMatchObject({ feature: 'unlimitedSources', limit: 5, used: 5 })
+  })
+
   it('Free: 3. Portfolio → 402; Pro hebt das Limit auf', async () => {
     const user = await registerUser('gate-pf', 'FREE')
     // 1 default portfolio already exists → one more is ok (=2)

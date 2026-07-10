@@ -18,9 +18,18 @@ async function cgFetchJson<T>(
   notFoundCodes: number[] = [],
   windowOutCodes: number[] = [],
 ): Promise<T | null> {
-  const res = await fetch(url, {
-    headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: env.COINGECKO_API_KEY ? { 'x-cg-demo-api-key': env.COINGECKO_API_KEY } : {},
+      signal: AbortSignal.timeout(env.PROVIDER_TIMEOUT_MS),
+    })
+  } catch (error) {
+    const message = error instanceof Error && error.name === 'TimeoutError'
+      ? 'CoinGecko-Anfrage hat das Zeitlimit überschritten'
+      : 'CoinGecko ist nicht erreichbar'
+    throw new AppError('PRICE_PROVIDER_ERROR', 502, message)
+  }
   if (notFoundCodes.includes(res.status)) return null
   if (windowOutCodes.includes(res.status)) {
     throw new AppError(

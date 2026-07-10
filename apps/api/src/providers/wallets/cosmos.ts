@@ -1,5 +1,6 @@
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Cosmos Hub balance via a public LCD endpoint (cosmos.directory
 // proxies to healthy nodes): bank balance (uatom, 1e6) plus delegations.
@@ -22,7 +23,7 @@ interface UnbondingDelegation {
 }
 
 async function lcdGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${LCD_URL}${path}`)
+  const res = await fetchWithTimeout(`${LCD_URL}${path}`)
   if (res.status === 429) {
     throw new ProviderError('RATE_LIMITED', 'Cosmos-LCD Rate-Limit erreicht, bitte später erneut')
   }

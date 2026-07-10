@@ -461,7 +461,7 @@ const de = {
     submit: 'Absenden',
     submitFailed: 'Antwort konnte nicht gesendet werden',
     thanks: 'Danke für deine Teilnahme!',
-    anonymousNote: 'Diese Umfrage ist anonym — deine Antworten werden nicht mit deiner Identität verknüpft.',
+    anonymousNote: 'Vertrauliche Umfrage — deine Identität wird Admins in Ergebnissen und Exporten nicht angezeigt.',
     identifiedNote: 'Deine Antworten sind mit deinem Konto verknüpft.',
     optionalHint: 'Beantworte so viele Fragen, wie du möchtest.',
     alreadySubmitted: 'Du hast diese Umfrage bereits beantwortet.',

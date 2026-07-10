@@ -5,6 +5,7 @@ import {
   type ExchangeProvider,
   type RawBalance,
 } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Crypto.com Exchange API v1: POST private/user-balance with HMAC-SHA256 signature.
 // Requires an API key with only the "Read" permission.
@@ -72,7 +73,7 @@ async function fetchCryptocomBalances(creds: ExchangeCredentials): Promise<RawBa
     sig: cryptocomSignature(BALANCE_METHOD, id, creds.apiKey, params, nonce, creds.apiSecret),
   }
 
-  const res = await fetch(`${BASE_URL}/${BALANCE_METHOD}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/${BALANCE_METHOD}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),

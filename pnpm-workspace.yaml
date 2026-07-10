@@ -2,6 +2,10 @@ packages:
   - apps/*
   - packages/*
   - e2e
+overrides:
+  dompurify: ^3.4.11
+verifyDepsBeforeRun: error
+enableGlobalVirtualStore: false
 allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true

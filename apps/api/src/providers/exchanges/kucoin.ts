@@ -6,6 +6,7 @@ import {
   type ExchangeProvider,
   type RawBalance,
 } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // KuCoin REST API: GET /api/v1/accounts with HMAC-SHA256 signature (key version 2).
 // Requires an API key with only the "General" permission (read-only)
@@ -67,7 +68,7 @@ async function fetchKucoinBalances(creds: ExchangeCredentials): Promise<RawBalan
   if (!creds.passphrase) throw new ProviderError('INVALID_API_KEY', 'KuCoin: Passphrase fehlt')
 
   const timestamp = Date.now().toString()
-  const res = await fetch(`${BASE_URL}${ACCOUNTS_PATH}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}${ACCOUNTS_PATH}`, {
     headers: {
       'KC-API-KEY': creds.apiKey,
       'KC-API-SIGN': kucoinSignature(timestamp, 'GET', ACCOUNTS_PATH, '', creds.apiSecret),

@@ -166,6 +166,17 @@ export const confirmMappingSchema = z.object({
 })
 export type ConfirmMappingInput = z.infer<typeof confirmMappingSchema>
 
+// Multipart upload fields arrive as strings after multer has parsed the body.
+// Validate them explicitly instead of silently coercing unknown import kinds to
+// balances or accepting unbounded labels.
+export const csvUploadFieldsSchema = z.object({
+  kind: z.enum(['BALANCES', 'TRANSACTIONS']),
+  label: z.string().trim().min(1).max(60).optional(),
+  portfolioId: z.string().uuid().optional(),
+  exchange: z.enum(EXCHANGE_PROVIDERS).optional(),
+})
+export type CsvUploadFields = z.infer<typeof csvUploadFieldsSchema>
+
 export interface MappingSuggestionDto {
   symbol: string | null
   quantity: string | null

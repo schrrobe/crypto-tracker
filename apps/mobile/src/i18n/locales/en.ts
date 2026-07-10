@@ -462,7 +462,7 @@ const en: MessageSchema = {
     submit: 'Submit',
     submitFailed: 'Your answer could not be sent',
     thanks: 'Thanks for taking part!',
-    anonymousNote: 'This survey is anonymous — your answers are not linked to your identity.',
+    anonymousNote: 'Confidential survey — admins do not see your identity in results or exports.',
     identifiedNote: 'Your answers are linked to your account.',
     optionalHint: 'Answer as many questions as you like.',
     alreadySubmitted: 'You have already answered this survey.',

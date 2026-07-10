@@ -15,7 +15,8 @@ import type {
 import { Prisma } from '@prisma/client'
 import type { AdminAttentionDto, AdminChurnDto, AdminSourceDto } from '@crypto-tracker/shared'
 import { earningsByCurrency, listPendingPayouts } from '../referral/referral.service'
-import { deleteAccount } from '../auth/auth.service'
+import { deleteAccountData } from '../auth/auth.service'
+import { cancelSubscription } from '../billing/billing.service'
 import { requestSync } from '../sync/sync.service'
 import { toSyncRunDto } from '../sync/syncRun.mapper'
 import { activeProCutoff } from '../../middleware/plan.middleware'
@@ -339,55 +340,88 @@ export async function getUserDetail(id: string): Promise<AdminUserDetailDto> {
 }
 
 export async function updateUserPlan(actor: AuditActor, id: string, input: AdminUpdatePlanInput): Promise<void> {
-  const before = await prisma.user.findUnique({ where: { id }, select: { plan: true } })
-  await prisma.user.update({
-    where: { id },
-    data: {
-      plan: input.plan,
-      planUntil: input.planUntil === undefined ? undefined : input.planUntil ? new Date(input.planUntil) : null,
-    },
-  })
-  await recordAudit({
-    actor,
-    action: AuditAction.USER_PLAN_CHANGED,
-    targetType: 'USER',
-    targetId: id,
-    metadata: { from: before?.plan, to: input.plan, planUntil: input.planUntil ?? null },
+  await prisma.$transaction(async (tx) => {
+    const before = await tx.user.findUnique({ where: { id }, select: { plan: true } })
+    if (!before) throw AppError.notFound('User nicht gefunden')
+    await tx.user.update({
+      where: { id },
+      data: {
+        plan: input.plan,
+        planUntil: input.planUntil === undefined ? undefined : input.planUntil ? new Date(input.planUntil) : null,
+      },
+    })
+    await recordAudit({
+      actor,
+      action: AuditAction.USER_PLAN_CHANGED,
+      targetType: 'USER',
+      targetId: id,
+      metadata: { from: before.plan, to: input.plan, planUntil: input.planUntil ?? null },
+    }, tx)
   })
 }
 
 export async function deleteUser(actor: AuditActor, id: string): Promise<void> {
   if (actor.id === id) throw AppError.badRequest('CANNOT_DELETE_SELF', 'Admin kann sich nicht selbst löschen')
-  const target = await prisma.user.findUnique({ where: { id }, select: { isAdmin: true, email: true } })
-  if (!target) throw AppError.notFound('User nicht gefunden')
-  if (target.isAdmin) {
-    const admins = await prisma.user.count({ where: { isAdmin: true } })
-    if (admins <= 1) throw AppError.badRequest('CANNOT_DELETE_LAST_ADMIN', 'Letzter Admin kann nicht gelöscht werden')
-  }
-  await deleteAccount(id)
-  await recordAudit({
-    actor,
-    action: AuditAction.USER_DELETED,
-    targetType: 'USER',
-    targetId: id,
-    metadata: { email: target.email },
-  })
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('admin-role-invariant'))`
+    const target = await tx.user.findUnique({
+      where: { id },
+      select: { isAdmin: true, suspendedAt: true, email: true, stripeSubscriptionId: true },
+    })
+    if (!target) throw AppError.notFound('User nicht gefunden')
+    if (target.isAdmin && !target.suspendedAt) {
+      const admins = await tx.user.count({ where: { isAdmin: true, suspendedAt: null } })
+      if (admins <= 1) throw AppError.badRequest('CANNOT_DELETE_LAST_ADMIN', 'Letzter Admin kann nicht gelöscht werden')
+    }
+    // Keep the invariant lock until Stripe cancellation succeeds. This is a rare
+    // admin operation; holding the transaction is preferable to canceling the
+    // last admin's subscription and only then discovering that deletion is illegal.
+    if (target.stripeSubscriptionId) {
+      try {
+        await cancelSubscription(target.stripeSubscriptionId)
+      } catch (error) {
+        console.error(`[admin] subscription cancellation failed for user ${id}`, error)
+        throw new AppError(
+          'SUBSCRIPTION_CANCEL_FAILED',
+          502,
+          'Das Abo konnte nicht gekündigt werden. Das Konto wurde nicht gelöscht; bitte erneut versuchen.',
+        )
+      }
+    }
+    await deleteAccountData(tx, id)
+    await recordAudit({
+      actor,
+      action: AuditAction.USER_DELETED,
+      targetType: 'USER',
+      targetId: id,
+      metadata: { email: target.email },
+    }, tx)
+  }, { maxWait: 5_000, timeout: 120_000 })
 }
 
 export async function setSuspended(actor: AuditActor, id: string, suspended: boolean): Promise<void> {
-  const target = await prisma.user.findUnique({ where: { id }, select: { email: true } })
-  if (!target) throw AppError.notFound('User nicht gefunden')
-  await prisma.user.update({ where: { id }, data: { suspendedAt: suspended ? new Date() : null } })
-  if (suspended) {
-    // Force logout: drop refresh tokens so existing sessions die at access-token expiry.
-    await prisma.refreshToken.deleteMany({ where: { userId: id } })
-  }
-  await recordAudit({
-    actor,
-    action: suspended ? AuditAction.USER_SUSPENDED : AuditAction.USER_UNSUSPENDED,
-    targetType: 'USER',
-    targetId: id,
-    metadata: { email: target.email },
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('admin-role-invariant'))`
+    const target = await tx.user.findUnique({
+      where: { id },
+      select: { email: true, isAdmin: true, suspendedAt: true },
+    })
+    if (!target) throw AppError.notFound('User nicht gefunden')
+    if (suspended && target.isAdmin && !target.suspendedAt) {
+      const admins = await tx.user.count({ where: { isAdmin: true, suspendedAt: null } })
+      if (admins <= 1) {
+        throw AppError.badRequest('CANNOT_SUSPEND_LAST_ADMIN', 'Letzter aktiver Admin kann nicht gesperrt werden')
+      }
+    }
+    await tx.user.update({ where: { id }, data: { suspendedAt: suspended ? new Date() : null } })
+    if (suspended) await tx.refreshToken.deleteMany({ where: { userId: id } })
+    await recordAudit({
+      actor,
+      action: suspended ? AuditAction.USER_SUSPENDED : AuditAction.USER_UNSUSPENDED,
+      targetType: 'USER',
+      targetId: id,
+      metadata: { email: target.email },
+    }, tx)
   })
 }
 
@@ -395,19 +429,25 @@ export async function setAdmin(actor: AuditActor, id: string, isAdmin: boolean):
   if (!isAdmin && actor.id === id) {
     throw AppError.badRequest('CANNOT_DEMOTE_SELF', 'Admin kann sich nicht selbst die Rechte entziehen')
   }
-  const target = await prisma.user.findUnique({ where: { id }, select: { isAdmin: true, email: true } })
-  if (!target) throw AppError.notFound('User nicht gefunden')
-  if (!isAdmin && target.isAdmin) {
-    const admins = await prisma.user.count({ where: { isAdmin: true } })
-    if (admins <= 1) throw AppError.badRequest('CANNOT_DEMOTE_LAST_ADMIN', 'Letzter Admin kann nicht degradiert werden')
-  }
-  await prisma.user.update({ where: { id }, data: { isAdmin } })
-  await recordAudit({
-    actor,
-    action: AuditAction.ADMIN_ROLE_CHANGED,
-    targetType: 'USER',
-    targetId: id,
-    metadata: { from: target.isAdmin, to: isAdmin },
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('admin-role-invariant'))`
+    const target = await tx.user.findUnique({
+      where: { id },
+      select: { isAdmin: true, suspendedAt: true, email: true },
+    })
+    if (!target) throw AppError.notFound('User nicht gefunden')
+    if (!isAdmin && target.isAdmin && !target.suspendedAt) {
+      const admins = await tx.user.count({ where: { isAdmin: true, suspendedAt: null } })
+      if (admins <= 1) throw AppError.badRequest('CANNOT_DEMOTE_LAST_ADMIN', 'Letzter Admin kann nicht degradiert werden')
+    }
+    await tx.user.update({ where: { id }, data: { isAdmin } })
+    await recordAudit({
+      actor,
+      action: AuditAction.ADMIN_ROLE_CHANGED,
+      targetType: 'USER',
+      targetId: id,
+      metadata: { from: target.isAdmin, to: isAdmin },
+    }, tx)
   })
 }
 
@@ -466,15 +506,19 @@ export async function getChurnStats(): Promise<AdminChurnDto> {
 }
 
 export async function revokeSessions(actor: AuditActor, id: string): Promise<number> {
-  const { count } = await prisma.refreshToken.deleteMany({ where: { userId: id } })
-  await recordAudit({
-    actor,
-    action: AuditAction.USER_SESSIONS_REVOKED,
-    targetType: 'USER',
-    targetId: id,
-    metadata: { revoked: count },
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({ where: { id }, select: { id: true } })
+    if (!user) throw AppError.notFound('User nicht gefunden')
+    const { count } = await tx.refreshToken.deleteMany({ where: { userId: id } })
+    await recordAudit({
+      actor,
+      action: AuditAction.USER_SESSIONS_REVOKED,
+      targetType: 'USER',
+      targetId: id,
+      metadata: { revoked: count },
+    }, tx)
+    return count
   })
-  return count
 }
 
 // --- Referral admin ---------------------------------------------------------
@@ -484,11 +528,10 @@ export async function listCommissions(referrerId?: string): Promise<AdminCommiss
     where: referrerId ? { referrerId } : {},
     orderBy: { createdAt: 'desc' },
     take: 200,
-    include: { referrer: { select: { email: true } } },
   })
   return rows.map((c) => ({
     id: c.id,
-    referrerEmail: c.referrer.email,
+    referrerEmail: c.referrerEmail,
     referredUserId: c.referredUserId,
     amountCents: c.amountCents,
     currency: c.currency,
@@ -499,27 +542,27 @@ export async function listCommissions(referrerId?: string): Promise<AdminCommiss
 }
 
 export async function voidCommission(actor: AuditActor, id: string): Promise<void> {
-  const c = await prisma.referralCommission.findUnique({
-    where: { id },
-    select: { payoutId: true, voidedAt: true, amountCents: true, currency: true, referrerId: true },
-  })
-  if (!c) throw AppError.notFound('Kommission nicht gefunden')
-  if (c.payoutId) throw AppError.badRequest('ALREADY_PAID', 'Bereits ausgezahlte Kommission kann nicht storniert werden')
-  // Atomic conditional update — closes the race against settlePayout: only voids
-  // while still unpaid+unvoided. count===0 → another tx paid/voided it meanwhile.
-  const { count } = await prisma.referralCommission.updateMany({
-    where: { id, payoutId: null, voidedAt: null },
-    data: { voidedAt: new Date() },
-  })
-  if (count === 0) {
-    throw AppError.badRequest('ALREADY_PAID', 'Kommission wurde zwischenzeitlich ausgezahlt oder storniert')
-  }
-  await recordAudit({
-    actor,
-    action: AuditAction.COMMISSION_VOIDED,
-    targetType: 'COMMISSION',
-    targetId: id,
-    metadata: { amountCents: c.amountCents, currency: c.currency, referrerId: c.referrerId },
+  await prisma.$transaction(async (tx) => {
+    const c = await tx.referralCommission.findUnique({
+      where: { id },
+      select: { payoutId: true, voidedAt: true, amountCents: true, currency: true, referrerId: true },
+    })
+    if (!c) throw AppError.notFound('Kommission nicht gefunden')
+    if (c.payoutId) throw AppError.badRequest('ALREADY_PAID', 'Bereits ausgezahlte Kommission kann nicht storniert werden')
+    const { count } = await tx.referralCommission.updateMany({
+      where: { id, payoutId: null, voidedAt: null },
+      data: { voidedAt: new Date() },
+    })
+    if (count === 0) {
+      throw AppError.badRequest('ALREADY_PAID', 'Kommission wurde zwischenzeitlich ausgezahlt oder storniert')
+    }
+    await recordAudit({
+      actor,
+      action: AuditAction.COMMISSION_VOIDED,
+      targetType: 'COMMISSION',
+      targetId: id,
+      metadata: { amountCents: c.amountCents, currency: c.currency, referrerId: c.referrerId },
+    }, tx)
   })
 }
 
@@ -527,11 +570,10 @@ export async function listPayoutHistory(): Promise<{ id: string; referrerEmail: 
   const rows = await prisma.payout.findMany({
     orderBy: { createdAt: 'desc' },
     take: 200,
-    include: { referrer: { select: { email: true } } },
   })
   return rows.map((p) => ({
     id: p.id,
-    referrerEmail: p.referrer.email,
+    referrerEmail: p.referrerEmail,
     amountCents: p.amountCents,
     currency: p.currency,
     createdAt: p.createdAt.toISOString(),

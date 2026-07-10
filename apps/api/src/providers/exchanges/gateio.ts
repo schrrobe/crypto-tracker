@@ -5,6 +5,7 @@ import {
   type ExchangeProvider,
   type RawBalance,
 } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Gate.io REST API v4: GET /api/v4/spot/accounts with HMAC-SHA512 signature.
 // Requires an API key with only the "Spot: read-only" permission.
@@ -56,7 +57,7 @@ async function fetchGateioBalances(creds: ExchangeCredentials): Promise<RawBalan
   if (!creds.apiSecret) throw new ProviderError('INVALID_API_KEY', 'Gate.io: API-Secret fehlt')
   // Gate.io expects the timestamp in seconds
   const timestamp = Math.floor(Date.now() / 1000).toString()
-  const res = await fetch(`${BASE_URL}${ACCOUNTS_PATH}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}${ACCOUNTS_PATH}`, {
     headers: {
       KEY: creds.apiKey,
       Timestamp: timestamp,

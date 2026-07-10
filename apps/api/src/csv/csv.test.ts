@@ -55,6 +55,8 @@ describe('normalizeNumber', () => {
     expect(normalizeNumber('abc')).toBeNull()
     expect(normalizeNumber('1.2.3,4,5')).toBeNull()
     expect(normalizeNumber('-1')).toBeNull()
+    expect(normalizeNumber('123456789012345678901')).toBeNull()
+    expect(normalizeNumber(`1.${'1'.repeat(19)}`)).toBeNull()
   })
 })
 
@@ -106,6 +108,14 @@ describe('parseTimestamp', () => {
     expect(parseTimestamp('kein datum')).toBeNull()
     expect(parseTimestamp('')).toBeNull()
   })
+
+  it('lehnt normalisierte Kalenderdaten und DST-Lücken ab', () => {
+    expect(parseTimestamp('2026-02-31')).toBeNull()
+    expect(parseTimestamp('2026-02-31T10:00:00Z')).toBeNull()
+    expect(parseTimestamp('2026-04-31T10:00:00+02:00')).toBeNull()
+    expect(parseTimestamp('31.04.2026 10:00')).toBeNull()
+    expect(parseTimestamp('2026-03-29 02:30')).toBeNull()
+  })
 })
 
 describe('applyTransactionMapping', () => {
@@ -123,6 +133,13 @@ describe('applyTransactionMapping', () => {
     expect(valid[0]).toMatchObject({ symbol: 'BTC', quantity: '1', type: 'BUY' })
     expect(valid[1]).toMatchObject({ symbol: 'BTC', quantity: '0.4', type: 'SELL' })
     expect(errors.map((e) => e.line)).toEqual([4, 5])
+  })
+
+  it('lehnt zukünftige Transaktionen ab', () => {
+    const rows = [{ Coin: 'BTC', Menge: '1', Typ: 'Kauf', Datum: '2100-01-01' }]
+    const { valid, errors } = applyTransactionMapping(rows, mapping)
+    expect(valid).toHaveLength(0)
+    expect(errors[0]?.error).toContain('Zukunft')
   })
 
   it('übernimmt optionale Preis-/Gebühren-/Währungs-Spalten', () => {

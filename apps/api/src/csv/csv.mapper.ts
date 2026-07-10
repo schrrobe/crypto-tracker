@@ -42,7 +42,10 @@ export function normalizeNumber(value: string): string | null {
     normalized = (trimmed.match(/,/g) ?? []).length > 1 ? trimmed.replace(/,/g, '') : trimmed.replace(',', '.')
   }
 
-  return /^\d+(\.\d+)?$/.test(normalized) ? normalized : null
+  // Fits the DECIMAL(38,18) columns used by holdings/transactions. Rejecting
+  // oversized values here yields a row error instead of aborting the whole import
+  // at the database boundary.
+  return /^\d{1,20}(\.\d{1,18})?$/.test(normalized) ? normalized : null
 }
 
 export interface TransactionMapping {
@@ -130,18 +133,54 @@ const CSV_TZ_FORMATTER = new Intl.DateTimeFormat('en-US', {
   hour: '2-digit', minute: '2-digit', second: '2-digit',
 })
 
+function isValidCalendarParts(
+  year: number, month: number, day: number,
+  hour: number, minute: number, second: number,
+): boolean {
+  const probe = new Date(Date.UTC(year, month - 1, day, hour, minute, second))
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day &&
+    probe.getUTCHours() === hour &&
+    probe.getUTCMinutes() === minute &&
+    probe.getUTCSeconds() === second
+  )
+}
+
 // Wandelt eine Wanduhrzeit in CSV_TIMEZONE in den korrekten UTC-Instant um —
 // DST-korrekt, weil der Offset für genau dieses Datum aus Intl bestimmt wird.
 function wallClockToUtc(
   year: number, month: number, day: number,
   hour: number, minute: number, second: number,
 ): Date {
+  // Date.UTC normalizes impossible calendar values (2026-02-31 → March). Reject
+  // them before applying the timezone offset so tax timestamps are never shifted
+  // silently into another day/month.
+  if (!isValidCalendarParts(year, month, day, hour, minute, second)) {
+    return new Date(Number.NaN)
+  }
   const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second)
   const parts = CSV_TZ_FORMATTER.formatToParts(new Date(utcGuess))
   const get = (type: string): number => Number(parts.find((p) => p.type === type)?.value)
   const zoneHour = get('hour') === 24 ? 0 : get('hour') // Intl kann 24 statt 0 liefern
   const zoneAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), zoneHour, get('minute'), get('second'))
-  return new Date(utcGuess - (zoneAsUtc - utcGuess))
+  const result = new Date(utcGuess - (zoneAsUtc - utcGuess))
+  // Catch nonexistent local wall times during the DST spring-forward gap.
+  const roundTrip = CSV_TZ_FORMATTER.formatToParts(result)
+  const part = (type: string): number => Number(roundTrip.find((p) => p.type === type)?.value)
+  const roundHour = part('hour') === 24 ? 0 : part('hour')
+  if (
+    part('year') !== year ||
+    part('month') !== month ||
+    part('day') !== day ||
+    roundHour !== hour ||
+    part('minute') !== minute ||
+    part('second') !== second
+  ) {
+    return new Date(Number.NaN)
+  }
+  return result
 }
 
 // ISO 8601 / YYYY-MM-DD / DD.MM.YYYY [HH:mm[:ss]]
@@ -155,16 +194,21 @@ export function parseTimestamp(value: string): Date | null {
   if (iso) {
     const [, year, month, day, hour = '0', minute = '0', second = '0', zone] = iso
     if (zone) {
+      if (!isValidCalendarParts(Number(year), Number(month), Number(day), Number(hour), Number(minute), Number(second))) {
+        return null
+      }
       const date = new Date(trimmed) // explizite Zone → eindeutig
       return Number.isNaN(date.getTime()) ? null : date
     }
-    return wallClockToUtc(Number(year), Number(month), Number(day), Number(hour), Number(minute), Number(second))
+    const date = wallClockToUtc(Number(year), Number(month), Number(day), Number(hour), Number(minute), Number(second))
+    return Number.isNaN(date.getTime()) ? null : date
   }
 
   const german = trimmed.match(/^(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/)
   if (german) {
     const [, day, month, year, hour = '0', minute = '0', second = '0'] = german
-    return wallClockToUtc(Number(year), Number(month), Number(day), Number(hour), Number(minute), Number(second))
+    const date = wallClockToUtc(Number(year), Number(month), Number(day), Number(hour), Number(minute), Number(second))
+    return Number.isNaN(date.getTime()) ? null : date
   }
 
   return null
@@ -245,6 +289,10 @@ export function applyTransactionMapping(
     const timestamp = parseTimestamp(rawTimestamp)
     if (!timestamp) {
       errors.push({ line, raw, error: `Spalte „${mapping.timestamp}": „${rawTimestamp.trim()}" ist kein gültiges Datum` })
+      return
+    }
+    if (timestamp.getTime() > Date.now()) {
+      errors.push({ line, raw, error: `Spalte „${mapping.timestamp}": Zeitpunkt liegt in der Zukunft` })
       return
     }
 

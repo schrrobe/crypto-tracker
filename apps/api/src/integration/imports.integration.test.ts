@@ -32,6 +32,17 @@ function uniqueSymbol(): string {
 }
 
 describe('CSV-Import (Integration)', () => {
+  it('lehnt unbekannte Upload-Metadaten ab statt sie als BALANCES zu behandeln', async () => {
+    const user = await registerUser('invalid-meta')
+    const res = await request(app)
+      .post(`${API}/imports`)
+      .set(...bearer(user))
+      .field('kind', 'TRANSACTION')
+      .attach('file', Buffer.from(GENERIC_CSV), 'invalid.csv')
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('VALIDATION_ERROR')
+  })
+
   it('Transaktions-Import: Netto-Bestände, gespeicherte Transaktionen inkl. Fee/Preis', async () => {
     const user = await registerUser('txnet')
     const csv =

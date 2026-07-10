@@ -9,9 +9,8 @@ import { fetchCoinSymbol } from '../../coingecko/coingecko.client'
 import { refreshPrices } from '../../coingecko/price.service'
 import { recordAudit, AuditAction } from './audit.service'
 
-// Admin-only correction path for global asset → CoinGecko mappings. Regular users
-// can only map previously unmapped assets (assets.routes); a wrong mapping is
-// otherwise permanent. These endpoints let an admin override or clear it.
+// Admin-only correction path for global asset → CoinGecko mappings. These
+// endpoints let an admin override or clear an existing mapping.
 export const adminAssetsRoutes = Router()
 
 const remapSchema = z.object({ coingeckoId: z.string().trim().min(1).max(120) })
@@ -42,17 +41,20 @@ adminAssetsRoutes.put(
       )
     }
 
-    const updated = await prisma.asset.update({
-      where: { id: assetId },
-      data: { coingeckoId: req.body.coingeckoId },
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.asset.update({
+        where: { id: assetId },
+        data: { coingeckoId: req.body.coingeckoId },
+      })
+      await recordAudit({
+        actor: req.adminUser,
+        action: AuditAction.ASSET_MAPPING_UPDATED,
+        targetType: 'ASSET',
+        targetId: assetId,
+      }, tx)
+      return row
     })
     await refreshPrices([assetId])
-    await recordAudit({
-      actor: req.adminUser,
-      action: AuditAction.ASSET_MAPPING_UPDATED,
-      targetType: 'ASSET',
-      targetId: assetId,
-    })
     res.json({ asset: toDto(updated) })
   }),
 )
@@ -65,12 +67,15 @@ adminAssetsRoutes.delete(
     const asset = await prisma.asset.findUnique({ where: { id: assetId } })
     if (!asset) throw AppError.notFound('Asset nicht gefunden')
 
-    const updated = await prisma.asset.update({ where: { id: assetId }, data: { coingeckoId: null } })
-    await recordAudit({
-      actor: req.adminUser,
-      action: AuditAction.ASSET_MAPPING_CLEARED,
-      targetType: 'ASSET',
-      targetId: assetId,
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.asset.update({ where: { id: assetId }, data: { coingeckoId: null } })
+      await recordAudit({
+        actor: req.adminUser,
+        action: AuditAction.ASSET_MAPPING_CLEARED,
+        targetType: 'ASSET',
+        targetId: assetId,
+      }, tx)
+      return row
     })
     res.json({ asset: toDto(updated) })
   }),

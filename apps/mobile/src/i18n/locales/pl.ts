@@ -462,7 +462,7 @@ const pl: MessageSchema = {
     submit: 'Wyślij',
     submitFailed: 'Nie udało się wysłać odpowiedzi',
     thanks: 'Dziękujemy za udział!',
-    anonymousNote: 'Ta ankieta jest anonimowa — Twoje odpowiedzi nie są powiązane z Twoją tożsamością.',
+    anonymousNote: 'Ankieta poufna — administratorzy nie widzą Twojej tożsamości w wynikach ani eksportach.',
     identifiedNote: 'Twoje odpowiedzi są powiązane z Twoim kontem.',
     optionalHint: 'Odpowiedz na tyle pytań, na ile chcesz.',
     alreadySubmitted: 'Już wypełniłeś tę ankietę.',
