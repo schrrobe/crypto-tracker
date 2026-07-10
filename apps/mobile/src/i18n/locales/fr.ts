@@ -163,6 +163,13 @@ const fr: MessageSchema = {
     save: 'Enregistrer',
     saved: 'Coordonnées bancaires enregistrées',
     saveFailed: 'Impossible d’enregistrer les coordonnées bancaires',
+    valueProp: 'Gagnez 20 % de chaque paiement Pro de vos filleuls.',
+    valuePropNote: 'Récurrent, tant que votre filleul reste Pro.',
+    earningsPending: 'En attente',
+    earningsPendingNote: 'Confirmé une fois le délai de remboursement écoulé.',
+    payoutsPreparing: 'Les versements sont en préparation. Continuez à accumuler des commissions — dès que les versements seront actifs, vous pourrez ajouter vos coordonnées bancaires ici.',
+    thresholdHint: 'Versement à partir de {amount}. Continuez à accumuler des commissions.',
+    bankEncryptedHint: 'Votre IBAN est stocké chiffré ; nous n’affichons que les 4 derniers chiffres.',
   },
   update: {
     title: 'Mise à jour requise',

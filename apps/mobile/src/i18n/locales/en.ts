@@ -163,6 +163,13 @@ const en: MessageSchema = {
     save: 'Save',
     saved: 'Bank details saved',
     saveFailed: 'Could not save bank details',
+    valueProp: 'Earn 20% of every Pro payment from friends you invite.',
+    valuePropNote: 'Recurring, for as long as your friend stays on Pro.',
+    earningsPending: 'Pending',
+    earningsPendingNote: 'Confirmed once the refund window has passed.',
+    payoutsPreparing: 'Payouts are being prepared. Keep collecting commissions — once payouts go live you can add your bank details here.',
+    thresholdHint: 'Payable from {amount}. Keep collecting commissions.',
+    bankEncryptedHint: 'Your IBAN is stored encrypted; we only show the last 4 digits.',
   },
   update: {
     title: 'Update required',
