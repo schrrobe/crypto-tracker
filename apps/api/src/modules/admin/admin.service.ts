@@ -57,9 +57,9 @@ export async function getOverview(): Promise<AdminOverviewDto> {
     prisma.user.count({ where: { createdAt: { gte: daysAgo(14), lt: daysAgo(7) } } }),
     prisma.user.count({ where: { createdAt: { gte: daysAgo(60), lt: daysAgo(30) } } }),
     prisma.refreshToken.count({ where: { expiresAt: { gt: now } } }),
-    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { voidedAt: null } }),
-    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { payoutId: { not: null }, voidedAt: null } }),
-    prisma.referralCommission.findMany({ where: { voidedAt: null }, select: { referrerId: true }, distinct: ['referrerId'] }),
+    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { status: { not: 'REVERSED' } } }),
+    prisma.referralCommission.groupBy({ by: ['currency'], _sum: { amountCents: true }, where: { payoutId: { not: null }, status: { not: 'REVERSED' } } }),
+    prisma.referralCommission.findMany({ where: { status: { not: 'REVERSED' } }, select: { referrerId: true }, distinct: ['referrerId'] }),
     prisma.user.count({ where: { referredById: { not: null } } }),
   ])
   const freeUsers = totalUsers - proUsers
@@ -67,7 +67,9 @@ export async function getOverview(): Promise<AdminOverviewDto> {
   const referralByCurrency = owed.map((r) => {
     const total = r._sum.amountCents ?? 0
     const paidCents = paidByCurrency.get(r.currency) ?? 0
-    return { currency: r.currency, owedCents: total - paidCents, paidCents }
+    // Admin liability view: owedCents = all non-reversed not-yet-paid (clearing
+    // not split out here); pendingCents tracked per-user in the referral overview.
+    return { currency: r.currency, pendingCents: 0, owedCents: total - paidCents, paidCents }
   })
   return {
     totalUsers,
@@ -90,7 +92,8 @@ export async function getOverview(): Promise<AdminOverviewDto> {
 }
 
 // % change vs previous period; null when previous was 0 (no meaningful ratio).
-function deltaPct(current: number, previous: number): number | null {
+// Exported for unit testing of the zero-previous and rounding edge cases.
+export function deltaPct(current: number, previous: number): number | null {
   if (previous === 0) return null
   return Math.round(((current - previous) / previous) * 1000) / 10
 }
@@ -102,7 +105,15 @@ export async function getActivity(): Promise<import('@crypto-tracker/shared').Ad
       take: 5,
       select: { id: true, email: true, plan: true, createdAt: true },
     }),
-    prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 5 }),
+    // Only the columns the feed renders. Deliberately NOT metadata: audit
+    // metadata holds target emails and commission amounts (see recordAudit
+    // call-sites) — the dashboard feed must not ship them. The full audit log
+    // view (/admin/audit, paginated) is where metadata is exposed on purpose.
+    prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, actorEmail: true, action: true, targetType: true, targetId: true, createdAt: true },
+    }),
   ])
   return {
     recentSignups: signups.map((s) => ({
@@ -117,7 +128,6 @@ export async function getActivity(): Promise<import('@crypto-tracker/shared').Ad
       action: r.action,
       targetType: r.targetType,
       targetId: r.targetId,
-      metadata: r.metadata,
       createdAt: r.createdAt.toISOString(),
     })),
   }
@@ -542,6 +552,10 @@ export async function listCommissions(referrerId?: string): Promise<AdminCommiss
 }
 
 export async function voidCommission(actor: AuditActor, id: string): Promise<void> {
+  // Transaction so the reversal and its audit entry commit together — either both
+  // land or neither does. The conditional updateMany closes the race against
+  // settlePayout: only voids while still unpaid + not REVERSED. count===0 → another
+  // tx paid/reversed it meanwhile.
   await prisma.$transaction(async (tx) => {
     const c = await tx.referralCommission.findUnique({
       where: { id },
@@ -550,8 +564,8 @@ export async function voidCommission(actor: AuditActor, id: string): Promise<voi
     if (!c) throw AppError.notFound('Kommission nicht gefunden')
     if (c.payoutId) throw AppError.badRequest('ALREADY_PAID', 'Bereits ausgezahlte Kommission kann nicht storniert werden')
     const { count } = await tx.referralCommission.updateMany({
-      where: { id, payoutId: null, voidedAt: null },
-      data: { voidedAt: new Date() },
+      where: { id, payoutId: null, status: { not: 'REVERSED' } },
+      data: { status: 'REVERSED', reversedAt: new Date(), reversalReason: 'admin_void', voidedAt: new Date() },
     })
     if (count === 0) {
       throw AppError.badRequest('ALREADY_PAID', 'Kommission wurde zwischenzeitlich ausgezahlt oder storniert')

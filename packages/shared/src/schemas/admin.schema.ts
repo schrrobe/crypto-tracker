@@ -94,7 +94,7 @@ export interface AdminUserDetailDto extends AdminUserListItemDto {
 export interface AdminCommissionDto {
   id: string
   referrerEmail: string
-  referredUserId: string
+  referredUserId: string | null
   amountCents: number
   currency: string
   payoutId: string | null
@@ -134,9 +134,14 @@ export interface AdminActivitySignupDto {
   createdAt: string
 }
 
+// Activity feed audit row: a deliberate subset of AdminAuditDto WITHOUT metadata.
+// metadata can hold target emails / commission amounts; the dashboard feed never
+// renders it, so it is not sent. Full metadata lives on the paginated /admin/audit.
+export type AdminActivityAuditDto = Omit<AdminAuditDto, 'metadata'>
+
 export interface AdminActivityDto {
   recentSignups: AdminActivitySignupDto[]
-  recentAudit: AdminAuditDto[]
+  recentAudit: AdminActivityAuditDto[]
 }
 
 export type HealthState = 'ok' | 'down' | 'skipped'
