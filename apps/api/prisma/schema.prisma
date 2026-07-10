@@ -167,12 +167,18 @@ model ReferralReward {
   kind           ReferralRewardKind
   idempotencyKey String             @unique
   referredUserId String?
+  // Stripe charge that funded a CONVERSION reward. A refund only voids the reward
+  // whose source charge was refunded — an unrelated refund on the same customer
+  // must not clear it. null for SIGNUP rewards (no payment).
+  stripeChargeId String?
   grantedDays    Int
   voidedAt       DateTime?
   createdAt      DateTime           @default(now())
   user           User               @relation("RewardEarned", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  // Refund/void lookup filters on the source charge; index it so it stays off a scan.
+  @@index([stripeChargeId])
 }
 
 model RefreshToken {

@@ -64,6 +64,7 @@ async function grantReward(input: {
   kind: RewardKind
   idempotencyKey: string
   referredUserId: string | null
+  stripeChargeId?: string | null
 }): Promise<void> {
   try {
     await prisma.$transaction(async (tx) => {
@@ -73,6 +74,7 @@ async function grantReward(input: {
           kind: input.kind,
           idempotencyKey: input.idempotencyKey,
           referredUserId: input.referredUserId,
+          stripeChargeId: input.stripeChargeId ?? null,
           grantedDays: REWARD_DAYS,
         },
       })
@@ -107,23 +109,30 @@ export async function grantSignupReward(inviteeId: string): Promise<void> {
 
 // Referrer reward: granted once when an invited user first converts to paid Pro.
 // Self-referral guard (defense in depth) — the referrer must not be the referred user.
-export async function grantConversionReward(referredUserId: string, referrerId: string): Promise<void> {
+// stripeChargeId records the funding charge so a later refund can void this exact reward.
+export async function grantConversionReward(
+  referredUserId: string,
+  referrerId: string,
+  stripeChargeId: string | null,
+): Promise<void> {
   if (referrerId === referredUserId) return
   await grantReward({
     userId: referrerId,
     kind: 'CONVERSION',
     idempotencyKey: `conversion:${referredUserId}`,
     referredUserId,
+    stripeChargeId,
   })
 }
 
-// Refund / chargeback: void the conversion reward for audit + accurate metrics.
+// Refund / chargeback: void the conversion reward funded by THIS charge (matched by
+// stripeChargeId) — an unrelated refund on the same customer must not clear it.
 // Already-granted Pro-days are intentionally NOT clawed back — the marginal cost of
 // granted Pro-time is near zero (unlike cash), so retroactively stripping consumed
 // days is not worth the complexity. Returns how many rewards were voided.
-export async function voidConversionReward(referredUserId: string): Promise<number> {
+export async function voidConversionReward(stripeChargeId: string): Promise<number> {
   const res = await prisma.referralReward.updateMany({
-    where: { kind: 'CONVERSION', referredUserId, voidedAt: null },
+    where: { kind: 'CONVERSION', stripeChargeId, voidedAt: null },
     data: { voidedAt: new Date() },
   })
   return res.count

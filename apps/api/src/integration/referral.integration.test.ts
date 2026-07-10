@@ -25,14 +25,18 @@ async function registerWithCode(prefix: string, referralCode?: string) {
 async function fireInvoicePaid(customer: string, invoiceId: string, billingReason = 'subscription_cycle') {
   fakeEvent = {
     type: 'invoice.paid',
-    data: { object: { customer, id: invoiceId, amount_paid: 1000, currency: 'eur', billing_reason: billingReason } },
+    // charge is the funding payment recorded on the conversion reward; it must
+    // match the charge a later refund carries so the void can be scoped to it.
+    data: {
+      object: { customer, id: invoiceId, charge: `ch_${customer}`, amount_paid: 1000, currency: 'eur', billing_reason: billingReason },
+    },
   }
   const { handleWebhookEvent } = await import('../modules/billing/billing.service')
   await handleWebhookEvent(Buffer.from('{}'), 'sig')
 }
 
-async function fireChargeRefunded(customer: string) {
-  fakeEvent = { type: 'charge.refunded', data: { object: { customer, id: `ch_${customer}` } } }
+async function fireChargeRefunded(customer: string, chargeId = `ch_${customer}`) {
+  fakeEvent = { type: 'charge.refunded', data: { object: { customer, id: chargeId } } }
   const { handleWebhookEvent } = await import('../modules/billing/billing.service')
   await handleWebhookEvent(Buffer.from('{}'), 'sig')
 }
@@ -134,6 +138,24 @@ describe('Referral (Integration)', () => {
     const overview = await request(app).get(`${API}/referral`).set(...bearer(referrer))
     expect(overview.body.proConversions).toBe(0) // voided excluded
     expect(overview.body.earnedProDays).toBe(0)
+  })
+
+  it('Refund einer FREMDEN Buchung storniert die Konversions-Belohnung NICHT', async () => {
+    const referrer = await registerUser('ref-refund2-r', 'FREE')
+    const { body: ref } = await request(app).get(`${API}/referral`).set(...bearer(referrer))
+    const invited = await registerWithCode('ref-refund2-i', ref.code)
+    const customer = `cus_${invited.id}`
+    await prisma.user.update({ where: { id: invited.id }, data: { stripeCustomerId: customer } })
+    await fireInvoicePaid(customer, `in_${invited.id}`)
+
+    // A refund on a DIFFERENT charge (not the one that funded the reward) must
+    // leave the conversion reward intact — voiding is scoped to the source charge.
+    await fireChargeRefunded(customer, `ch_unrelated_${invited.id}`)
+
+    const reward = await prisma.referralReward.findUnique({ where: { idempotencyKey: `conversion:${invited.id}` } })
+    expect(reward?.voidedAt).toBeNull()
+    const overview = await request(app).get(`${API}/referral`).set(...bearer(referrer))
+    expect(overview.body.proConversions).toBe(1)
   })
 
   it('Admin-Rewards: ohne Admin 404, mit Admin gelistet', async () => {

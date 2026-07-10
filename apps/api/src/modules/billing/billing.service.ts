@@ -257,22 +257,25 @@ async function dispatchStripeEvent(s: Stripe, event: Stripe.Event): Promise<void
     // invoices, etc. (Stripe emits invoice.paid for those too).
     if (invoice.billing_reason !== 'subscription_create' && invoice.billing_reason !== 'subscription_cycle') return
     if (!payer?.referredById) return
-    await grantConversionReward(payer.id, payer.referredById)
+    // Record the funding charge so a refund of THIS payment can void the exact reward.
+    await grantConversionReward(payer.id, payer.referredById, stripeIdOf((invoice as { charge?: unknown }).charge))
     return
   }
 
-  // Refund / chargeback on a referred user's payment voids the conversion reward
+  // Refund / chargeback voids the conversion reward funded by exactly this charge
   // (audit + accurate metrics). Granted Pro-days are not clawed back — see
-  // voidConversionReward. Matched by Stripe customer, so it covers any invoice.
+  // voidConversionReward. Scoped by charge id so an unrelated refund on the same
+  // customer can't clear a reward earned on a different payment.
   if (event.type === 'charge.refunded') {
     const charge = event.data.object as Stripe.Charge
-    if (!charge.customer) return
-    const payer = await prisma.user.findUnique({
-      where: { stripeCustomerId: String(charge.customer) },
-      select: { id: true },
-    })
-    if (!payer) return
-    await voidConversionReward(payer.id)
+    await voidConversionReward(charge.id)
     return
   }
+}
+
+// Stripe fields are id-or-expanded-object-or-null; normalize to the id string.
+function stripeIdOf(value: unknown): string | null {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object' && 'id' in value) return String((value as { id: unknown }).id)
+  return null
 }
