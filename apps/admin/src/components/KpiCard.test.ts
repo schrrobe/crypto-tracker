@@ -40,10 +40,14 @@ describe('KpiCard', () => {
 
   it('zero delta is neutral (gray, no arrow)', () => {
     const w = mount(KpiCard, { props: { label: 'x', value: 1, delta: 0 } })
+    const delta = w.findAll('span').find((s) => s.text().includes('0%'))
     expect(w.text()).toContain('0%')
     expect(w.text()).not.toContain('▲')
     expect(w.text()).not.toContain('▼')
-    expect(w.html()).toContain('text-slate-500')
+    // Assert the delta badge itself is neutral, not just that the class exists
+    // somewhere in the card (the label also uses text-slate-500).
+    expect(delta).toBeTruthy()
+    expect(delta!.classes()).toContain('text-slate-500')
   })
 
   it('polarity up-bad flips colours: positive delta red, negative green', () => {

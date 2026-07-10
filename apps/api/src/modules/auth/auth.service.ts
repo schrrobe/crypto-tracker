@@ -56,7 +56,9 @@ function toUserDto(user: {
 // accumulate forever and inflate the activeSessions scan. Run periodically from
 // the worker. Idempotent; safe to call concurrently.
 export async function pruneExpiredRefreshTokens(now: Date = new Date()): Promise<{ deleted: number }> {
-  const { count } = await prisma.refreshToken.deleteMany({ where: { expiresAt: { lt: now } } })
+  // Use lte so the cutoff matches the activeSessions query (expiresAt gt now →
+  // a token expiring exactly at now is already excluded there and must be pruned here too).
+  const { count } = await prisma.refreshToken.deleteMany({ where: { expiresAt: { lte: now } } })
   return { deleted: count }
 }
 

@@ -208,7 +208,7 @@ describe('Admin (Integration)', () => {
   it('Dashboard: overview liefert activeSessions + Deltas; activity liefert Signups + Audit', async () => {
     const admin = await registerUser('dash-admin', 'FREE')
     await makeAdmin(admin)
-    // erzeugt eine Admin-Aktion → Audit-Eintrag für die Activity
+    // triggers an admin action → audit entry for the activity feed
     const target = await registerUser('dash-target', 'FREE')
     await request(app).post(`${API}/admin/users/${target.userId}/revoke-sessions`).set(...bearer(admin)).expect(200)
 
@@ -234,36 +234,47 @@ describe('Admin (Integration)', () => {
   it('activity: hartes Limit von 5 Signups + 5 Audit, neueste zuerst', async () => {
     const admin = await registerUser('dash-limit-admin', 'FREE')
     await makeAdmin(admin)
-    // > 5 Audit-Aktionen erzeugen
+    // Create > 5 audit actions
     for (let i = 0; i < 6; i++) {
       const t = await registerUser(`dash-limit-victim-${i}`, 'FREE')
       await request(app).post(`${API}/admin/users/${t.userId}/revoke-sessions`).set(...bearer(admin)).expect(200)
     }
     const activity = await request(app).get(`${API}/admin/stats/activity`).set(...bearer(admin))
-    expect(activity.body.recentSignups.length).toBeLessThanOrEqual(5)
-    expect(activity.body.recentAudit.length).toBeLessThanOrEqual(5)
+    // This fixture alone creates 7 signups and 6 audit rows, so the hard limit is exactly 5.
+    expect(activity.body.recentSignups).toHaveLength(5)
+    expect(activity.body.recentAudit).toHaveLength(5)
     const ts = activity.body.recentAudit.map((a: { createdAt: string }) => a.createdAt)
-    expect([...ts].sort((a, b) => (a < b ? 1 : -1))).toEqual(ts) // descending
+    expect([...ts].sort((a, b) => b.localeCompare(a))).toEqual(ts) // descending, stable on ties
   })
 
-  it('activeSessions/prune: zählt nur nicht-abgelaufene Tokens, prune löscht abgelaufene', async () => {
+  it('activeSessions/prune: Stats-Contract zählt nur nicht-abgelaufene Tokens, prune löscht abgelaufene', async () => {
+    const admin = await registerUser('token-prune-admin', 'FREE')
+    await makeAdmin(admin)
     const u = await registerUser('token-prune', 'FREE')
     const now = new Date()
+
+    // Exercise the public stats contract, not a reimplemented query: only the live
+    // token must lift activeSessions, and pruning expired rows must not change it.
+    const before = await request(app).get(`${API}/admin/stats/overview`).set(...bearer(admin)).expect(200)
+    const baseline = before.body.activeSessions
+
     await prisma.refreshToken.create({
       data: { userId: u.userId, tokenHash: `live-${u.userId}`, expiresAt: new Date(now.getTime() + 60_000) },
     })
     await prisma.refreshToken.create({
       data: { userId: u.userId, tokenHash: `dead-${u.userId}`, expiresAt: new Date(now.getTime() - 60_000) },
     })
-    // registerUser already issued one live token, so assert relatively: exactly
-    // one token (the expired one) is excluded by the activeSessions count filter.
-    const total = await prisma.refreshToken.count({ where: { userId: u.userId } })
-    const live = await prisma.refreshToken.count({ where: { userId: u.userId, expiresAt: { gt: now } } })
-    expect(total - live).toBe(1)
+
+    const afterAdd = await request(app).get(`${API}/admin/stats/overview`).set(...bearer(admin)).expect(200)
+    expect(afterAdd.body.activeSessions).toBe(baseline + 1) // expired token excluded by the stats query
+
     const { deleted } = await pruneExpiredRefreshTokens(now)
     expect(deleted).toBeGreaterThanOrEqual(1)
+
+    const afterPrune = await request(app).get(`${API}/admin/stats/overview`).set(...bearer(admin)).expect(200)
+    expect(afterPrune.body.activeSessions).toBe(baseline + 1) // prune only removes already-excluded rows
+
     const remaining = await prisma.refreshToken.findMany({ where: { userId: u.userId } })
-    expect(remaining.every((t) => t.expiresAt > now)).toBe(true)
     expect(remaining.some((t) => t.tokenHash === `dead-${u.userId}`)).toBe(false)
   })
 
@@ -271,7 +282,7 @@ describe('Admin (Integration)', () => {
     expect(deltaPct(5, 0)).toBeNull()
     expect(deltaPct(0, 8)).toBe(-100)
     expect(deltaPct(12, 10)).toBe(20)
-    expect(deltaPct(13, 12)).toBe(8.3) // 8.333.. → 1 Nachkommastelle
+    expect(deltaPct(13, 12)).toBe(8.3) // 8.333.. → rounded to 1 decimal place
   })
 
   it('Attention: liefert alle Felder; suspendedUsers steigt nach Sperre', async () => {
