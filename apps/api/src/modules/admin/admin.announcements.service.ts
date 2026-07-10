@@ -146,8 +146,13 @@ export async function updateAnnouncement(
 
 export async function deleteAnnouncement(actor: AuditActor, id: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    await tx.announcement.delete({ where: { id } }).catch(() => {
-      throw AppError.notFound('Ankündigung nicht gefunden')
+    await tx.announcement.delete({ where: { id } }).catch((err) => {
+      // Only "record to delete does not exist" (P2025) is a 404; any other error
+      // (DB outage, constraint) must propagate so it isn't masked as not-found.
+      if (err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === 'P2025') {
+        throw AppError.notFound('Ankündigung nicht gefunden')
+      }
+      throw err
     })
     await recordAudit({
       actor,

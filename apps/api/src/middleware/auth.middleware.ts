@@ -46,7 +46,10 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
 export const requireAdmin: RequestHandler = (req, _res, next) => {
   requireAuth(req, _res, (err?: unknown) => {
     if (err) {
-      next(AppError.notFound())
+      // Only auth failures (401/403 AppError) get hidden as 404. An unexpected
+      // error (e.g. DB outage) must propagate as-is so it surfaces as 500 to
+      // monitoring instead of masquerading as a missing route.
+      next(err instanceof AppError ? AppError.notFound() : err)
       return
     }
     prisma.user

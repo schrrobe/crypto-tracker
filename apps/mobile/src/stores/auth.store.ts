@@ -109,7 +109,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function sessionExpired() {
-    void setTokens(null)
+    // setTokens awaits secure-storage cleanup which can reject; swallow it here
+    // (same as init) so a storage failure never surfaces as an unhandled rejection.
+    setTokens(null).catch(() => {})
     user.value = null
     useSurveysStore().reset()
   }

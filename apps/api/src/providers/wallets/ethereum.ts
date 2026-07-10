@@ -235,9 +235,18 @@ export const ethereumProvider: WalletProvider = {
     // beaconcha.in key, surface it as an EARN holding so the portfolio is not
     // undervalued (mirrors Solana counting natively-staked SOL into the SOL position).
     if (env.BEACONCHAIN_API_KEY) {
-      const stakedGwei = await fetchValidatorBalanceGwei(address)
-      if (stakedGwei > 0n) {
-        balances.push({ symbol: 'ETH', amount: fromBaseUnits(stakedGwei, 9), accountType: 'EARN' })
+      try {
+        const stakedGwei = await fetchValidatorBalanceGwei(address)
+        if (stakedGwei > 0n) {
+          balances.push({ symbol: 'ETH', amount: fromBaseUnits(stakedGwei, 9), accountType: 'EARN' })
+        }
+      } catch (e) {
+        // Staked ETH is a supplementary EARN holding. A beaconcha.in outage or
+        // rate-limit must not fail the whole balance sync (which would block users
+        // with no staked ETH too); log and return the on-chain balances. Only a
+        // known ProviderError is tolerated — unexpected errors still propagate.
+        if (!(e instanceof ProviderError)) throw e
+        console.error(`[ethereum] staked-ETH lookup failed for ${address}, returning on-chain balances only: ${e.message}`)
       }
     }
     return balances
