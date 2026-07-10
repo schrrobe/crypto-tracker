@@ -76,6 +76,11 @@ async function grantReward(input: {
           grantedDays: REWARD_DAYS,
         },
       })
+      // Lock the recipient row first: two concurrent grants (e.g. two invitees
+      // converting at once) would otherwise both read the same referralProUntil and
+      // each write base + 30d, losing one reward's extension. FOR UPDATE serializes
+      // them so the second grant reads the already-extended value.
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${input.userId} FOR UPDATE`
       const u = await tx.user.findUnique({ where: { id: input.userId }, select: { referralProUntil: true } })
       const now = Date.now()
       const base = u?.referralProUntil && u.referralProUntil.getTime() > now ? u.referralProUntil.getTime() : now

@@ -46,16 +46,21 @@ export function useHealth() {
   // drives the "Stand veraltet" honesty signal instead of showing a stale
   // success time as if it were current.
   const lastTickFailed = ref(false)
+  // True when we have never had a successful load and the last attempt failed —
+  // surfaces a real error verdict instead of an eternal "wird geprüft …".
+  const initialLoadFailed = ref(false)
 
   const checks = computed<DisplayCheck[]>(() => (data.value?.checks ?? []).map(toDisplay))
   const sortedChecks = computed<DisplayCheck[]>(() =>
     [...checks.value].sort((a, b) => SORT_ORDER[a.state] - SORT_ORDER[b.state]),
   )
 
-  const loading = computed(() => data.value === null && !lastTickFailed.value)
+  const loading = computed(() => data.value === null && !initialLoadFailed.value)
   const isStale = computed(() => lastTickFailed.value && data.value !== null)
 
   const overall = computed<Overall>(() => {
+    if (data.value === null && initialLoadFailed.value)
+      return { level: 'down', label: 'Systemstatus konnte nicht geladen werden' }
     if (data.value === null) return { level: 'loading', label: 'Systemstatus wird geprüft …' }
     const cs = checks.value
     const down = cs.filter((c) => c.state === 'down')
@@ -70,13 +75,19 @@ export function useHealth() {
   async function refresh(): Promise<void> {
     refreshing.value = true
     try {
-      data.value = await adminApi.health()
-      lastSuccessAt.value = new Date()
+      const next = await adminApi.health()
+      data.value = next
+      // Stamp from the backend probe time, not client receive time, so slow
+      // responses or clock skew don't push the "Stand …" label past the check.
+      lastSuccessAt.value = new Date(next.checkedAt)
       lastTickFailed.value = false
+      initialLoadFailed.value = false
     } catch {
       // Keep last-known values; flag the tick as failed so the UI can mark
       // the display stale rather than silently freezing the timestamp.
       lastTickFailed.value = true
+      // A failure with no prior data must surface as an error, not endless loading.
+      if (data.value === null) initialLoadFailed.value = true
     } finally {
       refreshing.value = false
     }

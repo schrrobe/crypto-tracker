@@ -51,9 +51,14 @@ describe('Referral (Integration)', () => {
   it('GET /referral liefert Code + Link + Reward-Felder, Code einmalig generiert', async () => {
     const user = await registerUser('ref-self', 'FREE')
     const res = await request(app).get(`${API}/referral`).set(...bearer(user))
+    const again = await request(app).get(`${API}/referral`).set(...bearer(user))
     expect(res.status).toBe(200)
+    expect(again.status).toBe(200)
     expect(res.body.code).toMatch(/^[A-Z2-9]{8}$/)
     expect(res.body.link).toContain(`ref=${res.body.code}`)
+    // The code must be stable across requests — rotating it would break existing invite links.
+    expect(again.body.code).toBe(res.body.code)
+    expect(again.body.link).toBe(res.body.link)
     expect(res.body.invitedCount).toBe(0)
     expect(res.body.earnedProDays).toBe(0)
     expect(res.body.proConversions).toBe(0)
@@ -114,10 +119,17 @@ describe('Referral (Integration)', () => {
     await prisma.user.update({ where: { id: invited.id }, data: { stripeCustomerId: customer } })
     await fireInvoicePaid(customer, `in_${invited.id}`)
 
+    // Capture the referrer's granted Pro-time; the refund must void the reward
+    // for metrics but must NOT claw back the days already granted.
+    const beforeRefund = await prisma.user.findUnique({ where: { id: referrer.userId } })
+    expect(beforeRefund?.referralProUntil).not.toBeNull()
+
     await fireChargeRefunded(customer)
 
     const reward = await prisma.referralReward.findUnique({ where: { idempotencyKey: `conversion:${invited.id}` } })
     expect(reward?.voidedAt).not.toBeNull()
+    const afterRefund = await prisma.user.findUnique({ where: { id: referrer.userId } })
+    expect(afterRefund?.referralProUntil?.getTime()).toBe(beforeRefund?.referralProUntil?.getTime())
 
     const overview = await request(app).get(`${API}/referral`).set(...bearer(referrer))
     expect(overview.body.proConversions).toBe(0) // voided excluded

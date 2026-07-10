@@ -16,8 +16,8 @@ describe('Admin (Integration)', () => {
     const ok = await request(app).get(`${API}/admin/stats/overview`).set(...bearer(user))
     expect(ok.status).toBe(200)
     expect(typeof ok.body.totalUsers).toBe('number')
-    expect(ok.body.referral).toHaveProperty('proDaysGranted')
-    expect(ok.body.referral).toHaveProperty('proConversions')
+    expect(ok.body.referral.proDaysGranted).toEqual(expect.any(Number))
+    expect(ok.body.referral.proConversions).toEqual(expect.any(Number))
   })
 
   it('Users-Liste filtert nach Plan und paginiert', async () => {

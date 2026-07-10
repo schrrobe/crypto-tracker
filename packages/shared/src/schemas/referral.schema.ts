@@ -13,7 +13,7 @@ export interface ReferralDto {
   proConversions: number
   // Total Pro-days this user has earned from the program (non-voided rewards).
   earnedProDays: number
-  // Per-referral reward size in days — for UI copy ("Lade einen Freund ein → 30 Tage Pro").
+  // Per-referral reward size in days — for UI copy ("Invite a friend → 30 Pro days").
   rewardDays: number
   invited: InvitedAccountDto[]
 }

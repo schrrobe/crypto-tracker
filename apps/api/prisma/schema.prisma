@@ -143,17 +143,22 @@ model AuditLog {
 // Idempotent per idempotencyKey so a webhook retry or double signup can't double-grant:
 //   kind=SIGNUP     → invitee got Pro-days for registering with a code (key "signup:<inviteeId>")
 //   kind=CONVERSION → referrer got Pro-days on the invitee's first Pro payment (key "conversion:<referredUserId>")
-// referredUserId is a plain string (no FK) so the entry survives deletion of the referred user.
+// referredUserId is a plain string (no FK); account deletion cleans these rows up explicitly (see deleteAccount).
+enum ReferralRewardKind {
+  SIGNUP
+  CONVERSION
+}
+
 model ReferralReward {
-  id             String    @id @default(uuid())
+  id             String             @id @default(uuid())
   userId         String
-  kind           String
-  idempotencyKey String    @unique
+  kind           ReferralRewardKind
+  idempotencyKey String             @unique
   referredUserId String?
   grantedDays    Int
   voidedAt       DateTime?
-  createdAt      DateTime  @default(now())
-  user           User      @relation("RewardEarned", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
+  user           User               @relation("RewardEarned", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

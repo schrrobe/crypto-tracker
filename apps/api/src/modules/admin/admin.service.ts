@@ -42,7 +42,7 @@ export async function getOverview(): Promise<AdminOverviewDto> {
     prev30d,
     activeSessions,
     proDaysAgg,
-    referrers,
+    activeReferrersRows,
     proConversions,
     invited,
   ] = await Promise.all([
@@ -58,11 +58,11 @@ export async function getOverview(): Promise<AdminOverviewDto> {
     // Referral program is reward-based (free Pro-days), not cash: total days granted,
     // distinct referrers who earned a conversion reward, and total conversions.
     prisma.referralReward.aggregate({ _sum: { grantedDays: true }, where: { voidedAt: null } }),
-    prisma.referralReward.findMany({
-      where: { voidedAt: null, kind: 'CONVERSION' },
-      select: { userId: true },
-      distinct: ['userId'],
-    }),
+    // DB-side distinct count so a dashboard refresh doesn't transfer one row per referrer.
+    prisma.$queryRaw<{ count: number }[]>`
+      SELECT COUNT(DISTINCT "userId")::int AS count
+      FROM "ReferralReward"
+      WHERE "voidedAt" IS NULL AND "kind" = 'CONVERSION'`,
     prisma.referralReward.count({ where: { voidedAt: null, kind: 'CONVERSION' } }),
     prisma.user.count({ where: { referredById: { not: null } } }),
   ])
@@ -80,7 +80,7 @@ export async function getOverview(): Promise<AdminOverviewDto> {
     activeSubscriptions,
     mrrProxyCents: activeSubscriptions * PRO_PRICE_CENTS,
     referral: {
-      activeReferrers: referrers.length,
+      activeReferrers: activeReferrersRows[0]?.count ?? 0,
       invitedUsers: invited,
       proConversions,
       proDaysGranted: proDaysAgg._sum.grantedDays ?? 0,

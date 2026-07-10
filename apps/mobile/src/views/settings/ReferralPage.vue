@@ -9,6 +9,10 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
+      <!-- Load failed and nothing cached: surface a localized error + retry instead
+           of an empty shell (every section below is gated by v-if="r"). -->
+      <ErrorState v-if="pageError && !r" @retry="load" />
+
       <!-- Reward headline: both sides earn free Pro-time -->
       <ion-list inset v-if="r">
         <ion-item lines="none">
@@ -81,17 +85,26 @@ import {
 import { shareSocialOutline } from 'ionicons/icons'
 import { Capacitor } from '@capacitor/core'
 import { Share } from '@capacitor/share'
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useReferralStore } from '../../stores/referral.store'
+import ErrorState from '../../components/ErrorState.vue'
 import { t } from '../../i18n'
 
 const store = useReferralStore()
 const { referral: r } = storeToRefs(store)
+const pageError = ref(false)
 
-onMounted(async () => {
-  await store.load().catch(() => undefined)
-})
+async function load() {
+  pageError.value = false
+  try {
+    await store.load()
+  } catch {
+    pageError.value = true
+  }
+}
+
+onMounted(load)
 
 async function share() {
   const link = r.value?.link
