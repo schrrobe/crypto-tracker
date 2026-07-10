@@ -4,7 +4,7 @@ import type {
   AdminAttentionDto,
   AdminAuditListDto,
   AdminChurnDto,
-  AdminCommissionDto,
+  AdminReferralRewardDto,
   AdminGrowthPointDto,
   AdminHealthDto,
   AdminImportsDto,
@@ -36,23 +36,6 @@ interface CountList {
   byProvider?: { key: string; count: number }[]
   staleCount?: number
 }
-interface PendingPayout {
-  referrerId: string
-  email: string
-  owedCents: number
-  currency: string
-  holder: string | null
-  bic: string | null
-  iban: string | null
-}
-interface PayoutHistoryItem {
-  id: string
-  referrerEmail: string
-  amountCents: number
-  currency: string
-  createdAt: string
-}
-
 export const adminApi = {
   overview: () => api.get<AdminOverviewDto>('/admin/stats/overview'),
   growth: (days = 30) => api.get<{ points: AdminGrowthPointDto[] }>(`/admin/stats/growth?days=${days}`),
@@ -89,15 +72,7 @@ export const adminApi = {
   unsuspend: (id: string) => api.post<void>(`/admin/users/${id}/unsuspend`),
   setAdmin: (id: string, isAdmin: boolean) => api.patch<void>(`/admin/users/${id}/admin`, { isAdmin }),
 
-  pendingPayouts: () => api.get<{ payouts: PendingPayout[] }>('/admin/referral/payouts'),
-  payoutHistory: () => api.get<{ payouts: PayoutHistoryItem[] }>('/admin/referral/payouts/history'),
-  settlePayout: (referrerId: string, currency: string) =>
-    api.post(`/admin/referral/payouts/${referrerId}/settle`, { currency }),
-  commissions: (referrerId?: string) =>
-    api.get<{ commissions: AdminCommissionDto[] }>(
-      `/admin/referral/commissions${referrerId ? `?referrerId=${referrerId}` : ''}`,
-    ),
-  voidCommission: (id: string) => api.post<void>(`/admin/referral/commissions/${id}/void`),
+  referralRewards: () => api.get<{ rewards: AdminReferralRewardDto[] }>('/admin/referral/rewards'),
 
   audit: (params: { action?: string; targetId?: string; page?: number; pageSize?: number }) => {
     const q = new URLSearchParams()

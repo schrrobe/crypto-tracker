@@ -18,7 +18,8 @@ describe('Admin (Integration)', () => {
     const ok = await request(app).get(`${API}/admin/stats/overview`).set(...bearer(user))
     expect(ok.status).toBe(200)
     expect(typeof ok.body.totalUsers).toBe('number')
-    expect(ok.body.referral).toHaveProperty('byCurrency')
+    expect(ok.body.referral.proDaysGranted).toEqual(expect.any(Number))
+    expect(ok.body.referral.proConversions).toEqual(expect.any(Number))
   })
 
   it('Users-Liste filtert nach Plan und paginiert', async () => {
@@ -293,7 +294,7 @@ describe('Admin (Integration)', () => {
 
     const res = await request(app).get(`${API}/admin/stats/attention`).set(...bearer(admin))
     expect(res.status).toBe(200)
-    for (const k of ['sourcesInError', 'failedImports', 'stalePriceCache', 'pendingPayouts', 'expiringSoonPro', 'suspendedUsers']) {
+    for (const k of ['sourcesInError', 'failedImports', 'stalePriceCache', 'expiringSoonPro', 'suspendedUsers']) {
       expect(typeof res.body[k]).toBe('number')
     }
     expect(res.body.suspendedUsers).toBeGreaterThanOrEqual(1)

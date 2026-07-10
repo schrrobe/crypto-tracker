@@ -1,34 +1,21 @@
 <template>
-  <div v-if="data" class="flex flex-wrap items-center gap-2 mb-6">
-    <span
-      v-for="c in data.checks"
-      :key="c.name"
-      class="inline-flex items-center gap-1.5 rounded-full bg-white shadow-sm px-3 py-1 text-xs"
-      :title="c.detail ?? ''"
-    >
-      <span class="h-2 w-2 rounded-full" :class="dot[c.state]" />
-      <span class="font-medium">{{ labels[c.name] }}</span>
-      <span v-if="c.latencyMs !== null" class="text-slate-400">{{ c.latencyMs }}ms</span>
-      <span v-else class="text-slate-400">{{ stateLabel[c.state] }}</span>
-    </span>
+  <!-- Cold load: skeleton pills, never an empty gap. -->
+  <div v-if="loading" class="flex flex-wrap items-center gap-2 mb-6">
+    <span v-for="i in 4" :key="i" class="h-7 w-32 rounded-full bg-slate-100 animate-pulse" />
+  </div>
+  <!-- Stale tick dims the row so last-known values don't read as live. -->
+  <div
+    v-else
+    class="flex flex-wrap items-center gap-2 mb-6 transition-opacity"
+    :class="{ 'opacity-50': stale }"
+  >
+    <HealthBadge v-for="c in checks" :key="c.name" :check="c" />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { AdminHealthDto, HealthState } from '@crypto-tracker/shared'
+import type { DisplayCheck } from '../composables/useHealth'
+import HealthBadge from './HealthBadge.vue'
 
-defineProps<{ data: AdminHealthDto | null }>()
-
-const dot: Record<HealthState, string> = {
-  ok: 'bg-emerald-500',
-  down: 'bg-red-500',
-  skipped: 'bg-slate-300',
-}
-const stateLabel: Record<HealthState, string> = { ok: '', down: 'down', skipped: 'n/a' }
-const labels: Record<string, string> = {
-  database: 'Datenbank',
-  redis: 'Redis',
-  coingecko: 'CoinGecko',
-  smtp: 'SMTP',
-}
+defineProps<{ checks: DisplayCheck[]; stale?: boolean; loading?: boolean }>()
 </script>
