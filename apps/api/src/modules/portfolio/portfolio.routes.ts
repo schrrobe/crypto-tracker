@@ -26,7 +26,7 @@ portfolioRoutes.get(
 // Unrealized profit/loss — Pro feature
 portfolioRoutes.get(
   '/pnl',
-  requirePro,
+  requirePro('pnl'),
   validate(portfolioScopeQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
     const { portfolioId } = req.query as { portfolioId?: string }

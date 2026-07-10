@@ -14,6 +14,7 @@ import { useRouter } from 'vue-router'
 import { applyStoredTheme } from './services/theme.service'
 import { initNative } from './services/native'
 import { openPaywall } from './services/paywall'
+import type { ProFeature } from '@crypto-tracker/shared'
 import PaywallModal from './components/PaywallModal.vue'
 import UpdateGateModal from './components/UpdateGateModal.vue'
 import AnnouncementBanner from './components/AnnouncementBanner.vue'
@@ -63,8 +64,11 @@ onMounted(() => {
     auth.sessionExpired()
     router.replace('/login')
   })
-  // api.client reports triggered Pro gates (402) → open the paywall
-  window.addEventListener('plan:upgrade', () => openPaywall())
+  // api.client reports triggered Pro gates (402) → open the paywall, carrying the
+  // feature discriminator so the paywall is contextual to what the user just hit.
+  window.addEventListener('plan:upgrade', (e) =>
+    openPaywall(((e as CustomEvent).detail as ProFeature | null) ?? null),
+  )
   // Keep broadcasts fresh while the app is open + on foreground (covers Capacitor
   // resume, which raises visibilitychange). Skip ticks while hidden — onVisible
   // already refreshes on foreground, so polling a backgrounded tab just burns

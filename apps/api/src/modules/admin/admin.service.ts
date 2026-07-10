@@ -89,7 +89,8 @@ export async function getOverview(): Promise<AdminOverviewDto> {
 }
 
 // % change vs previous period; null when previous was 0 (no meaningful ratio).
-function deltaPct(current: number, previous: number): number | null {
+// Exported for unit testing of the zero-previous and rounding edge cases.
+export function deltaPct(current: number, previous: number): number | null {
   if (previous === 0) return null
   return Math.round(((current - previous) / previous) * 1000) / 10
 }
@@ -101,7 +102,15 @@ export async function getActivity(): Promise<import('@crypto-tracker/shared').Ad
       take: 5,
       select: { id: true, email: true, plan: true, createdAt: true },
     }),
-    prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 5 }),
+    // Only the columns the feed renders. Deliberately NOT metadata: audit
+    // metadata holds target emails and commission amounts (see recordAudit
+    // call-sites) — the dashboard feed must not ship them. The full audit log
+    // view (/admin/audit, paginated) is where metadata is exposed on purpose.
+    prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, actorEmail: true, action: true, targetType: true, targetId: true, createdAt: true },
+    }),
   ])
   return {
     recentSignups: signups.map((s) => ({
@@ -116,7 +125,6 @@ export async function getActivity(): Promise<import('@crypto-tracker/shared').Ad
       action: r.action,
       targetType: r.targetType,
       targetId: r.targetId,
-      metadata: r.metadata,
       createdAt: r.createdAt.toISOString(),
     })),
   }

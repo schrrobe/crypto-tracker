@@ -14,6 +14,8 @@ describe('Plan-Gating (Integration)', () => {
     const free = await request(app).get(`${API}/tax/report?year=2024&country=DE`).set(...bearer(user))
     expect(free.status).toBe(402)
     expect(free.body.error.code).toBe('PLAN_UPGRADE_REQUIRED')
+    // 402 carries a machine-readable feature so the client can show contextual copy
+    expect(free.body.error.details?.feature).toBe('tax')
 
     await setPlan(user, 'PRO')
     const pro = await request(app).get(`${API}/tax/report?year=2024&country=DE`).set(...bearer(user))
@@ -41,6 +43,9 @@ describe('Plan-Gating (Integration)', () => {
       .send({ type: 'MANUAL', label: 'Quelle 6' })
     expect(sixth.status).toBe(402)
     expect(sixth.body.error.code).toBe('PLAN_UPGRADE_REQUIRED')
+    expect(sixth.body.error.details?.feature).toBe('unlimitedSources')
+    expect(sixth.body.error.details?.limit).toBe(5)
+    expect(sixth.body.error.details?.used).toBe(5)
 
     await setPlan(user, 'PRO')
     await createManualSource(user, 'Quelle 6 Pro')
@@ -55,6 +60,9 @@ describe('Plan-Gating (Integration)', () => {
       .set(...bearer(user))
       .send({ label: 'Drittes' })
     expect(third.status).toBe(402)
+    expect(third.body.error.details?.feature).toBe('unlimitedPortfolios')
+    expect(third.body.error.details?.limit).toBe(2)
+    expect(third.body.error.details?.used).toBe(2)
 
     await setPlan(user, 'PRO')
     await createPortfolio(user, 'Drittes Pro')

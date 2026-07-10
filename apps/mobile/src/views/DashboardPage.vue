@@ -77,7 +77,7 @@
         v-if="topAssets.length > 0"
         data-testid="pnl-card"
         :button="!auth.isPro"
-        @click="!auth.isPro && openPaywall()"
+        @click="!auth.isPro && openPaywall('pnl')"
       >
         <ion-card-header>
           <ion-card-subtitle>
@@ -103,9 +103,23 @@
                 {{ formatCurrencyRaw(p.pnlEur, 'EUR') }}
               </span>
             </div>
+            <!-- Coverage: the total is not portfolio-wide when holdings lack tx history -->
+            <p v-if="portfolio.pnl.excludedCount > 0" class="muted" data-testid="pnl-coverage">
+              {{
+                $t('pnl.coverage', {
+                  covered: portfolio.pnl.coveredCount,
+                  total: portfolio.pnl.coveredCount + portfolio.pnl.excludedCount,
+                  value: formatCurrencyRaw(portfolio.pnl.excludedValueEur, 'EUR'),
+                })
+              }}
+            </p>
+            <p class="muted">{{ $t('pnl.basisNote') }}</p>
           </template>
+          <div v-else-if="pnlError" class="pnl-error" data-testid="pnl-error">
+            <p class="muted">{{ $t('pnl.error') }}</p>
+            <ion-button size="small" fill="outline" @click="reloadPnl">{{ $t('common.retry') }}</ion-button>
+          </div>
           <p v-else class="muted">{{ $t('pnl.empty') }}</p>
-          <p class="muted">{{ $t('pnl.basisNote') }}</p>
         </ion-card-content>
       </ion-card>
 
@@ -222,12 +236,17 @@ const auth = useAuthStore()
 const surveys = useSurveysStore()
 
 function pnlColor(value: string): string {
-  return Number(value) < 0 ? 'var(--app-color-loss)' : 'var(--app-color-gain)'
+  const n = Number(value)
+  if (n > 0) return 'var(--app-color-gain)'
+  if (n < 0) return 'var(--app-color-loss)'
+  // Zero is neutral — a flat position must not read as a gain.
+  return 'var(--ion-color-medium)'
 }
 
 const currency = ref<'EUR' | 'USD'>((auth.user?.baseCurrency as 'EUR' | 'USD') ?? 'EUR')
 const pageLoading = ref(false)
 const pageError = ref(false)
+const pnlError = ref(false)
 
 async function loadData() {
   pageLoading.value = true
@@ -235,11 +254,22 @@ async function loadData() {
   try {
     await portfolio.loadSummary()
     // load PnL only for Pro (Free sees the paywall on the lock)
-    if (auth.isPro) await portfolio.loadPnl().catch(() => {})
+    if (auth.isPro) await reloadPnl()
   } catch {
     pageError.value = true
   } finally {
     pageLoading.value = false
+  }
+}
+
+// Separate the PnL fetch so a failure is distinguishable from a genuinely empty
+// cost basis (both previously rendered the same "no transactions" message).
+async function reloadPnl() {
+  try {
+    await portfolio.loadPnl()
+    pnlError.value = false
+  } catch {
+    pnlError.value = true
   }
 }
 

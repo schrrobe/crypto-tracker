@@ -31,3 +31,10 @@ apps/mobile/ios/
 
 # gstack local artifacts (security reports, checkpoints)
 .gstack/
+
+# Cross-agent handoff working files
+docs/agent-handoff/current-plan.md
+docs/agent-handoff/codex-review.md
+docs/agent-handoff/final-diff-review.md
+docs/agent-handoff/*.tmp.md
+docs/agent-handoff/*.draft.md

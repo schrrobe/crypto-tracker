@@ -32,8 +32,10 @@ describe('Stripe-Webhook (Integration)', () => {
     const customer = `cus_${user.userId}`
     await prisma.user.update({ where: { id: user.userId }, data: { stripeCustomerId: customer } })
     fakeEvent = {
+      id: `evt_pro_${user.userId}`,
+      created: 1000,
       type: 'checkout.session.completed',
-      data: { object: { customer, subscription: 'sub_1' } },
+      data: { object: { customer, subscription: 'sub_1', client_reference_id: user.userId } },
     }
 
     const { handleWebhookEvent } = await import('../modules/billing/billing.service')
@@ -49,6 +51,8 @@ describe('Stripe-Webhook (Integration)', () => {
     const customer = `cus_${user.userId}`
     await prisma.user.update({ where: { id: user.userId }, data: { stripeCustomerId: customer } })
     fakeEvent = {
+      id: `evt_del_${user.userId}`,
+      created: 2000,
       type: 'customer.subscription.deleted',
       data: { object: { customer, id: 'sub_2', status: 'canceled' } },
     }
@@ -58,5 +62,89 @@ describe('Stripe-Webhook (Integration)', () => {
 
     const updated = await prisma.user.findUnique({ where: { id: user.userId } })
     expect(updated?.plan).toBe('FREE')
+  })
+
+  it('replayed event id is a no-op (idempotency)', async () => {
+    const user = await registerUser('wh-replay', 'FREE')
+    const customer = `cus_${user.userId}`
+    await prisma.user.update({ where: { id: user.userId }, data: { stripeCustomerId: customer } })
+    fakeEvent = {
+      id: `evt_replay_${user.userId}`,
+      created: 1000,
+      type: 'checkout.session.completed',
+      data: { object: { customer, subscription: 'sub_r', client_reference_id: user.userId } },
+    }
+    const { handleWebhookEvent } = await import('../modules/billing/billing.service')
+    await handleWebhookEvent(Buffer.from('{}'), 'sig') // → PRO
+
+    // Simulate a downstream regression, then replay the SAME event id.
+    await prisma.user.update({ where: { id: user.userId }, data: { plan: 'FREE' } })
+    await handleWebhookEvent(Buffer.from('{}'), 'sig') // replay → skipped
+
+    expect((await prisma.user.findUnique({ where: { id: user.userId } }))?.plan).toBe('FREE')
+  })
+
+  it('out-of-order older event is ignored (ordering guard)', async () => {
+    const user = await registerUser('wh-order', 'FREE')
+    const customer = `cus_${user.userId}`
+    await prisma.user.update({ where: { id: user.userId }, data: { stripeCustomerId: customer } })
+    const { handleWebhookEvent } = await import('../modules/billing/billing.service')
+
+    // Newer event: active → PRO (created = 2000)
+    fakeEvent = {
+      id: `evt_new_${user.userId}`,
+      created: 2000,
+      type: 'customer.subscription.updated',
+      data: { object: { customer, id: 'sub_o', status: 'active' } },
+    }
+    await handleWebhookEvent(Buffer.from('{}'), 'sig')
+
+    // Older event arrives late: canceled (created = 1000) → must be ignored
+    fakeEvent = {
+      id: `evt_old_${user.userId}`,
+      created: 1000,
+      type: 'customer.subscription.deleted',
+      data: { object: { customer, id: 'sub_o', status: 'canceled' } },
+    }
+    await handleWebhookEvent(Buffer.from('{}'), 'sig')
+
+    expect((await prisma.user.findUnique({ where: { id: user.userId } }))?.plan).toBe('PRO')
+  })
+
+  it('invoice.payment_failed records the dunning marker but keeps PRO', async () => {
+    const user = await registerUser('wh-dunning', 'PRO')
+    const customer = `cus_${user.userId}`
+    await prisma.user.update({ where: { id: user.userId }, data: { stripeCustomerId: customer } })
+    fakeEvent = {
+      id: `evt_fail_${user.userId}`,
+      created: 3000,
+      type: 'invoice.payment_failed',
+      data: { object: { customer } },
+    }
+    const { handleWebhookEvent } = await import('../modules/billing/billing.service')
+    await handleWebhookEvent(Buffer.from('{}'), 'sig')
+
+    const updated = await prisma.user.findUnique({ where: { id: user.userId } })
+    expect(updated?.plan).toBe('PRO') // dunning does not revoke Pro
+    expect(updated?.paymentFailedAt).not.toBeNull()
+  })
+
+  it('invoice.paid clears the dunning marker', async () => {
+    const user = await registerUser('wh-recover', 'PRO')
+    const customer = `cus_${user.userId}`
+    await prisma.user.update({
+      where: { id: user.userId },
+      data: { stripeCustomerId: customer, paymentFailedAt: new Date() },
+    })
+    fakeEvent = {
+      id: `evt_paid_${user.userId}`,
+      created: 4000,
+      type: 'invoice.paid',
+      data: { object: { customer, id: `in_${user.userId}`, amount_paid: 1999, currency: 'eur' } },
+    }
+    const { handleWebhookEvent } = await import('../modules/billing/billing.service')
+    await handleWebhookEvent(Buffer.from('{}'), 'sig')
+
+    expect((await prisma.user.findUnique({ where: { id: user.userId } }))?.paymentFailedAt).toBeNull()
   })
 })

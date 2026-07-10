@@ -111,17 +111,27 @@ async function assertLabelAvailable(
 }
 
 export async function createPortfolio(userId: string, label: string): Promise<PortfolioDto> {
-  // Free limit: at most FREE_LIMITS.portfolios portfolios
-  if ((await getPlan(userId)) !== 'PRO') {
-    const count = await prisma.portfolio.count({ where: { userId } })
-    if (count >= FREE_LIMITS.portfolios) {
-      throw AppError.upgradeRequired('Im Free-Tarif sind maximal 2 Portfolios möglich')
-    }
-  }
+  const plan = await getPlan(userId)
   await assertLabelAvailable(userId, label)
-  const portfolio = await prisma.portfolio.create({
-    data: { userId, label: label.trim() },
-    include: { _count: { select: { sources: true } } },
+  // Free quota enforced atomically: a per-user advisory lock serializes the
+  // count+create so two concurrent requests can't both pass the check (TOCTOU)
+  // and exceed FREE_LIMITS.portfolios. Same lock pattern as deletePortfolio.
+  const portfolio = await prisma.$transaction(async (tx) => {
+    if (plan !== 'PRO') {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
+      const count = await tx.portfolio.count({ where: { userId } })
+      if (count >= FREE_LIMITS.portfolios) {
+        throw AppError.upgradeRequired(`Im Free-Tarif sind maximal ${FREE_LIMITS.portfolios} Portfolios möglich`, {
+          feature: 'unlimitedPortfolios',
+          limit: FREE_LIMITS.portfolios,
+          used: count,
+        })
+      }
+    }
+    return tx.portfolio.create({
+      data: { userId, label: label.trim() },
+      include: { _count: { select: { sources: true } } },
+    })
   })
   return toPortfolioDto(portfolio)
 }
@@ -147,18 +157,24 @@ export async function renamePortfolio(
 export async function deletePortfolio(userId: string, portfolioId: string): Promise<void> {
   const portfolio = await getOwnedPortfolio(userId, portfolioId)
 
-  const sourceCount = await prisma.portfolioSource.count({ where: { portfolioId } })
-  if (sourceCount > 0) {
-    throw AppError.conflict(
-      'PORTFOLIO_NOT_EMPTY',
-      'Dieses Steuersubjekt enthält noch Quellen. Es ist die vollständige Steuerhistorie und wird nicht automatisch mitgelöscht — bitte zuerst die Quellen entfernen',
-    )
-  }
-  // Serialize the last-portfolio check with the delete under a per-user advisory
-  // lock: two concurrent deletes must not both observe total > 1 and wipe the
-  // last tax entity. The count runs inside the locked transaction.
+  // All guards + the delete run in one transaction that first locks the target
+  // portfolio row (FOR UPDATE) and takes a per-user advisory lock:
+  //  - the row lock conflicts with the FK key-share lock a concurrent source
+  //    INSERT takes on the parent, so the source-count check can't be raced
+  //    (no new source slips in between the check and the delete);
+  //  - the advisory lock serializes concurrent deletes for the same user so two
+  //    of them can't both pass the last-portfolio check and wipe the last entity.
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
+    await tx.$executeRaw`SELECT id FROM "Portfolio" WHERE id = ${portfolioId} FOR UPDATE`
+
+    const sourceCount = await tx.portfolioSource.count({ where: { portfolioId } })
+    if (sourceCount > 0) {
+      throw AppError.conflict(
+        'PORTFOLIO_NOT_EMPTY',
+        'Dieses Steuersubjekt enthält noch Quellen. Es ist die vollständige Steuerhistorie und wird nicht automatisch mitgelöscht — bitte zuerst die Quellen entfernen',
+      )
+    }
     const total = await tx.portfolio.count({ where: { userId } })
     if (total <= 1) {
       throw AppError.conflict(

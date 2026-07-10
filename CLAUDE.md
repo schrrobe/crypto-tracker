@@ -1,6 +1,12 @@
 # CLAUDE.md
 
+@AGENTS.md
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Claude Code workflow
+
+Before non-trivial implementation work, create or update `docs/agent-handoff/current-plan.md` with the current goal, context, likely files, implementation steps, test plan, risks or assumptions, and open questions.
 
 ## Project
 

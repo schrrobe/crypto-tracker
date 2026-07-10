@@ -46,6 +46,13 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PRICE_ID: z.string().optional(),
+  // Human-readable price for the paywall (e.g. "4,99 € / Monat"). The app never
+  // computes a price — it only displays this label; the real amount lives in Stripe.
+  // Unset → the paywall shows benefits without a price line.
+  STRIPE_PRICE_LABEL: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().trim().optional(),
+  ),
   STRIPE_SUCCESS_URL: z.string().url().optional(),
   STRIPE_CANCEL_URL: z.string().url().optional(),
   // Interval of the automatic sync (Pro) in the worker; ≥ 60 spares provider limits
@@ -56,6 +63,17 @@ const envSchema = z.object({
   MIN_CLIENT_VERSION_IOS: z.string().optional(),
   APP_STORE_URL_IOS: z.string().url().optional(),
   APP_STORE_URL_ANDROID: z.string().url().optional(),
+  // Referral clearing window (days): a commission stays PENDING this long after the
+  // invoice is paid, covering the refund/dispute window, before it becomes payable.
+  REFERRAL_CLEARING_DAYS: z.coerce.number().int().nonnegative().default(30),
+  // Minimum payable balance (per currency, in cents) before a payout can be settled.
+  // Avoids wiring tiny transfers whose bank cost exceeds the commission.
+  REFERRAL_PAYOUT_MIN_CENTS: z.coerce.number().int().nonnegative().default(5000),
+  // Master switch for live payouts. Stays false until the launch gate is met
+  // (security + legal hardening). While false the app must NOT collect bank
+  // details or imply money is coming — see the bank-gate in ReferralPage.
+  REFERRAL_PAYOUTS_LIVE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+
   // Only for tests/local development: deterministic prices and providers instead of real APIs
   FAKE_PRICES: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   FAKE_PROVIDERS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),

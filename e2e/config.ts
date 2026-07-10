@@ -19,4 +19,9 @@ export const API_ENV = {
   // Deterministic tests: no real CoinGecko/provider calls
   FAKE_PRICES: 'true',
   FAKE_PROVIDERS: 'true',
+  // Dummy Stripe config so the paywall renders the Upgrade CTA (billing "enabled").
+  // No real checkout is performed in tests — the spec only opens/closes the paywall.
+  STRIPE_SECRET_KEY: 'sk_test_e2e_dummy',
+  STRIPE_PRICE_ID: 'price_e2e_dummy',
+  STRIPE_PRICE_LABEL: '4,99 € / Monat',
 }

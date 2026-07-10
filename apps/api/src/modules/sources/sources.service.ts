@@ -72,23 +72,39 @@ export async function createSource(userId: string, input: CreateSourceInput): Pr
       'Dieser Name ist für die automatische Quelle „Manuelle Transaktionen" reserviert',
     )
   }
+  const plan = await getPlan(userId)
+  const portfolioId = await resolvePortfolioIdForWrite(userId, input.portfolioId)
+
   // Free limit: max. FREE_LIMITS.sources user-created sources. The auto-managed
-  // manual-transaction bucket is infrastructure and is excluded from the count,
-  // so it neither blocks nor silently inflates the limit.
-  if ((await getPlan(userId)) !== 'PRO') {
-    const count = await prisma.portfolioSource.count({
+  // manual-transaction bucket is infrastructure and is excluded from the count.
+  // Enforced atomically inside the create tx via a per-user advisory lock, so two
+  // concurrent requests can't both pass the count check (TOCTOU) and exceed it.
+  // Credential/address validation runs BEFORE the tx so the lock isn't held
+  // during slow provider network calls.
+  const enforceQuota = async (tx: Prisma.TransactionClient): Promise<void> => {
+    if (plan === 'PRO') return
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
+    const count = await tx.portfolioSource.count({
       where: { userId, NOT: { type: 'MANUAL', label: MANUAL_TX_SOURCE_LABEL } },
     })
     if (count >= FREE_LIMITS.sources) {
-      throw AppError.upgradeRequired('Im Free-Tarif sind maximal 5 Quellen möglich')
+      throw AppError.upgradeRequired(`Im Free-Tarif sind maximal ${FREE_LIMITS.sources} Quellen möglich`, {
+        feature: 'unlimitedSources',
+        limit: FREE_LIMITS.sources,
+        used: count,
+      })
     }
   }
-  const portfolioId = await resolvePortfolioIdForWrite(userId, input.portfolioId)
+
   if (input.type === 'MANUAL') {
-    const source = await prisma.portfolioSource.create({
-      data: { userId, portfolioId, type: 'MANUAL', provider: 'MANUAL', label: input.label },
+    const id = await prisma.$transaction(async (tx) => {
+      await enforceQuota(tx)
+      const source = await tx.portfolioSource.create({
+        data: { userId, portfolioId, type: 'MANUAL', provider: 'MANUAL', label: input.label },
+      })
+      return source.id
     })
-    return reloadDto(source.id)
+    return reloadDto(id)
   }
 
   if (input.type === 'EXCHANGE') {
@@ -103,24 +119,28 @@ export async function createSource(userId: string, input: CreateSourceInput): Pr
       if (e instanceof ProviderError) throw AppError.badRequest(e.code, e.message)
       throw e
     }
-    const source = await prisma.portfolioSource.create({
-      data: {
-        userId,
-        portfolioId,
-        type: 'EXCHANGE',
-        provider: input.provider,
-        label: input.label,
-        credential: {
-          create: {
-            encryptedApiKey: encryptSecret(input.apiKey),
-            encryptedApiSecret: input.apiSecret ? encryptSecret(input.apiSecret) : null,
-            encryptedPassphrase: input.passphrase ? encryptSecret(input.passphrase) : null,
-            keyPreview: keyPreview(input.apiKey),
+    const id = await prisma.$transaction(async (tx) => {
+      await enforceQuota(tx)
+      const source = await tx.portfolioSource.create({
+        data: {
+          userId,
+          portfolioId,
+          type: 'EXCHANGE',
+          provider: input.provider,
+          label: input.label,
+          credential: {
+            create: {
+              encryptedApiKey: encryptSecret(input.apiKey),
+              encryptedApiSecret: input.apiSecret ? encryptSecret(input.apiSecret) : null,
+              encryptedPassphrase: input.passphrase ? encryptSecret(input.passphrase) : null,
+              keyPreview: keyPreview(input.apiKey),
+            },
           },
         },
-      },
+      })
+      return source.id
     })
-    return reloadDto(source.id)
+    return reloadDto(id)
   }
 
   // WALLET
@@ -128,23 +148,27 @@ export async function createSource(userId: string, input: CreateSourceInput): Pr
   if (!provider.validateAddress(input.address)) {
     throw AppError.badRequest('INVALID_ADDRESS', 'Die Wallet-Adresse ist ungültig')
   }
-  const source = await prisma.portfolioSource.create({
-    data: {
-      userId,
-      portfolioId,
-      type: 'WALLET',
-      provider: input.provider,
-      label: input.label,
-      wallet: {
-        create: {
-          chain: input.provider.toLowerCase(),
-          address: input.address,
-          includeUnknownTokens: input.includeUnknownTokens,
+  const id = await prisma.$transaction(async (tx) => {
+    await enforceQuota(tx)
+    const source = await tx.portfolioSource.create({
+      data: {
+        userId,
+        portfolioId,
+        type: 'WALLET',
+        provider: input.provider,
+        label: input.label,
+        wallet: {
+          create: {
+            chain: input.provider.toLowerCase(),
+            address: input.address,
+            includeUnknownTokens: input.includeUnknownTokens,
+          },
         },
       },
-    },
+    })
+    return source.id
   })
-  return reloadDto(source.id)
+  return reloadDto(id)
 }
 
 export async function updateSource(userId: string, sourceId: string, label: string): Promise<SourceDto> {

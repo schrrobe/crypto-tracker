@@ -17,6 +17,15 @@ export const PRO_HISTORY_RANGES: HistoryRange[] = ['24h', '7d', '30d', '1y']
 export const PRO_FEATURES = ['tax', 'pnl', 'autoSync', 'history1y', 'unlimitedPortfolios', 'unlimitedSources'] as const
 export type ProFeature = (typeof PRO_FEATURES)[number]
 
+// Machine-readable payload of a 402 PLAN_UPGRADE_REQUIRED response. Lets the
+// client show contextual paywall copy and a live usage counter. Defined here so
+// the backend (AppError.upgradeRequired) and frontend share one contract.
+export interface UpgradeRequiredDetails {
+  feature: ProFeature
+  limit?: number
+  used?: number
+}
+
 export function isPro(plan: Plan): boolean {
   return plan === 'PRO'
 }

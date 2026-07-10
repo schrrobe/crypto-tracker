@@ -107,6 +107,14 @@ model User {
   // webhook can't overwrite it and a cancellation can't wipe it. Entitlement is
   // PRO when Stripe-active OR referralProUntil is in the future (see getPlan()).
   referralProUntil     DateTime?
+  // Stripe event ordering guard: the `created` of the last plan-affecting event
+  // applied. A webhook delivered/processed out of order (older `created`) is ignored
+  // so a stale subscription state can't overwrite a newer one.
+  lastStripeEventAt    DateTime?
+  // Dunning marker: set on invoice.payment_failed, cleared on the next successful
+  // invoice.paid. Pro is NOT revoked here — Stripe retries for days, then the
+  // subscription event downgrades. This is a support/observability signal only.
+  paymentFailedAt      DateTime?
   createdAt     DateTime          @default(now())
   // Referral program: own shareable code + who invited this user (self-relation).
   referralCode  String?           @unique
@@ -120,6 +128,10 @@ model User {
   referralRewards ReferralReward[] @relation("RewardEarned")
   auditLogs     AuditLog[]        @relation("ActorAudits")
   surveyResponses SurveyResponse[]
+
+  // Admin stats filter/group registrations by createdAt (overview period counts,
+  // growth chart, recent-signups feed). Index so these don't seq-scan User.
+  @@index([createdAt])
 }
 
 // Append-only audit trail of admin actions. targetId is a plain string (no FK)
@@ -172,6 +184,9 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  // activeSessions counts non-expired tokens; the periodic prune deletes expired
+  // ones. Both filter on expiresAt — index it so neither walks the whole table.
+  @@index([expiresAt])
 }
 
 // Passwort-Reset: nur der Hash des opaken Tokens liegt in der DB (wie RefreshToken).
@@ -267,6 +282,15 @@ model Asset {
   futuresPositions FuturesPosition[]
 
   @@index([symbol])
+}
+
+// Webhook idempotency: Stripe delivers at-least-once and retries for 3 days.
+// We record every processed event id and short-circuit on replay, so duplicate
+// deliveries (and captured-and-replayed valid payloads) are no-ops.
+model ProcessedStripeEvent {
+  id          String   @id // Stripe event id (evt_...)
+  type        String
+  processedAt DateTime @default(now())
 }
 
 model Holding {
@@ -456,6 +480,13 @@ model Survey {
   title       String
   description String?
   status      SurveyStatus     @default(DRAFT)
+  // When true, userId is never exposed in results / free-text listings / CSV.
+  anonymous   Boolean          @default(false)
+  // Targeting: empty array = no restriction on that axis (broadcast to everyone).
+  targetPlans      Plan[]      @default([])
+  targetCurrencies String[]    @default([])
+  // Cooldown anchor for the "remind non-responders" action (notification-fatigue guard).
+  lastRemindedAt DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   publishedAt DateTime?

@@ -118,9 +118,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => null)
     const code = body?.error?.code ?? 'UNKNOWN'
-    // Pro gate hit → open the paywall globally (App.vue listens for this)
+    // Pro gate hit → open the paywall globally (App.vue listens for this). The
+    // feature discriminator (if present) rides along so the paywall is contextual.
     if (res.status === 402 || code === 'PLAN_UPGRADE_REQUIRED') {
-      window.dispatchEvent(new CustomEvent('plan:upgrade'))
+      const feature = (body?.error?.details as { feature?: string } | undefined)?.feature ?? null
+      window.dispatchEvent(new CustomEvent('plan:upgrade', { detail: feature }))
     }
     throw new ApiError(
       code,
