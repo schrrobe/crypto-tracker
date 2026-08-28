@@ -111,6 +111,59 @@ describe('Stripe-Webhook (Integration)', () => {
     expect((await prisma.user.findUnique({ where: { id: user.userId } }))?.plan).toBe('PRO')
   })
 
+  it('parallele planändernde Events können den neueren Zustand nicht überschreiben', async () => {
+    const user = await registerUser('wh-order-race', 'FREE')
+    const customer = `cus_${user.userId}`
+    await prisma.user.update({ where: { id: user.userId }, data: { stripeCustomerId: customer } })
+    const { handleWebhookEvent } = await import('../modules/billing/billing.service')
+
+    fakeEvent = {
+      id: `evt_race_new_${user.userId}`,
+      created: 2000,
+      type: 'customer.subscription.updated',
+      data: { object: { customer, id: 'sub_race', status: 'active' } },
+    }
+    const newer = handleWebhookEvent(Buffer.from('{}'), 'sig')
+    fakeEvent = {
+      id: `evt_race_old_${user.userId}`,
+      created: 1000,
+      type: 'customer.subscription.deleted',
+      data: { object: { customer, id: 'sub_race', status: 'canceled' } },
+    }
+    const older = handleWebhookEvent(Buffer.from('{}'), 'sig')
+    await Promise.all([newer, older])
+
+    const updated = await prisma.user.findUnique({ where: { id: user.userId } })
+    expect(updated?.plan).toBe('PRO')
+    expect(updated?.stripeSubscriptionId).toBe('sub_race')
+  })
+
+  it('bei gleichem Stripe-Zeitstempel gewinnt der restriktivere FREE-Zustand', async () => {
+    const user = await registerUser('wh-order-tie', 'PRO')
+    const customer = `cus_${user.userId}`
+    await prisma.user.update({ where: { id: user.userId }, data: { stripeCustomerId: customer } })
+    const { handleWebhookEvent } = await import('../modules/billing/billing.service')
+
+    fakeEvent = {
+      id: `evt_tie_free_${user.userId}`,
+      created: 3000,
+      type: 'customer.subscription.deleted',
+      data: { object: { customer, id: 'sub_tie', status: 'canceled' } },
+    }
+    await handleWebhookEvent(Buffer.from('{}'), 'sig')
+    fakeEvent = {
+      id: `evt_tie_pro_${user.userId}`,
+      created: 3000,
+      type: 'customer.subscription.updated',
+      data: { object: { customer, id: 'sub_tie', status: 'active' } },
+    }
+    await handleWebhookEvent(Buffer.from('{}'), 'sig')
+
+    const updated = await prisma.user.findUnique({ where: { id: user.userId } })
+    expect(updated?.plan).toBe('FREE')
+    expect(updated?.stripeSubscriptionId).toBeNull()
+  })
+
   it('invoice.payment_failed records the dunning marker but keeps PRO', async () => {
     const user = await registerUser('wh-dunning', 'PRO')
     const customer = `cus_${user.userId}`

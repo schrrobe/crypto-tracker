@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import type { AdminAuditDto, AdminAuditListDto } from '@crypto-tracker/shared'
 
@@ -39,8 +40,8 @@ export async function recordAudit(input: {
   targetType: string
   targetId?: string | null
   metadata?: unknown
-}): Promise<void> {
-  await prisma.auditLog.create({
+}, db: Prisma.TransactionClient | typeof prisma = prisma): Promise<void> {
+  await db.auditLog.create({
     data: {
       actorId: input.actor.id,
       actorEmail: input.actor.email,

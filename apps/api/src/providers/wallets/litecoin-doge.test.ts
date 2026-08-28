@@ -137,6 +137,7 @@ describe('dogecoinProvider', () => {
     await dogecoinProvider.fetchBalances(DOGE_ADDRESS)
     expect(globalThis.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/dogecoin/dashboards/address/'),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
   })
 })

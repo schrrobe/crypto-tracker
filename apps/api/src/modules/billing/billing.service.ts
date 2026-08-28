@@ -39,27 +39,66 @@ async function getOrCreateCustomer(userId: string): Promise<string> {
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) throw AppError.unauthorized()
   if (user.stripeCustomerId) return user.stripeCustomerId
-  const customer = await s.customers.create({ email: user.email, metadata: { userId } })
-  await prisma.user.update({ where: { id: userId }, data: { stripeCustomerId: customer.id } })
-  return customer.id
+  const customer = await s.customers.create(
+    { email: user.email, metadata: { userId } },
+    // Stripe request idempotency prevents concurrent/retried calls from minting
+    // multiple customers before either caller stores the id locally.
+    { idempotencyKey: `crypto-tracker:customer:${userId}` },
+  )
+  const claimed = await prisma.user.updateMany({
+    where: { id: userId, stripeCustomerId: null },
+    data: { stripeCustomerId: customer.id },
+  })
+  if (claimed.count === 1) return customer.id
+  const winner = await prisma.user.findUnique({ where: { id: userId }, select: { stripeCustomerId: true } })
+  if (winner?.stripeCustomerId) return winner.stripeCustomerId
+  throw AppError.unauthorized()
 }
 
 export async function createCheckoutSession(userId: string): Promise<string> {
   const s = requireStripe()
   if (!env.STRIPE_PRICE_ID) throw new AppError('BILLING_DISABLED', 503, 'Kein Stripe-Preis konfiguriert')
   const customer = await getOrCreateCustomer(userId)
+  const reservedAt = new Date()
+  // Stripe requires expires_at to be at least 30 minutes in the future. Use one
+  // minute of transport slack and keep the DB reservation aligned to it.
+  const pendingUntil = new Date(reservedAt.getTime() + 31 * 60 * 1000)
+  // Reserve the checkout slot before the external call. Until the webhook creates
+  // a subscription there is otherwise no local state preventing two sessions.
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`checkout:${userId}`}))`
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { stripeSubscriptionId: true, stripeCheckoutPendingUntil: true },
+    })
+    if (!user) throw AppError.unauthorized()
+    if (user.stripeSubscriptionId) {
+      throw AppError.conflict('ALREADY_SUBSCRIBED', 'Es besteht bereits ein Abo')
+    }
+    if (user.stripeCheckoutPendingUntil && user.stripeCheckoutPendingUntil > reservedAt) {
+      throw AppError.conflict('CHECKOUT_ALREADY_PENDING', 'Ein Bezahlvorgang läuft bereits')
+    }
+    await tx.user.update({ where: { id: userId }, data: { stripeCheckoutPendingUntil: pendingUntil } })
+  })
   // The session id is echoed back on the success URL so the client can reconcile
   // the plan immediately, without waiting for the (possibly delayed) webhook.
   const successBase = env.STRIPE_SUCCESS_URL ?? `${env.APP_PUBLIC_URL}/tabs/settings`
   const sep = successBase.includes('?') ? '&' : '?'
-  const session = await s.checkout.sessions.create({
-    mode: 'subscription',
-    customer,
-    line_items: [{ price: env.STRIPE_PRICE_ID, quantity: 1 }],
-    client_reference_id: userId,
-    success_url: `${successBase}${sep}upgrade=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: env.STRIPE_CANCEL_URL ?? `${env.APP_PUBLIC_URL}/tabs/settings`,
-  })
+  const session = await s.checkout.sessions.create(
+    {
+      mode: 'subscription',
+      customer,
+      line_items: [{ price: env.STRIPE_PRICE_ID, quantity: 1 }],
+      client_reference_id: userId,
+      success_url: `${successBase}${sep}upgrade=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: env.STRIPE_CANCEL_URL ?? `${env.APP_PUBLIC_URL}/tabs/settings`,
+      expires_at: Math.floor(pendingUntil.getTime() / 1000),
+    },
+    { idempotencyKey: `crypto-tracker:checkout:${userId}:${reservedAt.toISOString()}` },
+  )
+  // Do not clear the reservation on an ambiguous network failure: Stripe may have
+  // created the session even though the response never arrived. It expires with
+  // the matching Stripe session, after which a retry is safe.
   if (!session.url) throw new AppError('BILLING_ERROR', 502, 'Stripe lieferte keine Checkout-URL')
   return session.url
 }
@@ -85,7 +124,6 @@ function subscriptionPeriodEnd(sub: Stripe.Subscription): number | null {
 
 // Cancel the subscription at Stripe (e.g. on account deletion). No-op without configured billing.
 export async function cancelSubscription(subscriptionId: string): Promise<void> {
-  if (!billingEnabled()) return
   const s = requireStripe()
   await s.subscriptions.cancel(subscriptionId)
 }
@@ -98,35 +136,47 @@ async function applyPlanByCustomer(
   eventAtSec: number,
   fallbackUserId?: string,
 ): Promise<void> {
-  let user = await prisma.user.findUnique({ where: { stripeCustomerId: customerId } })
-  // Mapping fallback: a checkout event carries client_reference_id (our userId).
-  // If the customer→user link is missing (race with getOrCreateCustomer, or an
-  // out-of-band customer), resolve by userId and heal the link.
-  if (!user && fallbackUserId) {
-    user = await prisma.user.findUnique({ where: { id: fallbackUserId } })
-    if (user && !user.stripeCustomerId) {
-      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } })
+  await prisma.$transaction(async (tx) => {
+    let user = await tx.user.findUnique({ where: { stripeCustomerId: customerId } })
+    // A signed Checkout event carries our server-set client_reference_id. Heal a
+    // stale/missing customer link so later subscription events remain routable.
+    if (!user && fallbackUserId) {
+      user = await tx.user.findUnique({ where: { id: fallbackUserId } })
+      if (user) {
+        await tx.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } })
+      }
     }
-  }
-  if (!user) {
-    console.warn(`[billing] webhook for unknown Stripe customer ${customerId} — no user matched`)
-    return
-  }
-  // Ordering guard: ignore events older than the last plan-affecting one we applied,
-  // so a retried/out-of-order subscription event can't overwrite newer state.
-  const eventAt = new Date(eventAtSec * 1000)
-  if (user.lastStripeEventAt && eventAt < user.lastStripeEventAt) return
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      plan,
-      stripeSubscriptionId: subscriptionId ?? undefined,
-      // Only set planUntil when a period end is present — do NOT reset it to null:
-      // checkout.session.completed provides none, and if this event arrived after a
-      // subscription.updated, it would otherwise erase a valid expiry date.
-      ...(periodEndSec ? { planUntil: new Date(periodEndSec * 1000) } : {}),
-      lastStripeEventAt: eventAt,
-    },
+    if (!user) {
+      console.warn(`[billing] webhook for unknown Stripe customer ${customerId} — no user matched`)
+      return
+    }
+
+    // Serialize plan-affecting events per user. The old check and update were two
+    // independent statements, allowing an older concurrent event to commit last.
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id} FOR UPDATE`
+    const current = await tx.user.findUniqueOrThrow({ where: { id: user.id } })
+    const eventAt = new Date(eventAtSec * 1000)
+    if (current.lastStripeEventAt) {
+      if (eventAt < current.lastStripeEventAt) return
+      // Stripe timestamps have one-second precision. If active/canceled events
+      // share a timestamp, prefer the least-privileged state so delivery order
+      // cannot accidentally re-grant Pro after cancellation.
+      if (eventAt.getTime() === current.lastStripeEventAt.getTime() && current.plan === 'FREE' && plan === 'PRO') {
+        return
+      }
+    }
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        plan,
+        stripeSubscriptionId: subscriptionId,
+        stripeCheckoutPendingUntil: null,
+        // Only set planUntil when a period end is present — do NOT reset it to null:
+        // checkout.session.completed may provide none, and must not erase a valid date.
+        ...(periodEndSec ? { planUntil: new Date(periodEndSec * 1000) } : {}),
+        lastStripeEventAt: eventAt,
+      },
+    })
   })
 }
 
@@ -162,7 +212,7 @@ export async function reconcileCheckoutSession(
     await applyPlanByCustomer(
       String(session.customer),
       active ? 'PRO' : 'FREE',
-      sub.id,
+      active ? sub.id : null,
       subscriptionPeriodEnd(sub),
       Math.floor(Date.now() / 1000),
       userId,
@@ -210,16 +260,28 @@ async function dispatchStripeEvent(s: Stripe, event: Stripe.Event): Promise<void
       // Load the subscription so planUntil is set immediately on upgrade
       // (the session itself carries no period end).
       const sub = await s.subscriptions.retrieve(String(session.subscription))
-      await applyPlanByCustomer(String(session.customer), 'PRO', sub.id, subscriptionPeriodEnd(sub), event.created, refUserId)
-    } else if (session.customer) {
-      await applyPlanByCustomer(String(session.customer), 'PRO', null, null, event.created, refUserId)
+      const active = sub.status === 'active' || sub.status === 'trialing'
+      await applyPlanByCustomer(
+        String(session.customer),
+        active ? 'PRO' : 'FREE',
+        active ? sub.id : null,
+        subscriptionPeriodEnd(sub),
+        event.created,
+        refUserId,
+      )
     }
     return
   }
   if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
     const sub = event.data.object as Stripe.Subscription
     const active = sub.status === 'active' || sub.status === 'trialing'
-    await applyPlanByCustomer(String(sub.customer), active ? 'PRO' : 'FREE', sub.id, subscriptionPeriodEnd(sub), event.created)
+    await applyPlanByCustomer(
+      String(sub.customer),
+      active ? 'PRO' : 'FREE',
+      active ? sub.id : null,
+      subscriptionPeriodEnd(sub),
+      event.created,
+    )
     return
   }
   // Dunning signal. We deliberately do NOT downgrade here: Stripe retries the

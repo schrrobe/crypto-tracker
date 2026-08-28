@@ -254,8 +254,6 @@ export function bigIntsFromJson(text: string, key: string): bigint[] {
   return out
 }
 
-const DEFAULT_TIMEOUT_MS = 15_000
-
 // Legacy fetch-with-timeout used by the exchange providers (Bitpanda, Coinbase),
 // which return a Response the caller reads directly rather than going through
 // httpRaw's text/retry path. A timeout surfaces as a retryable PROVIDER_ERROR.
@@ -263,7 +261,7 @@ const DEFAULT_TIMEOUT_MS = 15_000
 export async function fetchWithTimeout(
   url: string,
   init: RequestInit = {},
-  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  timeoutMs: number = env.PROVIDER_TIMEOUT_MS,
 ): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -273,7 +271,10 @@ export async function fetchWithTimeout(
     if (e instanceof Error && e.name === 'AbortError') {
       throw new ProviderError('PROVIDER_ERROR', `Zeitüberschreitung nach ${timeoutMs / 1000}s`)
     }
-    throw e
+    throw new ProviderError(
+      'PROVIDER_ERROR',
+      `Netzwerkfehler: ${e instanceof Error ? e.message : String(e)}`,
+    )
   } finally {
     clearTimeout(timer)
   }

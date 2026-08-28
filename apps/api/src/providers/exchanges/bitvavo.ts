@@ -5,6 +5,7 @@ import {
   type ExchangeProvider,
   type RawBalance,
 } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Bitvavo REST API: GET /v2/balance with HMAC-SHA256 signature.
 // Requires an API key with only the "View" permission (read-only).
@@ -49,7 +50,7 @@ export function normalizeBitvavoAsset(symbol: string): string | null {
 async function fetchBitvavoBalances(creds: ExchangeCredentials): Promise<RawBalance[]> {
   if (!creds.apiSecret) throw new ProviderError('INVALID_API_KEY', 'Bitvavo: API-Secret fehlt')
   const timestamp = Date.now().toString()
-  const res = await fetch(`${BASE_URL}${BALANCE_PATH}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}${BALANCE_PATH}`, {
     headers: {
       'bitvavo-access-key': creds.apiKey,
       'bitvavo-access-timestamp': timestamp,

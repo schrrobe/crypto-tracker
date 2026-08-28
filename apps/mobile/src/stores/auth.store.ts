@@ -31,36 +31,41 @@ export const useAuthStore = defineStore('auth', () => {
           '/auth/refresh',
           refreshToken ? { refreshToken } : undefined,
         )
-        setTokens(res)
+        await setTokens(res)
         user.value = res.user
       } catch {
-        setTokens(null)
+        await setTokens(null).catch(() => {})
+        user.value = null
+      } finally {
+        initialized.value = true
       }
-      initialized.value = true
     })()
     return initPromise
   }
 
-  function applyAuth(res: AuthResponse) {
-    setTokens(res)
+  async function applyAuth(res: AuthResponse) {
+    await setTokens(res)
     user.value = res.user
   }
 
   async function register(email: string, password: string, referralCode?: string): Promise<void> {
-    applyAuth(await api.post<AuthResponse>('/auth/register', { email, password, referralCode }))
+    await applyAuth(await api.post<AuthResponse>('/auth/register', { email, password, referralCode }))
   }
 
   async function login(email: string, password: string): Promise<void> {
-    applyAuth(await api.post<AuthResponse>('/auth/login', { email, password }))
+    await applyAuth(await api.post<AuthResponse>('/auth/login', { email, password }))
   }
 
   async function logout(): Promise<void> {
     // Native: token in the body; web: cookie (no body) — the server deletes it.
     const refreshToken = getRefreshToken()
     await api.post('/auth/logout', refreshToken ? { refreshToken } : undefined).catch(() => {})
-    setTokens(null)
-    user.value = null
-    useSurveysStore().reset()
+    try {
+      await setTokens(null)
+    } finally {
+      user.value = null
+      useSurveysStore().reset()
+    }
   }
 
   async function updateBaseCurrency(baseCurrency: 'EUR' | 'USD'): Promise<void> {
@@ -70,9 +75,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function deleteAccount(): Promise<void> {
     await api.delete('/auth/me')
-    setTokens(null)
-    user.value = null
-    useSurveysStore().reset()
+    try {
+      await setTokens(null)
+    } finally {
+      user.value = null
+      useSurveysStore().reset()
+    }
   }
 
   async function setAutoSync(enabled: boolean): Promise<void> {
@@ -101,7 +109,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function sessionExpired() {
-    setTokens(null)
+    // setTokens awaits secure-storage cleanup which can reject; swallow it here
+    // (same as init) so a storage failure never surfaces as an unhandled rejection.
+    setTokens(null).catch(() => {})
     user.value = null
     useSurveysStore().reset()
   }

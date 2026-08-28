@@ -5,6 +5,7 @@ import {
   type ExchangeProvider,
   type RawBalance,
 } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Bitstamp REST API: POST /api/v2/account_balances/ with X-Auth signature (version v2).
 // Requires an API key with only the "Account balance" permission (read-only).
@@ -79,7 +80,7 @@ async function fetchBitstampBalances(creds: ExchangeCredentials): Promise<RawBal
     creds.apiSecret,
   )
 
-  const res = await fetch(`https://${HOST}${BALANCES_PATH}`, {
+  const res = await fetchWithTimeout(`https://${HOST}${BALANCES_PATH}`, {
     method: 'POST',
     headers: {
       'X-Auth': `BITSTAMP ${creds.apiKey}`,

@@ -63,25 +63,28 @@ export async function createAnnouncement(
   // Keep the legacy `message` column in sync (NOT NULL, dropped in a later
   // migration) from the default-locale text, which the schema guarantees exists.
   const messages = input.messages as AnnouncementMessages
-  const created = await prisma.announcement.create({
-    data: {
-      level: input.level,
-      message: messages[input.defaultLocale] ?? '',
-      messages: input.messages as Prisma.InputJsonValue,
-      defaultLocale: input.defaultLocale,
-      dismissible: input.dismissible,
-      public: input.public,
-      active: input.active,
-      startsAt: input.startsAt ? new Date(input.startsAt) : null,
-      endsAt: input.endsAt ? new Date(input.endsAt) : null,
-    },
-  })
-  await recordAudit({
-    actor,
-    action: AuditAction.ANNOUNCEMENT_CREATED,
-    targetType: 'ANNOUNCEMENT',
-    targetId: created.id,
-    metadata: auditMetadata(created),
+  const created = await prisma.$transaction(async (tx) => {
+    const row = await tx.announcement.create({
+      data: {
+        level: input.level,
+        message: messages[input.defaultLocale] ?? '',
+        messages: input.messages as Prisma.InputJsonValue,
+        defaultLocale: input.defaultLocale,
+        dismissible: input.dismissible,
+        public: input.public,
+        active: input.active,
+        startsAt: input.startsAt ? new Date(input.startsAt) : null,
+        endsAt: input.endsAt ? new Date(input.endsAt) : null,
+      },
+    })
+    await recordAudit({
+      actor,
+      action: AuditAction.ANNOUNCEMENT_CREATED,
+      targetType: 'ANNOUNCEMENT',
+      targetId: row.id,
+      metadata: auditMetadata(row),
+    }, tx)
+    return row
   })
   return toDto(created)
 }
@@ -127,20 +130,35 @@ export async function updateAnnouncement(
     data.message = effMessages[effLocale] ?? existing.message
   }
 
-  const updated = await prisma.announcement.update({ where: { id }, data })
-  await recordAudit({
-    actor,
-    action: AuditAction.ANNOUNCEMENT_UPDATED,
-    targetType: 'ANNOUNCEMENT',
-    targetId: id,
-    metadata: auditMetadata(updated),
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.announcement.update({ where: { id }, data })
+    await recordAudit({
+      actor,
+      action: AuditAction.ANNOUNCEMENT_UPDATED,
+      targetType: 'ANNOUNCEMENT',
+      targetId: id,
+      metadata: auditMetadata(row),
+    }, tx)
+    return row
   })
   return toDto(updated)
 }
 
 export async function deleteAnnouncement(actor: AuditActor, id: string): Promise<void> {
-  await prisma.announcement.delete({ where: { id } }).catch(() => {
-    throw AppError.notFound('Ankündigung nicht gefunden')
+  await prisma.$transaction(async (tx) => {
+    await tx.announcement.delete({ where: { id } }).catch((err) => {
+      // Only "record to delete does not exist" (P2025) is a 404; any other error
+      // (DB outage, constraint) must propagate so it isn't masked as not-found.
+      if (err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === 'P2025') {
+        throw AppError.notFound('Ankündigung nicht gefunden')
+      }
+      throw err
+    })
+    await recordAudit({
+      actor,
+      action: AuditAction.ANNOUNCEMENT_DELETED,
+      targetType: 'ANNOUNCEMENT',
+      targetId: id,
+    }, tx)
   })
-  await recordAudit({ actor, action: AuditAction.ANNOUNCEMENT_DELETED, targetType: 'ANNOUNCEMENT', targetId: id })
 }

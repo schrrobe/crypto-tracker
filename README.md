@@ -129,7 +129,7 @@ running). API tests run serially (`fileParallelism: false`) because they share t
 
 ### Prerequisites
 
-- Node.js ≥ 20, pnpm
+- Node.js ≥ 22, pnpm 11.10.0 (declared in `engines`)
 - PostgreSQL (prod: managed DB recommended)
 - Secrets from a secret manager (no `.env` file on the server)
 
@@ -147,8 +147,8 @@ openssl rand -hex 32      # ENCRYPTION_KEY (32 bytes hex)
 cp apps/api/.env.prod.example apps/api/.env.prod
 
 pnpm --filter @crypto-tracker/api build   # transpiles to dist/
-pnpm db:migrate:prod                      # prisma migrate deploy (non-interactive, safe)
-node apps/api/dist/index.js
+pnpm db:deploy                            # prisma migrate deploy (non-interactive, safe)
+pnpm --filter @crypto-tracker/api start
 ```
 
 With `APP_ENV=prod`, `src/config/env.ts` refuses to start with default secrets or

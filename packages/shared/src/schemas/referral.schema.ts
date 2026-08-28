@@ -1,13 +1,25 @@
 import { z } from 'zod'
 
 // Bank details for manual payout. IBAN is normalized (spaces stripped, upper-cased)
-// then format-checked (country + check digits + up to 30 alphanumerics). BIC optional.
-// Note: this is a structural check, not a mod-97 checksum validation.
+// then format-checked and validated with the ISO 13616 mod-97 checksum.
+export function isValidIban(value: string): boolean {
+  const normalized = value.replace(/\s+/g, '').toUpperCase()
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(normalized)) return false
+  const rearranged = normalized.slice(4) + normalized.slice(0, 4)
+  let remainder = 0
+  for (const char of rearranged) {
+    const digits = /[A-Z]/.test(char) ? String(char.charCodeAt(0) - 55) : char
+    for (const digit of digits) remainder = (remainder * 10 + Number(digit)) % 97
+  }
+  return remainder === 1
+}
+
 export const bankDetailsSchema = z.object({
   iban: z
     .string()
     .transform((s) => s.replace(/\s+/g, '').toUpperCase())
-    .pipe(z.string().regex(/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/, 'Ungültige IBAN')),
+    .pipe(z.string().regex(/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/, 'Ungültige IBAN'))
+    .refine(isValidIban, 'IBAN-Prüfsumme ist ungültig'),
   bic: z
     .string()
     .transform((s) => s.replace(/\s+/g, '').toUpperCase())

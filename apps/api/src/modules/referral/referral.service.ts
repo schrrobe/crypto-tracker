@@ -58,11 +58,19 @@ export async function recordCommissionForInvoice(input: {
   if (input.netAmountCents <= 0) return
   const amountCents = Math.floor(input.netAmountCents * COMMISSION_RATE)
   if (amountCents <= 0) return
+  const referrer = await prisma.user.findUnique({
+    where: { id: input.referrerId },
+    select: { email: true },
+  })
+  // The referrer may have deleted their account between invoice creation and
+  // delivery. Without a live identity there is no new payable beneficiary.
+  if (!referrer) return
   const payableAt = new Date(Date.now() + env.REFERRAL_CLEARING_DAYS * 24 * 60 * 60 * 1000)
   try {
     await prisma.referralCommission.create({
       data: {
         referrerId: input.referrerId,
+        referrerEmail: referrer.email,
         referredUserId: input.referredUserId,
         stripeInvoiceId: input.stripeInvoiceId,
         stripeChargeId: input.stripeChargeId ?? null,
@@ -248,7 +256,9 @@ function payableWhere(now: Date) {
 export async function listPendingPayouts(): Promise<PendingPayout[]> {
   const now = new Date()
   const grouped = await prisma.referralCommission.groupBy({
-    by: ['referrerId', 'currency'],
+    // Include referrerEmail so a deleted referrer (FK-less, history retained)
+    // still carries a display email; grouping key is otherwise (referrer, currency).
+    by: ['referrerId', 'referrerEmail', 'currency'],
     where: payableWhere(now),
     _sum: { amountCents: true },
   })
@@ -272,7 +282,8 @@ export async function listPendingPayouts(): Promise<PendingPayout[]> {
     const owedCents = g._sum.amountCents ?? 0
     return {
       referrerId: g.referrerId,
-      email: u?.email ?? '',
+      // Fall back to the snapshot email when the referrer's account is gone.
+      email: u?.email ?? g.referrerEmail,
       owedCents,
       currency: g.currency,
       holder: u?.bankHolder ?? null,
@@ -295,19 +306,25 @@ export async function confirmDueCommissions(): Promise<number> {
 }
 
 // Bundle a referrer's PAYABLE commissions (one currency) into a Payout.
-// Race-safe: the status-guarded updateMany only claims rows still payoutId=null,
-// and we assert the claimed count matches what we summed — otherwise a concurrent
-// settle grabbed some rows and we roll back. Bank details are snapshot onto the
-// payout so a later edit can't redirect the transfer. Enforces the min threshold.
+// Race-safe on two levels: a per-(referrer,currency) advisory lock serializes
+// concurrent admin settles, and the status-guarded updateMany below only claims
+// rows still payable — we assert the claimed count matches what we summed, else a
+// concurrent refund/reversal touched them and we roll back. Bank details are
+// snapshot onto the payout so a later edit can't redirect the transfer, and the
+// referrer email is snapshot so history survives account deletion. Enforces the
+// min threshold.
 export async function settlePayout(
   referrerId: string,
   currency: string,
 ): Promise<{ id: string; amountCents: number; currency: string }> {
   const now = new Date()
   return prisma.$transaction(async (tx) => {
+    // Serialize one beneficiary/currency ledger. Without this lock, two admin
+    // requests can read the same payable rows and create duplicate payouts.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${referrerId}:${currency}`}))`
     const payable = await tx.referralCommission.findMany({
       where: { referrerId, currency, ...payableWhere(now) },
-      select: { id: true, amountCents: true },
+      select: { id: true, amountCents: true, referrerEmail: true },
     })
     if (payable.length === 0) throw AppError.notFound('Keine auszahlbaren Kommissionen')
     const amountCents = payable.reduce((acc, c) => acc + c.amountCents, 0)
@@ -331,6 +348,7 @@ export async function settlePayout(
     const payout = await tx.payout.create({
       data: {
         referrerId,
+        referrerEmail: payable[0]!.referrerEmail,
         amountCents,
         currency,
         status: 'CREATED',
@@ -348,9 +366,11 @@ export async function settlePayout(
       data: { payoutId: payout.id, status: 'PAID' },
     })
     if (count !== payable.length) {
-      // A concurrent settle claimed some of these rows; abort cleanly.
+      // A concurrent refund/reversal flipped some rows out of payable; abort cleanly.
       throw AppError.conflict('SETTLE_CONFLICT', 'Auszahlung kollidierte mit einem parallelen Vorgang')
     }
+    // Payout creation is audited (PAYOUT_CREATED) by the admin route that owns
+    // the acting admin identity; this queue-ready service stays Express-free.
     return { id: payout.id, amountCents, currency }
   })
 }

@@ -6,6 +6,7 @@ import {
   type ExchangeProvider,
   type RawBalance,
 } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Kraken REST API: POST /0/private/Balance with HMAC-SHA512 signature.
 // Requires an API key with only the "Query Funds" permission (read-only).
@@ -103,7 +104,7 @@ async function fetchKrakenBalances(creds: ExchangeCredentials): Promise<RawBalan
   const nonce = nextKrakenNonce()
   const postData = `nonce=${nonce}`
 
-  const res = await fetch(`${BASE_URL}${BALANCE_PATH}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}${BALANCE_PATH}`, {
     method: 'POST',
     headers: {
       'API-Key': creds.apiKey,

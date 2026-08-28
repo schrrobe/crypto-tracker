@@ -20,6 +20,7 @@ async function createUnmappedAsset(symbol: string) {
 describe('Asset-Mapping (Integration)', () => {
   it('lehnt Mapping ab, wenn das CoinGecko-Symbol nicht zum Asset passt', async () => {
     const user = await registerUser('map-mismatch', 'FREE')
+    await makeAdmin(user)
     const symbol = uniqueSymbol()
     const asset = await createUnmappedAsset(symbol)
 
@@ -36,6 +37,7 @@ describe('Asset-Mapping (Integration)', () => {
 
   it('akzeptiert Mapping bei passendem Symbol', async () => {
     const user = await registerUser('map-match', 'FREE')
+    await makeAdmin(user)
     const symbol = uniqueSymbol()
     const asset = await createUnmappedAsset(symbol)
 
@@ -49,6 +51,7 @@ describe('Asset-Mapping (Integration)', () => {
 
   it('verhindert erneutes Mapping eines bereits gemappten Assets', async () => {
     const user = await registerUser('map-already', 'FREE')
+    await makeAdmin(user)
     const symbol = uniqueSymbol()
     const asset = await prisma.asset.create({
       data: { symbol, name: `${symbol} Coin`, coingeckoId: idFor(symbol) },
@@ -131,12 +134,29 @@ describe('Asset-Mapping (Integration)', () => {
     expect(cleared.status).toBe(200)
     expect(cleared.body.asset.coingeckoId).toBeNull()
 
-    // A regular user can now map it again.
+    // An admin can now map it again.
     const user = await registerUser('unmap-user', 'FREE')
+    await makeAdmin(user)
     const remap = await request(app)
       .post(`${API}/assets/${asset.id}/mapping`)
       .set(...bearer(user))
       .send({ coingeckoId: idFor(symbol) })
     expect(remap.status).toBe(200)
+  })
+
+  it('verweigert globale Mappings für Nicht-Admins', async () => {
+    const user = await registerUser('map-non-admin', 'FREE')
+    const asset = await createUnmappedAsset(uniqueSymbol())
+
+    await request(app)
+      .post(`${API}/assets/${asset.id}/mapping`)
+      .set(...bearer(user))
+      .send({ coingeckoId: idFor(asset.symbol) })
+      .expect(404)
+
+    await request(app)
+      .get(`${API}/assets/coingecko-search?q=bitcoin`)
+      .set(...bearer(user))
+      .expect(404)
   })
 })

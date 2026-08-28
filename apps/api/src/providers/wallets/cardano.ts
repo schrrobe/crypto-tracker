@@ -1,5 +1,6 @@
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Cardano balance via the public Koios API (no API key required):
 // POST /address_info returns the aggregated balance in Lovelace (1e6) as a string.
@@ -24,7 +25,7 @@ export const cardanoProvider: WalletProvider = {
   },
 
   async fetchBalances(address: string): Promise<RawBalance[]> {
-    const res = await fetch(KOIOS_URL, {
+    const res = await fetchWithTimeout(KOIOS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ _addresses: [address] }),

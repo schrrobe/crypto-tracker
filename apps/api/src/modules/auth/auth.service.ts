@@ -1,4 +1,5 @@
 import argon2 from 'argon2'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../lib/errors'
 import {
@@ -196,7 +197,7 @@ export async function updateMe(
 ): Promise<UserDto> {
   // plan is only changeable in local mode (dev switch for testing gating without
   // Stripe); in dev/prod the plan is set exclusively via the Stripe webhook.
-  const allowPlan = env.APP_ENV === 'local'
+  const allowPlan = env.APP_ENV === 'local' && env.NODE_ENV !== 'production'
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
@@ -212,15 +213,14 @@ export async function updateMe(
 // transaction: sources first (holdings/transactions/imports/credentials cascade
 // off them), then portfolios (otherwise the Restrict FK PortfolioSource→Portfolio
 // kicks in), then the user itself (tokens cascade).
-export async function deleteAccount(userId: string): Promise<void> {
+export async function cancelAccountSubscription(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { stripeSubscriptionId: true },
   })
-  // Cancel the Stripe subscription BEFORE the user (and thus the customer mapping)
-  // is deleted — otherwise billing keeps running and the downgrade webhook can no
-  // longer find the user. A Stripe error must not block account deletion (store
-  // requirement): only log it so the subscription can be ended manually.
+  // Cancel the Stripe subscription BEFORE deleting the customer mapping. Deleting
+  // anyway on a Stripe error would leave an unmanageable subscription charging a
+  // user who can no longer log in, so fail safely and let the caller retry.
   if (user?.stripeSubscriptionId) {
     try {
       await cancelSubscription(user.stripeSubscriptionId)
@@ -229,15 +229,22 @@ export async function deleteAccount(userId: string): Promise<void> {
         `Stripe-Abo ${user.stripeSubscriptionId} bei Konto-Löschung nicht gekündigt:`,
         error instanceof Error ? error.message : error,
       )
+      throw new AppError(
+        'SUBSCRIPTION_CANCEL_FAILED',
+        502,
+        'Das Abo konnte nicht gekündigt werden. Das Konto wurde nicht gelöscht; bitte erneut versuchen.',
+      )
     }
   }
-  await prisma.$transaction([
-    // referredUserId has no FK (so commission audit survives referrer deletion),
-    // so commissions earned *for inviting this user* must be removed explicitly —
-    // otherwise they orphan and keep inflating admin owed/paid totals.
-    prisma.referralCommission.deleteMany({ where: { referredUserId: userId } }),
-    prisma.portfolioSource.deleteMany({ where: { userId } }),
-    prisma.portfolio.deleteMany({ where: { userId } }),
-    prisma.user.delete({ where: { id: userId } }),
-  ])
+}
+
+export async function deleteAccountData(db: Prisma.TransactionClient, userId: string): Promise<void> {
+  await db.portfolioSource.deleteMany({ where: { userId } })
+  await db.portfolio.deleteMany({ where: { userId } })
+  await db.user.delete({ where: { id: userId } })
+}
+
+export async function deleteAccount(userId: string): Promise<void> {
+  await cancelAccountSubscription(userId)
+  await prisma.$transaction((tx) => deleteAccountData(tx, userId))
 }

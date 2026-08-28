@@ -3,7 +3,7 @@ import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { env } from '../../config/env'
-import { requireAuth } from '../../middleware/auth.middleware'
+import { requireAdmin, requireAuth } from '../../middleware/auth.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
 import { AppError } from '../../lib/errors'
@@ -11,6 +11,7 @@ import { routeParam } from '../../lib/params'
 import { prisma } from '../../lib/prisma'
 import { searchCoins, fetchCoinSymbol } from '../../coingecko/coingecko.client'
 import { refreshPrices } from '../../coingecko/price.service'
+import { AuditAction, recordAudit } from '../admin/audit.service'
 
 export const assetsRoutes = Router()
 assetsRoutes.use(requireAuth)
@@ -47,6 +48,7 @@ assetsRoutes.get(
 // CoinGecko search for the manual price mapping of unmapped assets
 assetsRoutes.get(
   '/coingecko-search',
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : ''
     if (!q) {
@@ -71,11 +73,13 @@ const mappingLimiter = rateLimit({
 })
 
 // Mapping takes effect globally (assets are shared across users) — therefore only
-// allowed for previously unmapped assets; existing mappings remain untouchable.
+// admins may set it, and only previously unmapped assets are accepted here.
+// Existing mappings remain untouchable and use the dedicated admin correction API.
 // The chosen CoinGecko coin's symbol must match the asset symbol (validated
 // server-side) so a user cannot mis-map a shared asset to an unrelated coin.
 assetsRoutes.post(
   '/:id/mapping',
+  requireAdmin,
   mappingLimiter,
   validate(mappingSchema),
   asyncHandler(async (req, res) => {
@@ -102,9 +106,18 @@ assetsRoutes.post(
 
     let updated
     try {
-      updated = await prisma.asset.update({
-        where: { id: assetId },
-        data: { coingeckoId: req.body.coingeckoId },
+      updated = await prisma.$transaction(async (tx) => {
+        const row = await tx.asset.update({
+          where: { id: assetId },
+          data: { coingeckoId: req.body.coingeckoId },
+        })
+        await recordAudit({
+          actor: req.adminUser,
+          action: AuditAction.ASSET_MAPPING_UPDATED,
+          targetType: 'ASSET',
+          targetId: assetId,
+        }, tx)
+        return row
       })
     } catch (e) {
       // Concurrent mapping to the same CoinGecko-ID: the check-then-update above

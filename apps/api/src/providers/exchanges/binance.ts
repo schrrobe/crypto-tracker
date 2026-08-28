@@ -8,6 +8,7 @@ import {
   type RawPosition,
 } from '../provider.types'
 import { safeSubFetch } from './account-snapshot'
+import { fetchWithTimeout } from '../http'
 
 // Binance Spot REST API: GET /api/v3/account with HMAC-SHA256 signature (SIGNED).
 // Requires an API key with only the "Enable Reading" permission (read-only).
@@ -54,7 +55,7 @@ async function fetchBinanceBalances(creds: ExchangeCredentials): Promise<RawBala
   const query = `recvWindow=5000&timestamp=${Date.now()}`
   const signature = binanceSignature(query, creds.apiSecret)
 
-  const res = await fetch(`${BASE_URL}${ACCOUNT_PATH}?${query}&signature=${signature}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}${ACCOUNT_PATH}?${query}&signature=${signature}`, {
     headers: { 'X-MBX-APIKEY': creds.apiKey },
   })
 
@@ -94,7 +95,7 @@ async function signedGet<T>(baseUrl: string, path: string, creds: ExchangeCreden
   if (!creds.apiSecret) throw new ProviderError('INVALID_API_KEY', 'Binance: API-Secret fehlt')
   const query = `recvWindow=5000&timestamp=${Date.now()}`
   const signature = binanceSignature(query, creds.apiSecret)
-  const res = await fetch(`${baseUrl}${path}?${query}&signature=${signature}`, {
+  const res = await fetchWithTimeout(`${baseUrl}${path}?${query}&signature=${signature}`, {
     headers: { 'X-MBX-APIKEY': creds.apiKey },
   })
   if (res.status === 429 || res.status === 418) throw new ProviderError('RATE_LIMITED', 'Binance Rate-Limit erreicht')

@@ -19,21 +19,23 @@ adminReferralRoutes.get(
   asyncHandler(async (_req, res) => res.json({ payouts: await admin.listPayoutHistory() })),
 )
 
-const settleSchema = z.object({ currency: z.string().min(1) })
+const settleSchema = z.object({
+  currency: z.string().trim().toLowerCase().regex(/^[a-z]{3}$/),
+})
 
 adminReferralRoutes.post(
   '/payouts/:referrerId/settle',
   validate(settleSchema),
   asyncHandler(async (req, res) => {
-    const { referrerId } = req.params
-    if (!referrerId) throw AppError.notFound()
-    const payout = await settlePayout(referrerId, req.body.currency)
+    const referrerId = z.string().uuid().safeParse(req.params.referrerId)
+    if (!referrerId.success) throw AppError.notFound()
+    const payout = await settlePayout(referrerId.data, req.body.currency)
     await recordAudit({
       actor: req.adminUser,
       action: AuditAction.PAYOUT_CREATED,
       targetType: 'PAYOUT',
       targetId: payout.id,
-      metadata: { referrerId, amountCents: payout.amountCents, currency: payout.currency },
+      metadata: { referrerId: referrerId.data, amountCents: payout.amountCents, currency: payout.currency },
     })
     res.json(payout)
   }),

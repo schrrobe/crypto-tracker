@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import multer from 'multer'
-import { confirmMappingSchema, EXCHANGE_PROVIDERS, portfolioScopeQuerySchema } from '@crypto-tracker/shared'
+import { confirmMappingSchema, csvUploadFieldsSchema, portfolioScopeQuerySchema } from '@crypto-tracker/shared'
 import { requireAuth } from '../../middleware/auth.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { asyncHandler } from '../../lib/asyncHandler'
@@ -21,13 +21,15 @@ importsRoutes.post(
   upload.single('file'),
   asyncHandler(async (req, res) => {
     if (!req.file) throw AppError.badRequest('NO_FILE', 'Keine CSV-Datei übermittelt')
-    const label = typeof req.body?.label === 'string' ? req.body.label : undefined
-    const kind = req.body?.kind === 'TRANSACTIONS' ? 'TRANSACTIONS' : 'BALANCES'
-    const portfolioId = typeof req.body?.portfolioId === 'string' ? req.body.portfolioId : undefined
-    // optional exchange hint for duplicate detection; ignore invalid values
-    const exchange = (EXCHANGE_PROVIDERS as readonly string[]).includes(req.body?.exchange)
-      ? (req.body.exchange as (typeof EXCHANGE_PROVIDERS)[number])
-      : undefined
+    const parsed = csvUploadFieldsSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw AppError.badRequest(
+        'VALIDATION_ERROR',
+        'Ungültige Import-Metadaten',
+        parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      )
+    }
+    const { label, kind, portfolioId, exchange } = parsed.data
     res
       .status(201)
       .json(await importsService.uploadCsv(req.userId, req.file, kind, label, portfolioId, exchange))

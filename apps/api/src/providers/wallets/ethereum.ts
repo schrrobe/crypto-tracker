@@ -6,6 +6,7 @@ import {
   type RawStakingReward,
   type WalletProvider,
 } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Ethereum balance via public JSON-RPC (ETH_RPC_URL is configurable):
 // eth_getBalance (ETH) + a curated ERC-20 list via eth_call balanceOf.
@@ -56,7 +57,7 @@ interface RpcResponse<T> {
 }
 
 async function rpc<T>(method: string, params: unknown[]): Promise<T> {
-  const res = await fetch(env.ETH_RPC_URL, {
+  const res = await fetchWithTimeout(env.ETH_RPC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -82,7 +83,7 @@ function hexToBigInt(hex: string | null | undefined): bigint {
 async function beaconchain<T>(path: string): Promise<T> {
   const headers: Record<string, string> = {}
   if (env.BEACONCHAIN_API_KEY) headers.apikey = env.BEACONCHAIN_API_KEY
-  const res = await fetch(`${BEACONCHAIN_BASE}${path}`, { headers })
+  const res = await fetchWithTimeout(`${BEACONCHAIN_BASE}${path}`, { headers })
   if (res.status === 429) {
     throw new ProviderError('RATE_LIMITED', 'beaconcha.in Rate-Limit erreicht, bitte später erneut')
   }
@@ -239,9 +240,13 @@ export const ethereumProvider: WalletProvider = {
         if (stakedGwei > 0n) {
           balances.push({ symbol: 'ETH', amount: fromBaseUnits(stakedGwei, 9), accountType: 'EARN' })
         }
-      } catch {
-        // beaconcha.in unavailable → omit the staked-ETH holding this sync rather
-        // than failing the core balance sync; it reappears on the next good sync.
+      } catch (e) {
+        // Staked ETH is a supplementary EARN holding. A beaconcha.in outage or
+        // rate-limit must not fail the whole balance sync (which would block users
+        // with no staked ETH too); log and return the on-chain balances. Only a
+        // known ProviderError is tolerated — unexpected errors still propagate.
+        if (!(e instanceof ProviderError)) throw e
+        console.error(`[ethereum] staked-ETH lookup failed for ${address}, returning on-chain balances only: ${e.message}`)
       }
     }
     return balances

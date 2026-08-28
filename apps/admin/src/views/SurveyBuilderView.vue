@@ -26,7 +26,7 @@
 
         <label class="flex items-center gap-2 text-sm text-slate-700">
           <input type="checkbox" v-model="anonymous" class="rounded border-slate-300" />
-          Anonyme Umfrage (Antworten werden nicht mit der Identität verknüpft)
+          Vertrauliche Umfrage (Identität wird in Ergebnissen/Exporten ausgeblendet; technische Zuordnung zur Einmal-Teilnahme bleibt gespeichert)
         </label>
 
         <div>

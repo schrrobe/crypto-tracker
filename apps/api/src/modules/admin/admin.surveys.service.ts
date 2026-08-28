@@ -109,17 +109,20 @@ function questionCreateData(questions: CreateSurveyInput['questions']) {
 }
 
 export async function createSurvey(actor: AuditActor, input: CreateSurveyInput): Promise<{ id: string }> {
-  const survey = await prisma.survey.create({
-    data: {
-      title: input.title,
-      description: input.description ?? null,
-      anonymous: input.anonymous,
-      targetPlans: input.targetPlans as Plan[],
-      targetCurrencies: input.targetCurrencies,
-      questions: { create: questionCreateData(input.questions) },
-    },
+  const survey = await prisma.$transaction(async (tx) => {
+    const row = await tx.survey.create({
+      data: {
+        title: input.title,
+        description: input.description ?? null,
+        anonymous: input.anonymous,
+        targetPlans: input.targetPlans as Plan[],
+        targetCurrencies: input.targetCurrencies,
+        questions: { create: questionCreateData(input.questions) },
+      },
+    })
+    await recordAudit({ actor, action: AuditAction.SURVEY_CREATED, targetType: 'SURVEY', targetId: row.id }, tx)
+    return row
   })
-  await recordAudit({ actor, action: AuditAction.SURVEY_CREATED, targetType: 'SURVEY', targetId: survey.id })
   return { id: survey.id }
 }
 
@@ -146,8 +149,8 @@ export async function updateSurvey(actor: AuditActor, surveyId: string, input: U
         ...(input.questions ? { questions: { create: questionCreateData(input.questions) } } : {}),
       },
     })
+    await recordAudit({ actor, action: AuditAction.SURVEY_UPDATED, targetType: 'SURVEY', targetId: surveyId }, tx)
   })
-  await recordAudit({ actor, action: AuditAction.SURVEY_UPDATED, targetType: 'SURVEY', targetId: surveyId })
 }
 
 export async function publishSurvey(actor: AuditActor, surveyId: string): Promise<void> {
@@ -155,11 +158,13 @@ export async function publishSurvey(actor: AuditActor, surveyId: string): Promis
   if (survey.status !== SurveyStatus.DRAFT) {
     throw AppError.conflict('SURVEY_NOT_DRAFT', 'Nur Entwürfe können veröffentlicht werden')
   }
-  await prisma.survey.update({
-    where: { id: surveyId },
-    data: { status: SurveyStatus.PUBLISHED, publishedAt: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await tx.survey.update({
+      where: { id: surveyId },
+      data: { status: SurveyStatus.PUBLISHED, publishedAt: new Date() },
+    })
+    await recordAudit({ actor, action: AuditAction.SURVEY_PUBLISHED, targetType: 'SURVEY', targetId: surveyId }, tx)
   })
-  await recordAudit({ actor, action: AuditAction.SURVEY_PUBLISHED, targetType: 'SURVEY', targetId: surveyId })
 }
 
 export async function closeSurvey(actor: AuditActor, surveyId: string): Promise<void> {
@@ -167,11 +172,13 @@ export async function closeSurvey(actor: AuditActor, surveyId: string): Promise<
   if (survey.status !== SurveyStatus.PUBLISHED) {
     throw AppError.conflict('SURVEY_NOT_PUBLISHED', 'Nur veröffentlichte Umfragen können geschlossen werden')
   }
-  await prisma.survey.update({
-    where: { id: surveyId },
-    data: { status: SurveyStatus.CLOSED, closedAt: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await tx.survey.update({
+      where: { id: surveyId },
+      data: { status: SurveyStatus.CLOSED, closedAt: new Date() },
+    })
+    await recordAudit({ actor, action: AuditAction.SURVEY_CLOSED, targetType: 'SURVEY', targetId: surveyId }, tx)
   })
-  await recordAudit({ actor, action: AuditAction.SURVEY_CLOSED, targetType: 'SURVEY', targetId: surveyId })
 }
 
 export async function deleteSurvey(actor: AuditActor, surveyId: string): Promise<void> {
@@ -182,11 +189,11 @@ export async function deleteSurvey(actor: AuditActor, surveyId: string): Promise
   // unsafe: Postgres does not guarantee the response→answer cascade runs
   // before the question cascade, so answers may still reference a question
   // being deleted → FK violation.
-  await prisma.$transaction([
-    prisma.surveyResponse.deleteMany({ where: { surveyId } }),
-    prisma.survey.delete({ where: { id: surveyId } }),
-  ])
-  await recordAudit({ actor, action: AuditAction.SURVEY_DELETED, targetType: 'SURVEY', targetId: surveyId })
+  await prisma.$transaction(async (tx) => {
+    await tx.surveyResponse.deleteMany({ where: { surveyId } })
+    await tx.survey.delete({ where: { id: surveyId } })
+    await recordAudit({ actor, action: AuditAction.SURVEY_DELETED, targetType: 'SURVEY', targetId: surveyId }, tx)
+  })
 }
 
 export async function getResults(surveyId: string): Promise<SurveyResultsDto> {

@@ -122,41 +122,40 @@ async function getOrCreateManualTxSource(userId: string, portfolioId: string) {
 // createMany the holdings and collide on the (sourceId,assetId,accountType) unique
 // index (P2002 → 500). The lock makes the loser wait, then recompute over the
 // committed tx set. Reading the transactions INSIDE the lock keeps the snapshot consistent.
-async function recomputeHoldings(sourceId: string): Promise<void> {
-  const assetIds = await prisma.$transaction(async (db) => {
-    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${sourceId}))`
-    const txs = await db.transaction.findMany({
-      where: { sourceId },
-      select: {
-        assetId: true,
-        type: true,
-        quantity: true,
-        feeAmount: true,
-        currency: true,
-        asset: { select: { symbol: true } },
-      },
-    })
-    const { holdings } = computeNetBalances(
-      txs.map((t) => ({
-        assetId: t.assetId,
-        type: t.type,
-        quantity: t.quantity,
-        fee: t.feeAmount,
-        // Only subtract when the fee currency is explicitly the asset itself; the
-        // fee currency is otherwise unknown, and assuming "asset" would wrongly
-        // subtract fiat fees.
-        feeInAsset: !!t.feeAmount && !!t.currency && t.currency === t.asset.symbol,
-      })),
-    )
-    await db.holding.deleteMany({ where: { sourceId } })
-    if (holdings.length > 0) {
-      await db.holding.createMany({
-        data: holdings.map((h) => ({ sourceId, assetId: h.assetId, quantity: h.quantity })),
-      })
-    }
-    return holdings.map((h) => h.assetId)
+async function recomputeHoldings(
+  db: Prisma.TransactionClient,
+  sourceId: string,
+): Promise<string[]> {
+  const txs = await db.transaction.findMany({
+    where: { sourceId },
+    select: {
+      assetId: true,
+      type: true,
+      quantity: true,
+      feeAmount: true,
+      currency: true,
+      asset: { select: { symbol: true } },
+    },
   })
-  await refreshPrices(assetIds)
+  const { holdings } = computeNetBalances(
+    txs.map((t) => ({
+      assetId: t.assetId,
+      type: t.type,
+      quantity: t.quantity,
+      fee: t.feeAmount,
+      // Only subtract when the fee currency is explicitly the asset itself; the
+      // fee currency is otherwise unknown, and assuming "asset" would wrongly
+      // subtract fiat fees.
+      feeInAsset: !!t.feeAmount && !!t.currency && t.currency === t.asset.symbol,
+    })),
+  )
+  await db.holding.deleteMany({ where: { sourceId } })
+  if (holdings.length > 0) {
+    await db.holding.createMany({
+      data: holdings.map((h) => ({ sourceId, assetId: h.assetId, quantity: h.quantity })),
+    })
+  }
+  return holdings.map((h) => h.assetId)
 }
 
 export async function listTransactions(
@@ -191,21 +190,25 @@ export async function createTransaction(
 
   const portfolioId = await resolvePortfolioIdForWrite(userId, input.portfolioId)
   const source = await getOrCreateManualTxSource(userId, portfolioId)
-  const tx = await prisma.transaction.create({
-    data: {
-      sourceId: source.id,
-      assetId: input.assetId,
-      type: input.type,
-      quantity: new Prisma.Decimal(input.quantity),
-      pricePerUnit: input.pricePerUnit ? new Prisma.Decimal(input.pricePerUnit) : null,
-      feeAmount: input.feeAmount ? new Prisma.Decimal(input.feeAmount) : null,
-      currency: input.currency ?? null,
-      timestamp: new Date(input.timestamp),
-    },
-    include: TX_INCLUDE,
+  const { transaction, assetIds } = await prisma.$transaction(async (db) => {
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${source.id}))`
+    const transaction = await db.transaction.create({
+      data: {
+        sourceId: source.id,
+        assetId: input.assetId,
+        type: input.type,
+        quantity: new Prisma.Decimal(input.quantity),
+        pricePerUnit: input.pricePerUnit ? new Prisma.Decimal(input.pricePerUnit) : null,
+        feeAmount: input.feeAmount ? new Prisma.Decimal(input.feeAmount) : null,
+        currency: input.currency ?? null,
+        timestamp: new Date(input.timestamp),
+      },
+      include: TX_INCLUDE,
+    })
+    return { transaction, assetIds: await recomputeHoldings(db, source.id) }
   })
-  await recomputeHoldings(source.id)
-  return toTransactionDto(tx)
+  await refreshPrices(assetIds)
+  return toTransactionDto(transaction)
 }
 
 // Foreign and imported transactions → 404 (ownership convention, do not reveal existence)
@@ -250,37 +253,42 @@ export async function updateTransaction(
     if (!asset) throw AppError.notFound('Asset nicht gefunden')
   }
 
-  const tx = await prisma.transaction.update({
-    where: { id: existing.id },
-    data: {
-      assetId: input.assetId,
-      type: input.type,
-      quantity: input.quantity ? new Prisma.Decimal(input.quantity) : undefined,
-      pricePerUnit: input.pricePerUnit ? new Prisma.Decimal(input.pricePerUnit) : undefined,
-      feeAmount: input.feeAmount ? new Prisma.Decimal(input.feeAmount) : undefined,
-      currency: input.currency,
-      timestamp: input.timestamp ? new Date(input.timestamp) : undefined,
-    },
-    include: TX_INCLUDE,
+  const { transaction, assetIds } = await prisma.$transaction(async (db) => {
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${existing.sourceId}))`
+    const transaction = await db.transaction.update({
+      where: { id: existing.id },
+      data: {
+        assetId: input.assetId,
+        type: input.type,
+        quantity: input.quantity ? new Prisma.Decimal(input.quantity) : undefined,
+        pricePerUnit: input.pricePerUnit ? new Prisma.Decimal(input.pricePerUnit) : undefined,
+        feeAmount: input.feeAmount ? new Prisma.Decimal(input.feeAmount) : undefined,
+        currency: input.currency,
+        timestamp: input.timestamp ? new Date(input.timestamp) : undefined,
+      },
+      include: TX_INCLUDE,
+    })
+    return { transaction, assetIds: await recomputeHoldings(db, existing.sourceId) }
   })
-  await recomputeHoldings(existing.sourceId)
-  return toTransactionDto(tx)
+  await refreshPrices(assetIds)
+  return toTransactionDto(transaction)
 }
 
 export async function deleteTransaction(userId: string, txId: string): Promise<void> {
   const existing = await getOwnedManualTransaction(userId, txId)
-  await prisma.transaction.delete({ where: { id: existing.id } })
+  const assetIds = await prisma.$transaction(async (db) => {
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${existing.sourceId}))`
+    await db.transaction.delete({ where: { id: existing.id } })
 
-  // When the auto-managed bucket loses its last transaction, drop it: keeping an
-  // empty phantom source would block portfolio deletion (sourceCount > 0) and
-  // count against the free source limit. Cascade clears its (already empty) holdings.
-  const remaining = await prisma.transaction.count({ where: { sourceId: existing.sourceId } })
-  // Only auto-clean the auto-managed manual-tx bucket. A user-created MANUAL
-  // source (e.g. a renamed/legacy bucket) must never be deleted out from under
-  // the user just because its last transaction was removed.
-  if (remaining === 0 && existing.source.label === MANUAL_TX_SOURCE_LABEL) {
-    await prisma.portfolioSource.delete({ where: { id: existing.sourceId } })
-    return
-  }
-  await recomputeHoldings(existing.sourceId)
+    // When the auto-managed bucket loses its last transaction, drop it: keeping an
+    // empty phantom source would block portfolio deletion (sourceCount > 0) and
+    // count against the free source limit. Cascade clears its holdings.
+    const remaining = await db.transaction.count({ where: { sourceId: existing.sourceId } })
+    if (remaining === 0 && existing.source.label === MANUAL_TX_SOURCE_LABEL) {
+      await db.portfolioSource.delete({ where: { id: existing.sourceId } })
+      return []
+    }
+    return recomputeHoldings(db, existing.sourceId)
+  })
+  await refreshPrices(assetIds)
 }

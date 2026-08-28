@@ -469,7 +469,7 @@ const fr: MessageSchema = {
     submit: 'Envoyer',
     submitFailed: "La réponse n'a pas pu être envoyée",
     thanks: 'Merci de votre participation !',
-    anonymousNote: "Ce sondage est anonyme — vos réponses ne sont pas liées à votre identité.",
+    anonymousNote: "Sondage confidentiel — votre identité n’est pas affichée aux administrateurs dans les résultats ou exports.",
     identifiedNote: 'Vos réponses sont liées à votre compte.',
     optionalHint: 'Répondez à autant de questions que vous le souhaitez.',
     alreadySubmitted: 'Vous avez déjà répondu à ce sondage.',

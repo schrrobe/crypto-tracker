@@ -167,6 +167,12 @@ describe('Referral (Integration)', () => {
       .set(...bearer(user))
       .send({ iban: 'not-an-iban', bic: 'COBADEFFXXX', holder: 'X' })
     expect(bad.status).toBe(400)
+
+    const badChecksum = await request(app)
+      .put(`${API}/referral/bank`)
+      .set(...bearer(user))
+      .send({ iban: 'DE88 3704 0044 0532 0130 00', bic: 'COBADEFFXXX', holder: 'X' })
+    expect(badChecksum.status).toBe(400)
   })
 
   it('Admin-Payout: ohne Admin 404, mit Admin listen + settlen', async () => {
@@ -300,6 +306,23 @@ describe('Referral (Integration)', () => {
       where: { payoutId: { in: payouts.filter((p) => p.status !== 'CANCELLED').map((p) => p.id) } },
     })
     expect(backed).toBe(1)
+  })
+
+  it('Konto-Löschung bewahrt Kommissionshistorie und Referrer-Snapshot', async () => {
+    const referrer = await registerUser('ref-delete-r', 'FREE')
+    const { body: ref } = await request(app).get(`${API}/referral`).set(...bearer(referrer))
+    const invitedId = await registerWithCode('ref-delete-i', ref.code)
+    const customer = `cus_${invitedId}`
+    await prisma.user.update({ where: { id: invitedId }, data: { stripeCustomerId: customer } })
+    await fireInvoicePaid(customer, `in_delete_${invitedId}`, 1000)
+
+    // FK-less referrerId + snapshot email: deleting the earner must NOT cascade
+    // away financial history — the commission row and its referrerEmail survive.
+    await request(app).delete(`${API}/auth/me`).set(...bearer(referrer)).expect(204)
+
+    const rows = await prisma.referralCommission.findMany({ where: { referrerId: referrer.userId } })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.referrerEmail).toBe(referrer.email)
   })
 
   it('Refund nach Auszahlung: storniert + meldet alreadyPaid, Payout-Link bleibt als Schuld', async () => {

@@ -1,5 +1,6 @@
 import { fromBaseUnits } from '../../lib/decimal'
 import { ProviderError, type RawBalance, type WalletProvider } from '../provider.types'
+import { fetchWithTimeout } from '../http'
 
 // Tron balance via the TronGrid accounts API (no API key required):
 // data[0].balance in Sun (1e6) → TRX. Additionally USDT from the trc20 list —
@@ -35,7 +36,7 @@ export const tronProvider: WalletProvider = {
   },
 
   async fetchBalances(address: string): Promise<RawBalance[]> {
-    const res = await fetch(`${TRONGRID_URL}/${encodeURIComponent(address)}`)
+    const res = await fetchWithTimeout(`${TRONGRID_URL}/${encodeURIComponent(address)}`)
     // TronGrid rejects invalid addresses (including a wrong checksum) with 400 — verified live
     if (res.status === 400) {
       throw new ProviderError('INVALID_ADDRESS', 'Tron-Adresse wurde von TronGrid abgelehnt')

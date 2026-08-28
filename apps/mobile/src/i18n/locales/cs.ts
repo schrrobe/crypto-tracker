@@ -469,7 +469,7 @@ const cs: MessageSchema = {
     submit: 'Odeslat',
     submitFailed: 'Odpověď se nepodařilo odeslat',
     thanks: 'Děkujeme za účast!',
-    anonymousNote: 'Tato anketa je anonymní — vaše odpovědi nejsou spojeny s vaší identitou.',
+    anonymousNote: 'Důvěrný průzkum — správci ve výsledcích ani exportech neuvidí vaši identitu.',
     identifiedNote: 'Vaše odpovědi jsou spojeny s vaším účtem.',
     optionalHint: 'Odpovězte na tolik otázek, kolik chcete.',
     alreadySubmitted: 'Tuto anketu jste již vyplnili.',

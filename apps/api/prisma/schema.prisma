@@ -102,6 +102,8 @@ model User {
   autoSyncEnabled Boolean         @default(true)
   stripeCustomerId     String?    @unique
   stripeSubscriptionId String?
+  // Short reservation preventing parallel Checkout sessions/subscriptions.
+  stripeCheckoutPendingUntil DateTime?
   planUntil            DateTime?
   // Stripe event ordering guard: the `created` of the last plan-affecting event
   // applied. A webhook delivered/processed out of order (older `created`) is ignored
@@ -126,9 +128,9 @@ model User {
   portfolios    Portfolio[]
   refreshTokens RefreshToken[]
   passwordResetTokens PasswordResetToken[]
-  commissionsEarned ReferralCommission[] @relation("Earned")
+  // referrerId on ReferralCommission/Payout is intentionally FK-less (financial
+  // history survives account deletion), so no back-relation for the earning side.
   commissionsReceived ReferralCommission[] @relation("Received")
-  payouts       Payout[]
   auditLogs     AuditLog[]        @relation("ActorAudits")
   surveyResponses SurveyResponse[]
 
@@ -171,6 +173,9 @@ enum CommissionStatus {
 model ReferralCommission {
   id                   String           @id @default(uuid())
   referrerId           String
+  // Snapshot retained after account deletion; referrerId intentionally has no FK
+  // so financial liabilities and payout audit history cannot cascade away.
+  referrerEmail        String
   referredUserId       String?
   stripeInvoiceId      String           @unique
   // Stripe charge / subscription behind the invoice — lets refund & dispute
@@ -187,7 +192,6 @@ model ReferralCommission {
   // Legacy manual-void timestamp; kept for history. New reversals also set status=REVERSED.
   voidedAt             DateTime?
   createdAt            DateTime         @default(now())
-  referrer             User             @relation("Earned", fields: [referrerId], references: [id], onDelete: Cascade)
   referredUser         User?            @relation("Received", fields: [referredUserId], references: [id], onDelete: SetNull)
   payout               Payout?          @relation(fields: [payoutId], references: [id], onDelete: SetNull)
 
@@ -217,6 +221,8 @@ enum PayoutStatus {
 model Payout {
   id            String               @id @default(uuid())
   referrerId    String
+  // Snapshot retained after account deletion; referrerId intentionally has no FK.
+  referrerEmail String
   amountCents   Int
   currency      String
   status        PayoutStatus         @default(CREATED)
@@ -227,7 +233,6 @@ model Payout {
   snapshotBic        String?
   snapshotHolder     String?
   createdAt     DateTime             @default(now())
-  referrer      User                 @relation(fields: [referrerId], references: [id], onDelete: Cascade)
   commissions   ReferralCommission[]
 
   @@index([referrerId])

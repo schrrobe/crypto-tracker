@@ -88,9 +88,23 @@ export function setStored(key: StorageKey, value: string): void {
   )
 }
 
+// Security-sensitive callers (refresh-token rotation) must know that persistence
+// completed before the server-side predecessor token is forgotten. Update the
+// cache only after the durable write, so a failed login/rotation cannot expose a
+// token that will disappear on the next process start.
+export async function setStoredDurable(key: StorageKey, value: string): Promise<void> {
+  await backendSet(key, value)
+  cache.set(key, value)
+}
+
 export function removeStored(key: StorageKey): void {
   cache.set(key, null)
   void backendRemove(key).catch((err) =>
     console.warn(`[storage] Löschen von ${key} fehlgeschlagen:`, err),
   )
+}
+
+export async function removeStoredDurable(key: StorageKey): Promise<void> {
+  cache.set(key, null)
+  await backendRemove(key)
 }
