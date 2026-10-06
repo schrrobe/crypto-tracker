@@ -19,6 +19,7 @@ import { referralRoutes } from './modules/referral/referral.routes'
 import { adminRoutes } from './modules/admin/admin.routes'
 import { surveysRoutes } from './modules/surveys/surveys.routes'
 import { announcementsRoutes } from './modules/announcements/announcements.routes'
+import { movementsRoutes } from './modules/movements/movements.routes'
 
 export function createApp() {
   const app = express()
@@ -65,6 +66,7 @@ export function createApp() {
   api.use('/sources', sourcesRoutes)
   api.use('/portfolio', portfolioRoutes)
   api.use('/holdings', holdingsRoutes)
+  api.use('/movements', movementsRoutes)
   api.use('/prices', pricesRoutes)
   api.use('/assets', assetsRoutes)
   api.use('/imports', importsRoutes)

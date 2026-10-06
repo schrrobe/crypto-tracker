@@ -34,6 +34,15 @@ export function historyRangesFor(plan: Plan): HistoryRange[] {
   return isPro(plan) ? PRO_HISTORY_RANGES : FREE_HISTORY_RANGES
 }
 
+// Visible movement history (statement lines) per plan. Everything is stored;
+// the window is applied at query time, so an upgrade reveals older lines at once.
+export const FREE_MOVEMENT_HISTORY_DAYS = 30
+export const PRO_MOVEMENT_HISTORY_DAYS = 365
+
+export function movementHistoryDaysFor(plan: Plan): number {
+  return isPro(plan) ? PRO_MOVEMENT_HISTORY_DAYS : FREE_MOVEMENT_HISTORY_DAYS
+}
+
 export function canAddPortfolio(plan: Plan, current: number): boolean {
   return isPro(plan) || current < FREE_LIMITS.portfolios
 }

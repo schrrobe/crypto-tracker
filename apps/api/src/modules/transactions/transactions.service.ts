@@ -9,6 +9,7 @@ import { AppError } from '../../lib/errors'
 import { refreshPrices } from '../../coingecko/price.service'
 import { computeNetBalances } from './tx-net-balance'
 import { resolvePortfolioId, resolvePortfolioIdForWrite } from '../portfolios/portfolios.service'
+import { replaceSourceHoldings } from '../movements/holding-ledger'
 
 // Reserved label of the single auto-managed MANUAL source that backs manual
 // transactions per portfolio. A partial unique index
@@ -149,12 +150,12 @@ async function recomputeHoldings(
       feeInAsset: !!t.feeAmount && !!t.currency && t.currency === t.asset.symbol,
     })),
   )
-  await db.holding.deleteMany({ where: { sourceId } })
-  if (holdings.length > 0) {
-    await db.holding.createMany({
-      data: holdings.map((h) => ({ sourceId, assetId: h.assetId, quantity: h.quantity })),
-    })
-  }
+  await replaceSourceHoldings(
+    db,
+    sourceId,
+    holdings.map((h) => ({ assetId: h.assetId, accountType: 'SPOT' as const, quantity: h.quantity })),
+    { origin: 'MANUAL' },
+  )
   return holdings.map((h) => h.assetId)
 }
 
