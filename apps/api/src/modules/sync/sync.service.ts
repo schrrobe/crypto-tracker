@@ -11,6 +11,7 @@ import { refreshPrices } from '../../coingecko/price.service'
 import { getOwnedSource } from '../sources/sources.service'
 import { enqueueSyncRun, isQueueEnabled, pingRedis } from './sync.queue'
 import { resolvePortfolioId } from '../portfolios/portfolios.service'
+import { replaceSourceHoldings } from '../movements/holding-ledger'
 
 const RUNNING_STALE_MS = 2 * 60 * 1000
 // Liveness lease tuning. A claimed run bumps its heartbeat every HEARTBEAT_INTERVAL_MS;
@@ -304,26 +305,20 @@ export async function executeSyncRun(runId: string): Promise<SyncRunDto> {
       liquidationPrice: p.liquidationPrice ? new Prisma.Decimal(p.liquidationPrice) : null,
     }))
 
-    // The source's holdings + futures positions mirror exactly the provider state
-    await prisma.$transaction([
-      prisma.holding.deleteMany({ where: { sourceId } }),
-      prisma.holding.createMany({
-        data: [...byKey.values()].map((v) => ({
-          sourceId,
-          assetId: v.assetId,
-          accountType: v.accountType,
-          quantity: v.quantity,
-        })),
-      }),
-      prisma.futuresPosition.deleteMany({ where: { sourceId } }),
+    // Refresh first so the statement lines are valued at a current rate. Price
+    // errors are not a sync error (the UI then shows older prices).
+    await refreshPrices([...new Set([...byKey.values()].map((v) => v.assetId))])
+
+    // The source's holdings + futures positions mirror exactly the provider state;
+    // the ledger books the difference to the previous state as movements
+    await prisma.$transaction(async (tx) => {
+      await replaceSourceHoldings(tx, sourceId, [...byKey.values()], { origin: 'SYNC', syncRunId: run.id })
+      await tx.futuresPosition.deleteMany({ where: { sourceId } })
       // skipDuplicates: a duplicate (rawSymbol, side) must not roll back the whole
       // sync transaction (holdings + positions + lastSyncAt) via P2002
-      prisma.futuresPosition.createMany({ data: positionRows, skipDuplicates: true }),
-      prisma.portfolioSource.update({ where: { id: sourceId }, data: { lastSyncAt: new Date() } }),
-    ])
-
-    // Price errors are not a sync error (the UI then shows older prices)
-    await refreshPrices([...new Set([...byKey.values()].map((v) => v.assetId))])
+      await tx.futuresPosition.createMany({ data: positionRows, skipDuplicates: true })
+      await tx.portfolioSource.update({ where: { id: sourceId }, data: { lastSyncAt: new Date() } })
+    })
 
     // On-chain staking rewards as transactions. The balance sync is already
     // committed, so a provider failure flags the run PARTIAL_SYNC (rewards stale)

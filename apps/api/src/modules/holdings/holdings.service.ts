@@ -5,6 +5,7 @@ import { AppError } from '../../lib/errors'
 import { getOwnedSource } from '../sources/sources.service'
 import { getLatestPrices, refreshPrices } from '../../coingecko/price.service'
 import { resolvePortfolioId } from '../portfolios/portfolios.service'
+import { bookManualChange } from '../movements/holding-ledger'
 
 type HoldingWithRelations = Prisma.HoldingGetPayload<{ include: { asset: true; source: true } }>
 
@@ -134,11 +135,21 @@ export async function createHolding(
     throw AppError.conflict('ASSET_ALREADY_IN_SOURCE', `${asset.symbol} ist in dieser Quelle bereits erfasst`)
   }
 
-  const holding = await prisma.holding.create({
-    data: { sourceId, assetId: data.assetId, quantity: new Prisma.Decimal(data.quantity) },
-    include: { asset: true, source: true },
-  })
   await refreshPrices([data.assetId])
+  const quantity = new Prisma.Decimal(data.quantity)
+  const holding = await prisma.$transaction(async (tx) => {
+    const created = await tx.holding.create({
+      data: { sourceId, assetId: data.assetId, quantity },
+      include: { asset: true, source: true },
+    })
+    await bookManualChange(tx, sourceId, {
+      assetId: data.assetId,
+      accountType: created.accountType,
+      before: new Prisma.Decimal(0),
+      after: quantity,
+    })
+    return created
+  })
   const prices = await getLatestPrices([data.assetId])
   return toHoldingDto(holding, prices)
 }
@@ -153,10 +164,19 @@ export async function updateHolding(
   const existing = await prisma.holding.findFirst({ where: { id: holdingId, sourceId } })
   if (!existing) throw AppError.notFound('Bestand nicht gefunden')
 
-  const holding = await prisma.holding.update({
-    where: { id: holdingId },
-    data: { quantity: new Prisma.Decimal(quantity) },
-    include: { asset: true, source: true },
+  const holding = await prisma.$transaction(async (tx) => {
+    const updated = await tx.holding.update({
+      where: { id: holdingId },
+      data: { quantity: new Prisma.Decimal(quantity) },
+      include: { asset: true, source: true },
+    })
+    await bookManualChange(tx, sourceId, {
+      assetId: updated.assetId,
+      accountType: updated.accountType,
+      before: existing.quantity,
+      after: updated.quantity,
+    })
+    return updated
   })
   const prices = await getLatestPrices([holding.assetId])
   return toHoldingDto(holding, prices)
@@ -166,5 +186,13 @@ export async function deleteHolding(userId: string, sourceId: string, holdingId:
   await getManualSource(userId, sourceId)
   const existing = await prisma.holding.findFirst({ where: { id: holdingId, sourceId } })
   if (!existing) throw AppError.notFound('Bestand nicht gefunden')
-  await prisma.holding.delete({ where: { id: holdingId } })
+  await prisma.$transaction(async (tx) => {
+    await tx.holding.delete({ where: { id: holdingId } })
+    await bookManualChange(tx, sourceId, {
+      assetId: existing.assetId,
+      accountType: existing.accountType,
+      before: existing.quantity,
+      after: new Prisma.Decimal(0),
+    })
+  })
 }

@@ -24,6 +24,7 @@ import { computeNetBalances, type NetBalanceTx } from '../transactions/tx-net-ba
 import { resolvePortfolioId, resolvePortfolioIdForWrite } from '../portfolios/portfolios.service'
 import { getPlan } from '../../middleware/plan.middleware'
 import { MANUAL_TX_SOURCE_LABEL } from '../transactions/transactions.service'
+import { replaceSourceHoldings } from '../movements/holding-ledger'
 
 const PREVIEW_ROWS = 10
 
@@ -199,16 +200,15 @@ export async function confirmMapping(
     byAsset.set(asset.id, (byAsset.get(asset.id) ?? new Prisma.Decimal(0)).add(new Prisma.Decimal(row.quantity)))
   }
 
-  const [, , updated] = await prisma.$transaction([
-    prisma.holding.deleteMany({ where: { sourceId: record.sourceId } }),
-    prisma.holding.createMany({
-      data: [...byAsset.entries()].map(([assetId, quantity]) => ({
-        sourceId: record.sourceId,
-        assetId,
-        quantity,
-      })),
-    }),
-    prisma.csvImport.update({
+  await refreshPrices([...byAsset.keys()])
+  const updated = await prisma.$transaction(async (tx) => {
+    await replaceSourceHoldings(
+      tx,
+      record.sourceId,
+      [...byAsset.entries()].map(([assetId, quantity]) => ({ assetId, accountType: 'SPOT' as const, quantity })),
+      { origin: 'IMPORT' },
+    )
+    return tx.csvImport.update({
       where: { id: record.id },
       data: {
         status: valid.length > 0 ? 'COMPLETED' : 'FAILED',
@@ -218,10 +218,9 @@ export async function confirmMapping(
         rawRows: Prisma.DbNull, // do not retain raw rows after execution
       },
       include: { source: { select: { label: true } } },
-    }),
-  ])
+    })
+  })
 
-  await refreshPrices([...byAsset.keys()])
   return toImportDto(updated)
 }
 
@@ -292,15 +291,16 @@ async function confirmTransactionImport(
     })
   }
 
+  await refreshPrices(holdings.map((h) => h.assetId))
   const updated = await prisma.$transaction(async (tx) => {
     await tx.transaction.deleteMany({ where: { sourceId: record.sourceId } })
     await tx.transaction.createMany({ data: txRows })
-    await tx.holding.deleteMany({ where: { sourceId: record.sourceId } })
-    if (holdings.length > 0) {
-      await tx.holding.createMany({
-        data: holdings.map((h) => ({ sourceId: record.sourceId, assetId: h.assetId, quantity: h.quantity })),
-      })
-    }
+    await replaceSourceHoldings(
+      tx,
+      record.sourceId,
+      holdings.map((h) => ({ assetId: h.assetId, accountType: 'SPOT' as const, quantity: h.quantity })),
+      { origin: 'IMPORT' },
+    )
     return tx.csvImport.update({
       where: { id: record.id },
       data: {
@@ -314,7 +314,6 @@ async function confirmTransactionImport(
     })
   })
 
-  await refreshPrices(holdings.map((h) => h.assetId))
   return toImportDto(updated)
 }
 

@@ -401,6 +401,10 @@ POST   /imports                 # multipart: file, kind, sourceId? → Vorschau 
 POST   /imports/:id/mapping     # Mapping bestätigen → führt Import aus → Ergebnis
 GET    /imports · /imports/:id  DELETE /imports/:id
 
+GET    /movements?portfolioId&sourceId&assetId&tz&includeUnpriced&limit&offset
+                                # Auszugszeilen: Bestandsbewegungen netto je Tag/Quelle/Asset
+                                # (Free 30 / Pro 365 Tage)
+
 GET    /assets/search?q=        # lokale Assets + CoinGecko-Suche
 POST   /assets/:id/mapping      # { coingeckoId } — manueller Override
 POST   /prices/refresh
@@ -419,9 +423,10 @@ POST /sources/:id/sync
   3. Credentials entschlüsseln / Adresse laden → Provider aus Registry
   4. provider.fetchBalances() — Timeout 30 s, 1 Retry bei Netzwerkfehler
   5. Normalisieren: RawBalance[] → Asset-Resolution (auto-create unmapped)
-  6. DB-Transaktion: Holdings der Quelle vollständig ersetzen (delete + createMany)
-     → Quelle spiegelt exakt den Provider-Stand, verschwundene Assets verschwinden
-  7. price.service.refreshPrices(betroffene Asset-IDs)  — Fehler hier ≠ Sync-Fehler
+  6. price.service.refreshPrices(betroffene Asset-IDs)  — Fehler hier ≠ Sync-Fehler
+  7. DB-Transaktion: Holdings der Quelle vollständig ersetzen (Ledger-Helper
+     `replaceSourceHoldings`) → Quelle spiegelt exakt den Provider-Stand, die
+     Differenz zum Vorstand wird als `HoldingMovement` gebucht (erster Abgleich = OPENING)
   8. SyncRun → SUCCESS (oder ERROR mit errorCode/Message), lastSyncAt setzen
   9. Response: Run + aktualisierte Summary
 ```

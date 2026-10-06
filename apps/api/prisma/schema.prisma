@@ -86,6 +86,19 @@ enum HoldingAccountType {
   FUTURES
 }
 
+// Kontoauszug-Logik: OPENING = Anfangsbestand beim ersten Abgleich einer Quelle,
+// CHANGE = jede spätere Mengenänderung
+enum MovementKind {
+  OPENING
+  CHANGE
+}
+
+enum MovementOrigin {
+  SYNC
+  MANUAL
+  IMPORT
+}
+
 enum PositionSide {
   LONG
   SHORT
@@ -293,6 +306,8 @@ model PortfolioSource {
   provider     ProviderId
   label        String
   lastSyncAt   DateTime?
+  // Erster Ledger-Eintrag gebucht → spätere Abgleiche buchen CHANGE statt OPENING
+  ledgerOpenedAt DateTime?
   createdAt    DateTime            @default(now())
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   portfolio    Portfolio           @relation(fields: [portfolioId], references: [id], onDelete: Restrict)
@@ -303,6 +318,7 @@ model PortfolioSource {
   imports      CsvImport[]
   transactions Transaction[]
   futuresPositions FuturesPosition[]
+  movements    HoldingMovement[]
 
   @@index([userId])
   @@index([portfolioId])
@@ -343,6 +359,7 @@ model Asset {
   transactions     Transaction[]
   historicalPrices HistoricalAssetPrice[]
   futuresPositions FuturesPosition[]
+  movements        HoldingMovement[]
 
   @@index([symbol])
 }
@@ -484,8 +501,34 @@ model SyncRun {
   errorCode    String?
   errorMessage String?
   source       PortfolioSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  movements    HoldingMovement[]
 
   @@index([sourceId, startedAt])
+}
+
+// Bestandsbewegung: nur Änderungen werden gespeichert (vorher/nachher/Delta).
+// Summe aller Deltas je (Quelle, Asset, Kontotyp) = aktueller Holding-Bestand.
+// Kurs = letzter bekannter Kurs beim Buchen (null, wenn keiner vorlag).
+model HoldingMovement {
+  id             String             @id @default(uuid())
+  sourceId       String
+  assetId        String
+  accountType    HoldingAccountType
+  kind           MovementKind
+  origin         MovementOrigin
+  quantityBefore Decimal            @db.Decimal(38, 18)
+  quantityAfter  Decimal            @db.Decimal(38, 18)
+  delta          Decimal            @db.Decimal(38, 18)
+  priceEur       Decimal?           @db.Decimal(24, 8)
+  priceUsd       Decimal?           @db.Decimal(24, 8)
+  syncRunId      String?
+  at             DateTime           @default(now())
+  source         PortfolioSource    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  asset          Asset              @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  syncRun        SyncRun?           @relation(fields: [syncRunId], references: [id], onDelete: SetNull)
+
+  @@index([sourceId, at])
+  @@index([assetId])
 }
 
 // Tagespreise (00:00 UTC) für die Steuer-Kostenbasis — Cache für CoinGecko /history.
