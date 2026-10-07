@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { input, register, uniqueEmail } from './helpers'
+import { input, openSettings, register, uniqueEmail } from './helpers'
 
 test('Onboarding: drei Einstiege vom leeren Dashboard öffnen die richtigen Flows', async ({ page }) => {
   await register(page, uniqueEmail('onboarding'))
@@ -11,13 +11,13 @@ test('Onboarding: drei Einstiege vom leeren Dashboard öffnen die richtigen Flow
   await page.getByTestId('source-modal-cancel').click()
 
   // Entry 2: import CSV → wizard open
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await page.getByTestId('onboarding-csv').click()
   await expect(page.getByTestId('csv-upload')).toBeVisible()
   await page.getByTestId('csv-cancel').click()
 
   // Entry 3: record manually → Holdings tab with the modal open
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await page.getByTestId('onboarding-manual').click()
   await expect(page.getByTestId('holding-save')).toBeVisible()
   await page.getByTestId('holding-modal-cancel').click()
@@ -26,7 +26,7 @@ test('Onboarding: drei Einstiege vom leeren Dashboard öffnen die richtigen Flow
 test('Basiswährung USD wird als Dashboard-Standard übernommen', async ({ page }) => {
   await register(page, uniqueEmail('currency'))
 
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await page.getByTestId('currency-select').click()
   await page.locator('ion-popover ion-radio', { hasText: 'USD' }).click()
   await expect(page.locator('ion-popover')).toHaveCount(0)
@@ -40,7 +40,7 @@ test('Basiswährung USD wird als Dashboard-Standard übernommen', async ({ page 
   await page.getByTestId('holding-save').click()
   await expect(page.getByTestId('holding-BTC')).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/55\.000,00\s\$/u)
 })
 
@@ -78,7 +78,7 @@ test('Tokens ohne Preis sind standardmäßig eingeklappt', async ({ page }) => {
 test('lokalisierter API-Fehler: doppelte E-Mail bei Registrierung', async ({ page }) => {
   const email = uniqueEmail('emailtaken')
   await register(page, email)
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await page.getByTestId('logout-button').click()
   await page.waitForURL('**/login')
 

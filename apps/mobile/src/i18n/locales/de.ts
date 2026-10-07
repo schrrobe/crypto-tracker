@@ -46,7 +46,7 @@ const de = {
     resetFailed: 'Passwort konnte nicht geändert werden',
   },
   tabs: {
-    dashboard: 'Dashboard',
+    dashboard: 'Übersicht',
     holdings: 'Bestände',
     market: 'Markt',
     sources: 'Quellen',

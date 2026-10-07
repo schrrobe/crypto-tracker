@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { register, uniqueEmail } from './helpers'
+import { openSettings, register, uniqueEmail } from './helpers'
 
 test('Paywall: Free sperrt Steuerreport, Dev-Toggle Pro hebt das Gate auf', async ({ page }) => {
   await register(page, uniqueEmail('paywall'))
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
 
   // Free plan shown
   await expect(page.getByTestId('settings-plan')).toHaveText('Free')

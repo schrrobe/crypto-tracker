@@ -27,6 +27,8 @@
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
     "@crypto-tracker/shared": "workspace:*",
+    "@fontsource-variable/golos-text": "^5.3.0",
+    "@fontsource-variable/martian-mono": "^5.3.0",
     "@ionic/vue": "^8.4.1",
     "@ionic/vue-router": "^8.4.1",
     "ionicons": "^7.4.0",

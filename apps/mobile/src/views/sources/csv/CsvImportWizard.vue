@@ -14,9 +14,10 @@
       <!-- Step 1: Upload -->
       <template v-if="step === 'upload'">
         <p class="hint">{{ kind === 'TRANSACTIONS' ? $t('csv.introTransactions') : $t('csv.intro') }}</p>
-        <ion-text color="warning">
-          <p class="hint" data-testid="csv-double-count-hint">⚠ {{ $t('csv.doubleCountHint') }}</p>
-        </ion-text>
+        <p class="notice csv-notice" role="note" data-testid="csv-double-count-hint">
+          <ion-icon :icon="alertCircleOutline" aria-hidden="true" />
+          <span>{{ $t('csv.doubleCountHint') }}</span>
+        </p>
         <ion-segment :value="kind" @ionChange="kind = $event.detail.value as ImportKind">
           <ion-segment-button value="BALANCES" data-testid="csv-kind-balances">
             <ion-label>{{ $t('csv.kindBalances') }}</ion-label>
@@ -83,22 +84,21 @@
         </p>
         <!-- Heuristic: matches by provider only (a CSV carries no account id), so
              two distinct accounts on one exchange can false-positive → warning, not danger. -->
-        <ion-text v-if="uploadResult?.duplicateExchangeSource" color="warning">
-          <p class="hint" data-testid="csv-duplicate-warning">
-            ⚠
+        <p v-if="uploadResult?.duplicateExchangeSource" class="notice csv-notice" role="note" data-testid="csv-duplicate-warning">
+          <ion-icon :icon="alertCircleOutline" aria-hidden="true" />
+          <span>
             {{
               $t('csv.duplicateExchange', {
                 provider: PROVIDER_LABELS[uploadResult.duplicateExchangeProvider ?? ''] ?? '',
                 source: uploadResult.duplicateExchangeSource,
               })
             }}
-          </p>
-        </ion-text>
-        <ion-text v-if="uploadResult?.duplicateCsvSource" color="danger">
-          <p class="hint" data-testid="csv-duplicate-file-warning">
-            ⚠ {{ $t('csv.duplicateCsv', { source: uploadResult.duplicateCsvSource }) }}
-          </p>
-        </ion-text>
+          </span>
+        </p>
+        <p v-if="uploadResult?.duplicateCsvSource" class="notice notice--error csv-notice" role="alert" data-testid="csv-duplicate-file-warning">
+          <ion-icon :icon="closeCircleOutline" aria-hidden="true" />
+          <span>{{ $t('csv.duplicateCsv', { source: uploadResult.duplicateCsvSource }) }}</span>
+        </p>
         <ion-list inset>
           <ion-item>
             <ion-select
@@ -240,6 +240,7 @@ import {
   IonButtons,
   IonContent,
   IonHeader,
+  IonIcon,
   IonInput,
   IonItem,
   IonLabel,
@@ -254,6 +255,7 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
+import { alertCircleOutline, closeCircleOutline } from 'ionicons/icons'
 import { computed, ref, watch } from 'vue'
 import { EXCHANGE_PROVIDERS, type CsvImportDto, type CsvUploadResponse } from '@crypto-tracker/shared'
 import { apiErrorMessage } from '../../../services/errors'
@@ -404,9 +406,20 @@ function finish() {
 }
 .preview th,
 .preview td {
-  border: 1px solid var(--ion-color-step-200, #ccc);
+  border: 1px solid var(--app-rule-control);
   padding: 4px 8px;
   text-align: left;
   white-space: nowrap;
+}
+.csv-notice {
+  margin: var(--app-space-3) 0;
+}
+.csv-notice ion-icon {
+  flex: none;
+  font-size: 1.125rem;
+  color: var(--app-warn);
+}
+.notice--error.csv-notice ion-icon {
+  color: var(--app-loss);
 }
 </style>

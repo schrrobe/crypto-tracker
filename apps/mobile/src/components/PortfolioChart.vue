@@ -1,84 +1,72 @@
 <template>
-  <ion-card v-if="visible" data-testid="portfolio-chart">
-    <ion-card-header class="header">
-      <ion-card-subtitle>{{ $t('dashboard.history') }}</ion-card-subtitle>
-      <span
-        v-if="deltaPercent !== null && points.length >= 2"
-        class="delta amount"
-        :class="deltaClass"
-        data-testid="chart-delta"
-      >
-        {{ formatDelta(deltaPercent) }}
-      </span>
-    </ion-card-header>
-    <ion-card-content>
-      <div v-if="loading" class="chart-loading"><ion-spinner name="crescent" /></div>
-      <div v-else-if="error" class="chart-error" data-testid="chart-error">
+  <section v-if="visible" class="chart-block" data-testid="portfolio-chart" :aria-label="$t('dashboard.history')">
+    <p
+      v-if="deltaPercent !== null && points.length >= 2"
+      class="change"
+      :class="deltaClass"
+      data-testid="chart-delta"
+    >
+      <ion-icon v-if="deltaClass !== 'flat'" :icon="deltaClass === 'gain' ? arrowUp : arrowDown" aria-hidden="true" />
+      <span class="sr-only">{{ deltaWord }}</span>
+      <span class="fig">{{ deltaAmount }}</span>
+      <span class="fig pct">({{ formatDelta(deltaPercent) }})</span>
+      <span class="since">{{ $t(`ui.overview.changeSince.${range}`) }}</span>
+    </p>
+
+    <div class="plot">
+      <div v-if="loading" class="chart-state" aria-busy="true">
+        <ion-skeleton-text animated class="plot-skeleton" />
+      </div>
+      <div v-else-if="error" class="chart-state" data-testid="chart-error" role="status">
         <p class="muted">{{ $t('dashboard.historyError') }}</p>
         <ion-button size="small" fill="outline" @click="load">{{ $t('common.retry') }}</ion-button>
       </div>
       <template v-else-if="points.length >= 2">
-        <svg viewBox="0 0 300 90" class="chart" preserveAspectRatio="none">
+        <svg viewBox="0 0 300 90" class="chart" preserveAspectRatio="none" role="img" :aria-label="chartLabel">
           <path :d="areaPath" class="area" />
           <path :d="linePath" class="line" fill="none" />
         </svg>
-        <div class="axis amount">
+        <div class="axis fig" aria-hidden="true">
           <span>{{ formatCurrency(firstValue, currency) }}</span>
           <span>{{ formatCurrency(lastValue, currency) }}</span>
         </div>
       </template>
-      <div v-else class="chart-empty" data-testid="chart-empty">
+      <div v-else class="chart-state" data-testid="chart-empty">
         <p class="muted">{{ $t('dashboard.historyEmpty') }}</p>
       </div>
+    </div>
 
-      <ion-segment :value="range" class="ranges" @ionChange="onRangeChange($event)">
-        <ion-segment-button value="24h" data-testid="chart-range-24h">
-          <ion-label>{{ $t('dashboard.range24h') }}</ion-label>
-        </ion-segment-button>
-        <ion-segment-button value="7d" data-testid="chart-range-7d">
-          <ion-label>{{ $t('dashboard.range7d') }}</ion-label>
-        </ion-segment-button>
-        <ion-segment-button value="30d" data-testid="chart-range-30d">
-          <ion-label>{{ $t('dashboard.range30d') }}</ion-label>
-        </ion-segment-button>
-        <ion-segment-button value="1y" data-testid="chart-range-1y">
-          <ion-label>
-            {{ $t('dashboard.range1y') }}
-            <ion-icon
-              v-if="!auth.isPro"
-              :icon="lockClosedOutline"
-              class="lock"
-              color="medium"
-              aria-hidden="true"
-            />
-          </ion-label>
-        </ion-segment-button>
-      </ion-segment>
+    <ion-segment :value="range" class="ranges" :aria-label="$t('dashboard.history')" @ionChange="onRangeChange($event)">
+      <ion-segment-button value="24h" data-testid="chart-range-24h">
+        <ion-label>{{ $t('dashboard.range24h') }}</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="7d" data-testid="chart-range-7d">
+        <ion-label>{{ $t('dashboard.range7d') }}</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="30d" data-testid="chart-range-30d">
+        <ion-label>{{ $t('dashboard.range30d') }}</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="1y" data-testid="chart-range-1y">
+        <ion-label>
+          {{ $t('dashboard.range1y') }}
+          <ion-icon v-if="!auth.isPro" :icon="lockClosedOutline" class="lock" aria-hidden="true" />
+          <span v-if="!auth.isPro" class="sr-only">(Pro)</span>
+        </ion-label>
+      </ion-segment-button>
+    </ion-segment>
 
-      <p v-if="excludedAssets > 0" class="muted">
-        {{ $t('dashboard.historyExcluded', { n: excludedAssets }) }}
-      </p>
-      <p v-if="!loading && !error && points.length >= 2" class="muted">
-        {{ $t('dashboard.historyNote') }}
-      </p>
-    </ion-card-content>
-  </ion-card>
+    <p v-if="excludedAssets > 0" class="note">
+      {{ $t('dashboard.historyExcluded', { n: excludedAssets }) }}
+    </p>
+    <p v-if="!loading && !error && points.length >= 2" class="note">
+      {{ $t('dashboard.historyNote') }}
+    </p>
+  </section>
 </template>
 
 <script setup lang="ts">
-import {
-  IonButton,
-  IonCard,
-  IonCardContent,
-  IonCardHeader,
-  IonCardSubtitle,
-  IonIcon,
-  IonLabel,
-  IonSegment,
-  IonSegmentButton,
-  IonSpinner,
-} from '@ionic/vue'
-import { lockClosedOutline } from 'ionicons/icons'
+import { IonButton, IonIcon, IonLabel, IonSegment, IonSegmentButton, IonSkeletonText } from '@ionic/vue'
+import { arrowDown, arrowUp, lockClosedOutline } from 'ionicons/icons'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { HistoryRange, PortfolioHistoryDto } from '@crypto-tracker/shared'
 import { api } from '../services/api.client'
@@ -86,7 +74,8 @@ import { usePortfoliosStore } from '../stores/portfolios.store'
 import { useAuthStore } from '../stores/auth.store'
 import { openPaywall } from '../services/paywall'
 import { formatCurrency } from '../services/format'
-import { intlLocale } from '../i18n'
+import { intlLocale, t } from '../i18n'
+import { balancesHidden, BALANCE_MASK } from '../services/privacy'
 
 const auth = useAuthStore()
 
@@ -167,6 +156,24 @@ const deltaClass = computed(() => {
   return 'flat'
 })
 
+const deltaWord = computed(() =>
+  deltaClass.value === 'gain' ? t('ui.change.up') : deltaClass.value === 'loss' ? t('ui.change.down') : t('ui.change.flat'),
+)
+
+// Absolute change over the range, signed like the percentage
+const deltaAmount = computed(() => {
+  if (balancesHidden.value) return BALANCE_MASK
+  const diff = Number(lastValue.value) - Number(firstValue.value)
+  const abs = new Intl.NumberFormat(intlLocale(), { style: 'currency', currency: props.currency }).format(Math.abs(diff))
+  if (deltaClass.value === 'gain') return `+${abs}`
+  if (deltaClass.value === 'loss') return `−${abs}`
+  return abs
+})
+
+const chartLabel = computed(() =>
+  `${t('dashboard.history')}: ${formatCurrency(firstValue.value, props.currency)} → ${formatCurrency(lastValue.value, props.currency)}`,
+)
+
 function formatDelta(value: number): string {
   const formatted = new Intl.NumberFormat(intlLocale(), {
     minimumFractionDigits: 1,
@@ -202,69 +209,83 @@ const areaPath = computed(() =>
 </script>
 
 <style scoped>
-.header {
+.chart-block {
+  margin-top: var(--app-space-2);
+}
+.change {
   display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  margin: 0 0 var(--app-space-3);
+  font-size: var(--app-text-sm);
+  font-weight: 600;
 }
-.delta.gain {
-  color: var(--app-color-gain);
+.change ion-icon {
+  font-size: 1rem;
 }
-.delta.loss {
-  color: var(--app-color-loss);
+.change.gain {
+  color: var(--app-gain);
 }
-.delta.flat {
-  color: var(--ion-color-medium);
+.change.loss {
+  color: var(--app-loss);
 }
-.lock {
-  font-size: 0.85em;
-  vertical-align: middle;
-  margin-left: 3px;
+.change.flat {
+  color: var(--app-ink-2);
+}
+.change .since {
+  color: var(--app-ink-2);
+  font-weight: 500;
+}
+.plot {
+  min-height: 112px;
 }
 .chart {
   width: 100%;
-  height: 90px;
+  height: 96px;
   display: block;
-}
-.chart-loading {
-  height: 90px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.chart-error,
-.chart-empty {
-  min-height: 90px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  text-align: center;
+  overflow: visible;
 }
 .line {
-  stroke: var(--ion-color-primary);
+  stroke: var(--app-ink);
   stroke-width: 1.5;
+  stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
 .area {
-  fill: var(--ion-color-primary);
-  opacity: 0.12;
+  fill: var(--app-ink);
+  opacity: 0.05;
 }
 .axis {
   display: flex;
   justify-content: space-between;
-  font-size: 0.75em;
-  color: var(--ion-color-medium);
-  margin-top: 2px;
+  margin-top: var(--app-space-1);
+  font-size: var(--app-text-xs);
+  color: var(--app-ink-2);
+}
+.chart-state {
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--app-space-2);
+}
+.plot-skeleton {
+  width: 100%;
+  height: 96px;
 }
 .ranges {
-  margin-top: 10px;
+  margin-top: var(--app-space-3);
 }
-.muted {
-  color: var(--ion-color-medium);
+.lock {
   font-size: 0.8em;
-  margin-top: 8px;
+  vertical-align: -1px;
+  margin-left: 2px;
+}
+.note {
+  margin: var(--app-space-2) 0 0;
+  font-size: var(--app-text-xs);
+  color: var(--app-ink-2);
 }
 </style>

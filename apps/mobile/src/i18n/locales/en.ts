@@ -47,7 +47,7 @@ const en: MessageSchema = {
     resetFailed: 'The password could not be changed',
   },
   tabs: {
-    dashboard: 'Dashboard',
+    dashboard: 'Overview',
     holdings: 'Holdings',
     market: 'Market',
     sources: 'Sources',

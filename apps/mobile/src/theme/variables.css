@@ -1,27 +1,213 @@
-/* Fintech-Look: eine Akzentfarbe, ruhige Flächen, tabellarische Ziffern für Beträge */
+/* Kontoauszug: cool statement paper, one bank-stamp blue for actions,
+   Golos Text for UI, Martian Mono for every figure. Gain/loss always carries
+   a sign or arrow — colour is never the only signal. */
 
 :root {
-  --ion-color-primary: #4f6ef7;
-  --ion-color-primary-rgb: 79, 110, 247;
-  --ion-color-primary-contrast: #ffffff;
-  --ion-color-primary-contrast-rgb: 255, 255, 255;
-  --ion-color-primary-shade: #4661d9;
-  --ion-color-primary-tint: #617df8;
+  /* Surfaces & ink */
+  --app-ground: #eef2ef;
+  --app-ground-rgb: 238, 242, 239;
+  --app-sheet: #f9fbf9;
+  --app-ink: #14201b;
+  --app-ink-rgb: 20, 32, 27;
+  --app-ink-2: #46564e;
+  --app-ink-3: #5a6a62;
+  --app-rule: #c9d3cd;
+  /* Control borders need 3:1 against the sheet (WCAG 1.4.11) */
+  --app-rule-control: #7f8d86;
+  --app-rule-total: var(--app-ink);
 
-  /* Wertänderungen */
-  --app-color-gain: #16a34a;
-  --app-color-loss: #dc2626;
+  /* Bank-stamp blue — primary actions, selection, focus. Nothing decorative. */
+  --app-accent: #2546a8;
+  --app-accent-rgb: 37, 70, 168;
+  --app-accent-on: #ffffff;
+  --app-accent-soft: #e3e9f8;
+
+  /* States */
+  --app-gain: #17663f;
+  --app-loss: #b42318;
+  --app-warn: #7a5100;
+  --app-warn-soft: #f6ecd6;
+  --app-loss-soft: #f8e4e1;
+  --app-highlight: #fff1b0;
+
+  /* Data series (allocation): print inks, never green/red */
+  --app-series-1: #2546a8;
+  --app-series-2: #1c6e73;
+  --app-series-3: #a0701a;
+  --app-series-4: #7a3b69;
+  --app-series-5: #4f5d8a;
+  --app-series-rest: #aab6b0;
+
+  /* Legacy aliases still read by a few components */
+  --app-color-gain: var(--app-gain);
+  --app-color-loss: var(--app-loss);
+
+  /* Type */
+  --app-font-ui: 'Golos Text Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --app-font-figures: 'Martian Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+  --app-figures-stretch: 80%;
+
+  /* Fixed rem scale (ratio ~1.2) */
+  --app-text-xs: 0.75rem;
+  --app-text-sm: 0.875rem;
+  --app-text-md: 1rem;
+  --app-text-lg: 1.125rem;
+  --app-text-xl: 1.375rem;
+  --app-text-saldo: clamp(1.625rem, 8.4vw, 2.25rem);
+
+  /* Spacing rhythm (4px base) */
+  --app-space-1: 4px;
+  --app-space-2: 8px;
+  --app-space-3: 12px;
+  --app-space-4: 16px;
+  --app-space-5: 24px;
+  --app-space-6: 32px;
+  --app-space-7: 48px;
+
+  --app-radius: 10px;
+  --app-radius-sm: 6px;
+  --app-touch: 44px;
+  --app-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Ionic mapping ───────────────────────────────────────── */
+  --ion-font-family: var(--app-font-ui);
+  --ion-background-color: var(--app-ground);
+  --ion-background-color-rgb: var(--app-ground-rgb);
+  --ion-text-color: var(--app-ink);
+  --ion-text-color-rgb: var(--app-ink-rgb);
+  --ion-border-color: var(--app-rule);
+  --ion-item-background: transparent;
+  --ion-card-background: var(--app-sheet);
+  --ion-toolbar-background: var(--app-ground);
+  --ion-toolbar-border-color: var(--app-rule);
+  --ion-tab-bar-background: var(--app-sheet);
+  --ion-tab-bar-border-color: var(--app-rule);
+  --ion-tab-bar-color: var(--app-ink-2);
+  --ion-tab-bar-color-selected: var(--app-accent);
+  --ion-placeholder-color: var(--app-ink-3);
+  --ion-backdrop-color: #0b120f;
+  --ion-overlay-background-color: var(--app-sheet);
+
+  --ion-color-primary: var(--app-accent);
+  --ion-color-primary-rgb: var(--app-accent-rgb);
+  --ion-color-primary-contrast: var(--app-accent-on);
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #203d94;
+  --ion-color-primary-tint: #3b59b1;
+
+  --ion-color-success: var(--app-gain);
+  --ion-color-success-rgb: 23, 102, 63;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade: #145a37;
+  --ion-color-success-tint: #2e7552;
+
+  --ion-color-danger: var(--app-loss);
+  --ion-color-danger-rgb: 180, 35, 24;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #9e1f15;
+  --ion-color-danger-tint: #bc392f;
+
+  --ion-color-warning: var(--app-warn);
+  --ion-color-warning-rgb: 122, 81, 0;
+  --ion-color-warning-contrast: #ffffff;
+  --ion-color-warning-contrast-rgb: 255, 255, 255;
+  --ion-color-warning-shade: #6b4700;
+  --ion-color-warning-tint: #87621a;
+
+  --ion-color-medium: var(--app-ink-2);
+  --ion-color-medium-rgb: 70, 86, 78;
+  --ion-color-medium-contrast: #ffffff;
+  --ion-color-medium-contrast-rgb: 255, 255, 255;
+  --ion-color-medium-shade: #3e4c45;
+  --ion-color-medium-tint: #596760;
+
+  --ion-color-light: var(--app-sheet);
+  --ion-color-light-rgb: 249, 251, 249;
+  --ion-color-light-contrast: var(--app-ink);
+  --ion-color-light-contrast-rgb: var(--app-ink-rgb);
+  --ion-color-light-shade: #dbdddb;
+  --ion-color-light-tint: #fafbfa;
+
+  --ion-color-step-50: #e6ebe8;
+  --ion-color-step-100: #dde3df;
+  --ion-color-step-150: #d3dad6;
+  --ion-color-step-200: #c9d3cd;
+  --ion-color-step-400: #9aa8a1;
+  --ion-color-step-600: #6b7a73;
+  --ion-color-step-850: #2c3833;
+  --ion-background-color-step-50: #e6ebe8;
+  --ion-background-color-step-100: #dde3df;
+  --ion-background-color-step-150: #d3dad6;
+  --ion-background-color-step-200: #c9d3cd;
+  --ion-text-color-step-400: #5a6a62;
+  --ion-text-color-step-600: #46564e;
 }
 
 .ion-palette-dark {
-  --ion-background-color: #0b0f1a;
-  --ion-background-color-rgb: 11, 15, 26;
-  --ion-card-background: #141a2b;
-  --ion-item-background: #141a2b;
-  --ion-toolbar-background: #0b0f1a;
-  --ion-tab-bar-background: #0e1322;
-}
+  --app-ground: #0e1513;
+  --app-ground-rgb: 14, 21, 19;
+  --app-sheet: #151e1a;
+  --app-ink: #e4ebe7;
+  --app-ink-rgb: 228, 235, 231;
+  --app-ink-2: #a9b8b0;
+  --app-ink-3: #8fa098;
+  --app-rule: #2c3833;
+  --app-rule-control: #66756e;
+  --app-accent: #9db2ff;
+  --app-accent-rgb: 157, 178, 255;
+  --app-accent-on: #0e1513;
+  --app-accent-soft: #1f2944;
+  --app-gain: #63c98f;
+  --app-loss: #ff8b7e;
+  --app-warn: #e8b65a;
+  --app-warn-soft: #2e2716;
+  --app-loss-soft: #3a1f1c;
+  --app-highlight: #3b3518;
+  --app-series-1: #9db2ff;
+  --app-series-2: #5cc2c7;
+  --app-series-3: #e0b25e;
+  --app-series-4: #d08ac0;
+  --app-series-5: #a3add6;
+  --app-series-rest: #4a5852;
 
-.amount {
-  font-variant-numeric: tabular-nums;
+  --ion-color-primary-contrast: #0e1513;
+  --ion-color-primary-contrast-rgb: 14, 21, 19;
+  --ion-color-primary-shade: #8a9de0;
+  --ion-color-primary-tint: #a7baff;
+  --ion-color-success-rgb: 99, 201, 143;
+  --ion-color-success-contrast: #0e1513;
+  --ion-color-success-shade: #57b17e;
+  --ion-color-success-tint: #73ce9a;
+  --ion-color-danger-rgb: 255, 139, 126;
+  --ion-color-danger-contrast: #0e1513;
+  --ion-color-danger-shade: #e07a6f;
+  --ion-color-danger-tint: #ff978b;
+  --ion-color-warning-rgb: 232, 182, 90;
+  --ion-color-warning-contrast: #0e1513;
+  --ion-color-warning-shade: #cca04f;
+  --ion-color-warning-tint: #eabd6b;
+  --ion-color-medium-rgb: 169, 184, 176;
+  --ion-color-medium-contrast: #0e1513;
+  --ion-color-medium-shade: #95a29b;
+  --ion-color-medium-tint: #b2bfb8;
+  --ion-color-light-rgb: 21, 30, 26;
+  --ion-color-light-shade: #121a17;
+  --ion-color-light-tint: #2c3531;
+  --ion-backdrop-color: #000000;
+
+  --ion-color-step-50: #19221e;
+  --ion-color-step-100: #1d2723;
+  --ion-color-step-150: #222d28;
+  --ion-color-step-200: #2c3833;
+  --ion-color-step-400: #55635c;
+  --ion-color-step-600: #8fa098;
+  --ion-color-step-850: #d0d9d4;
+  --ion-background-color-step-50: #19221e;
+  --ion-background-color-step-100: #1d2723;
+  --ion-background-color-step-150: #222d28;
+  --ion-background-color-step-200: #2c3833;
+  --ion-text-color-step-400: #8fa098;
+  --ion-text-color-step-600: #a9b8b0;
 }

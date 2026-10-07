@@ -1,223 +1,177 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <PortfolioSwitcher @switched="loadData" />
-        </ion-buttons>
-        <ion-title>{{ $t('tabs.holdings') }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button
-            data-testid="toggle-balances"
-            :title="$t('common.toggleBalances')"
-            @click="toggleBalances"
-          >
-            <ion-icon :icon="balancesHidden ? eyeOffOutline : eyeOutline" />
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content :fullscreen="true">
-      <LoadingSkeleton v-if="pageLoading && portfolio.holdings.length === 0" />
-      <ErrorState v-else-if="pageError && portfolio.holdings.length === 0" @retry="loadData" />
-      <template v-else-if="portfolio.holdings.length > 0">
-      <ion-list v-for="group in groupedHoldings" :key="group.type" inset :data-testid="`holdings-group-${group.type}`">
-        <ion-list-header>
-          <ion-badge :color="badgeColor(group.type)" :data-testid="`holding-badge-${group.type}`">
-            {{ $t(`holdings.accountType.${group.type}`) }}
-          </ion-badge>
-        </ion-list-header>
-        <ion-item v-for="holding in group.items" :key="holding.id" :data-testid="`holding-${holding.asset.symbol}`">
-          <ion-label>
-            <h3>{{ holding.asset.symbol }}</h3>
-            <p>
-              {{ formatQuantity(holding.quantity) }} {{ holding.asset.symbol }} ·
-              {{ holding.sourceLabel }}
-            </p>
-          </ion-label>
-          <ion-note
-            slot="end"
-            class="amount"
-            :class="{ negative: isNegative(holding.valueEur) }"
-          >{{ formatCurrency(holding.valueEur, 'EUR') }}</ion-note>
-          <ion-buttons slot="end">
-            <ion-button
-              v-if="auth.user?.isAdmin && holding.valueEur === null && holding.asset.coingeckoId === null"
-              color="warning"
-              :aria-label="$t('holdings.mapPrice')"
-              :title="$t('holdings.mapPrice')"
-              :data-testid="`holding-map-${holding.asset.symbol}`"
-              @click="openMapping(holding)"
-            >
-              <ion-icon :icon="pricetagOutline" slot="icon-only" />
-            </ion-button>
-            <ion-button
-              v-if="holding.sourceType === 'MANUAL'"
-              :aria-label="$t('common.edit')"
-              :title="$t('common.edit')"
-              :data-testid="`holding-edit-${holding.asset.symbol}`"
-              @click="openEdit(holding)"
-            >
-              <ion-icon :icon="createOutline" slot="icon-only" />
-            </ion-button>
-            <ion-button
-              v-if="holding.sourceType === 'MANUAL'"
-              color="danger"
-              :aria-label="$t('common.delete')"
-              :title="$t('common.delete')"
-              :data-testid="`holding-delete-${holding.asset.symbol}`"
-              @click="confirmDelete(holding)"
-            >
-              <ion-icon :icon="trashOutline" slot="icon-only" />
-            </ion-button>
-            <ion-button
-              v-else
-              color="medium"
-              :data-testid="`holding-delete-info-${holding.asset.symbol}`"
-              :title="$t('holdings.notDeletableTitle')"
-              @click="showDeleteInfo(holding)"
-            >
-              <ion-icon :icon="informationCircleOutline" slot="icon-only" />
-            </ion-button>
-          </ion-buttons>
-        </ion-item>
-      </ion-list>
-
-      <ion-button
-        v-if="unpricedHoldings.length > 0"
-        expand="block"
-        fill="clear"
-        size="small"
-        data-testid="toggle-unpriced"
-        @click="showUnpriced = !showUnpriced"
-      >
-        {{
-          showUnpriced
-            ? $t('holdings.hideUnpriced')
-            : $t('holdings.showUnpriced', { n: unpricedHoldings.length })
-        }}
-      </ion-button>
-
-      <FuturesPositionsList v-if="portfolio.futuresPositions.length > 0" />
-      </template>
-
-      <div v-else class="empty" data-testid="holdings-empty">
-        <ion-icon :icon="walletOutline" class="empty-icon" />
-        <p>{{ $t('holdings.empty') }}</p>
-        <ion-button fill="outline" data-testid="add-holding-empty" @click="openAdd">
-          {{ $t('holdings.addHolding') }}
+    <AppTopBar :title="$t('tabs.holdings')" @switched="loadData">
+      <template #end>
+        <ion-button
+          data-testid="add-holding"
+          :aria-label="$t('holdings.addHolding')"
+          :title="$t('holdings.addHolding')"
+          @click="openAdd"
+        >
+          <ion-icon slot="icon-only" :icon="addOutline" aria-hidden="true" />
         </ion-button>
+      </template>
+    </AppTopBar>
+
+    <ion-content>
+      <ion-refresher slot="fixed" @ionRefresh="onPullRefresh">
+        <ion-refresher-content />
+      </ion-refresher>
+      <div class="page">
+        <LoadingSkeleton v-if="pageLoading && portfolio.holdings.length === 0" />
+        <ErrorState v-else-if="pageError && portfolio.holdings.length === 0" @retry="loadData" />
+        <template v-else-if="portfolio.holdings.length > 0">
+          <AllocationBar :positions="portfolio.summary?.byAsset ?? []" />
+
+          <!-- One statement per account type; one line per asset, tap for its sources -->
+          <section
+            v-for="group in groups"
+            :key="group.type"
+            class="section"
+            :data-testid="`holdings-group-${group.type}`"
+            :aria-labelledby="`group-${group.type}`"
+          >
+            <div class="section-head">
+              <h2 :id="`group-${group.type}`" class="section-title">
+                <span :data-testid="`holding-badge-${group.type}`">{{ $t(`holdings.accountType.${group.type}`) }}</span>
+              </h2>
+            </div>
+            <div class="sheet">
+            <ul class="stmt">
+              <li v-for="row in group.rows" :key="row.asset.id">
+                <router-link
+                  class="stmt-row asset-row"
+                  :to="`/tabs/holdings/asset/${row.asset.id}`"
+                  :data-testid="`holding-${row.asset.symbol}`"
+                >
+                  <AssetIcon :src="row.asset.iconUrl" :symbol="row.asset.symbol" :size="28" />
+                  <span class="stmt-main">
+                    <span class="stmt-label">{{ row.asset.symbol }} <span class="name">{{ row.asset.name }}</span></span>
+                    <span class="stmt-sub">
+                      <span class="fig">{{ formatQuantity(row.quantity) }} {{ row.asset.symbol }}</span>
+                      · {{ row.sources.length === 1 ? row.sources[0] : $t('ui.holdings.sources', { n: row.sources.length }) }}
+                    </span>
+                  </span>
+                  <span class="stmt-value fig amount" :class="{ negative: isNegative(row.value) }">
+                    {{ row.value === null ? '–' : formatCurrency(row.value, 'EUR') }}
+                  </span>
+                </router-link>
+              </li>
+            </ul>
+            <div class="stmt-total">
+              <span>{{ $t('ui.asset.total') }}</span>
+              <span class="fig" :class="{ negative: isNegative(group.total) }">{{ formatCurrency(group.total, 'EUR') }}</span>
+            </div>
+            </div>
+          </section>
+
+          <ion-button
+            v-if="unpricedCount > 0"
+            fill="clear"
+            size="small"
+            class="unpriced-toggle"
+            data-testid="toggle-unpriced"
+            :aria-expanded="showUnpriced ? 'true' : 'false'"
+            @click="showUnpriced = !showUnpriced"
+          >
+            {{ showUnpriced ? $t('holdings.hideUnpriced') : $t('holdings.showUnpriced', { n: unpricedCount }) }}
+          </ion-button>
+
+          <FuturesPositionsList v-if="portfolio.futuresPositions.length > 0" class="section" />
+        </template>
+
+        <section v-else class="empty-state" data-testid="holdings-empty">
+          <h2>{{ $t('ui.empty.title') }}</h2>
+          <p>{{ $t('holdings.empty') }}</p>
+          <ion-button data-testid="add-holding-empty" @click="openAdd">
+            <ion-icon slot="start" :icon="addOutline" aria-hidden="true" />
+            {{ $t('holdings.addHolding') }}
+          </ion-button>
+          <p class="hint">
+            <router-link to="/tabs/sources?add=exchange">{{ $t('ui.add.exchange.title') }}</router-link>
+            ·
+            <router-link to="/tabs/sources?add=wallet">{{ $t('ui.add.wallet.title') }}</router-link>
+          </p>
+        </section>
       </div>
 
-      <ion-fab slot="fixed" vertical="bottom" horizontal="end">
-        <ion-fab-button data-testid="add-holding" @click="openAdd">
-          <ion-icon :icon="addOutline" />
-        </ion-fab-button>
-      </ion-fab>
-
-      <AddHoldingModal
-        :is-open="modalOpen"
-        :edit-holding="editing"
-        @close="modalOpen = false"
-      />
-      <AssetMappingModal
-        :is-open="mappingOpen"
-        :asset="mappingAsset"
-        @close="mappingOpen = false"
-        @saved="onMapped"
-      />
+      <AddHoldingModal :is-open="modalOpen" :edit-holding="null" @close="onModalClose" />
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
 import {
-  alertController,
-  IonBadge,
   IonButton,
-  IonButtons,
   IonContent,
-  IonFab,
-  IonFabButton,
-  IonHeader,
   IonIcon,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonListHeader,
-  IonNote,
   IonPage,
-  IonTitle,
-  IonToolbar,
+  IonRefresher,
+  IonRefresherContent,
   onIonViewWillEnter,
+  type RefresherCustomEvent,
 } from '@ionic/vue'
-import {
-  addOutline,
-  createOutline,
-  eyeOffOutline,
-  eyeOutline,
-  informationCircleOutline,
-  pricetagOutline,
-  trashOutline,
-  walletOutline,
-} from 'ionicons/icons'
+import { addOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { HoldingAccountType, HoldingDto } from '@crypto-tracker/shared'
+import type { AssetDto, HoldingAccountType } from '@crypto-tracker/shared'
+import AppTopBar from '../components/AppTopBar.vue'
+import AssetIcon from '../components/AssetIcon.vue'
+import AllocationBar from '../components/AllocationBar.vue'
 import AddHoldingModal from '../components/AddHoldingModal.vue'
-import AssetMappingModal from '../components/AssetMappingModal.vue'
 import FuturesPositionsList from '../components/FuturesPositionsList.vue'
-import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import ErrorState from '../components/ErrorState.vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
-import { useAuthStore } from '../stores/auth.store'
-import { t } from '../i18n'
 import { formatCurrency, formatQuantity } from '../services/format'
-import { balancesHidden, toggleBalances } from '../services/privacy'
+import { balancesHidden } from '../services/privacy'
 
 const portfolio = usePortfolioStore()
-const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
 const modalOpen = ref(false)
-const editing = ref<HoldingDto | null>(null)
 const pageLoading = ref(false)
 const pageError = ref(false)
-const showUnpriced = ref(false)
-const mappingOpen = ref(false)
-const mappingAsset = ref<HoldingDto['asset'] | null>(null)
-
-function openMapping(holding: HoldingDto) {
-  mappingAsset.value = holding.asset
-  mappingOpen.value = true
-}
-
-async function onMapped() {
-  await loadData()
-  await usePortfolioStore().loadSummary()
-}
-
 // spam/unknown tokens (without a price) are collapsed by default
-const pricedHoldings = computed(() => portfolio.holdings.filter((h) => h.valueEur !== null))
-const unpricedHoldings = computed(() => portfolio.holdings.filter((h) => h.valueEur === null))
-const visibleHoldings = computed(() =>
-  showUnpriced.value ? [...pricedHoldings.value, ...unpricedHoldings.value] : pricedHoldings.value,
-)
+const showUnpriced = ref(false)
 
-// Group by account type (fixed order, hide empty groups)
-const ACCOUNT_ORDER: HoldingAccountType[] = ['SPOT', 'EARN', 'MARGIN', 'FUTURES']
-const groupedHoldings = computed(() =>
-  ACCOUNT_ORDER.map((type) => ({
-    type,
-    items: visibleHoldings.value.filter((h) => h.accountType === type),
-  })).filter((g) => g.items.length > 0),
-)
+const unpricedCount = computed(() => portfolio.holdings.filter((h) => h.valueEur === null).length)
 
-function badgeColor(type: HoldingAccountType): string {
-  return { SPOT: 'medium', EARN: 'success', MARGIN: 'warning', FUTURES: 'primary' }[type]
+interface AssetRow {
+  asset: AssetDto
+  quantity: string
+  value: string | null
+  sources: string[]
 }
+
+// Account type sections (fixed order), assets aggregated across sources
+const ACCOUNT_ORDER: HoldingAccountType[] = ['SPOT', 'EARN', 'MARGIN', 'FUTURES']
+const groups = computed(() =>
+  ACCOUNT_ORDER.map((type) => {
+    const byAsset = new Map<string, { asset: AssetDto; qty: number; value: number | null; sources: Set<string> }>()
+    for (const h of portfolio.holdings) {
+      if (h.accountType !== type) continue
+      if (h.valueEur === null && !showUnpriced.value) continue
+      const row = byAsset.get(h.asset.id) ?? { asset: h.asset, qty: 0, value: null, sources: new Set<string>() }
+      row.qty += Number(h.quantity)
+      if (h.valueEur !== null) row.value = (row.value ?? 0) + Number(h.valueEur)
+      row.sources.add(h.sourceLabel)
+      byAsset.set(h.asset.id, row)
+    }
+    const rows: AssetRow[] = [...byAsset.values()]
+      .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
+      .map((r) => ({
+        asset: r.asset,
+        quantity: String(r.qty),
+        value: r.value === null ? null : r.value.toFixed(2),
+        sources: [...r.sources],
+      }))
+    const total = rows.reduce((sum, r) => sum + Number(r.value ?? 0), 0).toFixed(2)
+    return { type, rows, total }
+  }).filter((g) => g.rows.length > 0),
+)
+
 // negative values (margin liability) in red — suppressed under the privacy mask
 function isNegative(value: string | null): boolean {
   return !balancesHidden.value && value !== null && Number(value) < 0
@@ -227,7 +181,7 @@ async function loadData() {
   pageLoading.value = true
   pageError.value = false
   try {
-    await Promise.all([portfolio.loadHoldings(), portfolio.loadFuturesPositions()])
+    await Promise.all([portfolio.loadHoldings(), portfolio.loadFuturesPositions(), portfolio.loadSummary()])
   } catch {
     pageError.value = true
   } finally {
@@ -236,46 +190,20 @@ async function loadData() {
 }
 
 function openAdd() {
-  editing.value = null
   modalOpen.value = true
 }
 
-function openEdit(holding: HoldingDto) {
-  editing.value = holding
-  modalOpen.value = true
+function onModalClose() {
+  modalOpen.value = false
 }
 
-async function confirmDelete(holding: HoldingDto) {
-  const alert = await alertController.create({
-    header: t('holdings.deleteTitle', { symbol: holding.asset.symbol }),
-    message: t('holdings.deleteMessage'),
-    buttons: [
-      { text: t('common.cancel'), role: 'cancel' },
-      {
-        text: t('common.delete'),
-        role: 'destructive',
-        handler: () => {
-          portfolio.deleteHolding(holding.sourceId, holding.id)
-        },
-      },
-    ],
-  })
-  await alert.present()
-}
-
-// Synced / CSV-derived holdings are recomputed from their source, so they cannot
-// be deleted individually. Explain why and point to deleting the whole source.
-async function showDeleteInfo(holding: HoldingDto) {
-  const alert = await alertController.create({
-    header: t('holdings.notDeletableTitle'),
-    message: t('holdings.notDeletableMessage', { source: holding.sourceLabel }),
-    buttons: [{ text: t('common.close'), role: 'cancel' }],
-  })
-  await alert.present()
+async function onPullRefresh(event: RefresherCustomEvent) {
+  await portfolio.refresh()
+  await event.target.complete()
 }
 
 onIonViewWillEnter(() => {
-  loadData()
+  void loadData()
   // onboarding entry point: /tabs/holdings?add=1 opens the entry modal directly
   if (route.query.add === '1') {
     openAdd()
@@ -285,17 +213,15 @@ onIonViewWillEnter(() => {
 </script>
 
 <style scoped>
-.empty {
-  text-align: center;
-  margin-top: 48px;
-  color: var(--ion-color-medium);
+.asset-row {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
 }
-.empty-icon {
-  font-size: 48px;
-  color: var(--ion-color-medium);
-  margin-bottom: 8px;
+.name {
+  font-weight: 400;
+  color: var(--app-ink-2);
+  font-size: var(--app-text-sm);
 }
-.amount.negative {
-  color: var(--app-color-loss, #dc2626);
+.unpriced-toggle {
+  margin-top: var(--app-space-3);
 }
 </style>

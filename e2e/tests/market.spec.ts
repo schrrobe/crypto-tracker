@@ -10,12 +10,12 @@ test('Markt-Tab: Top 100, Gewinner und Verlierer', async ({ page }) => {
   await expect(page.getByTestId('market-C1')).toBeVisible()
   await expect(page.getByTestId('market-C1')).toContainText('#1')
 
-  // Losers: only coins with a negative change
+  // Losers: only coins with a negative change (typographic minus U+2212)
   await page.getByTestId('market-losers').click()
-  const first = page.locator('ion-list ion-item').first()
-  await expect(first).toContainText('-')
+  const rows = page.locator('ol.stmt > li:visible')
+  await expect(rows.first()).toContainText(/[−-]\d/)
 
   // Gainers: positive change
   await page.getByTestId('market-gainers').click()
-  await expect(page.locator('ion-list ion-item').first()).toContainText('+')
+  await expect(rows.first()).toContainText('+')
 })

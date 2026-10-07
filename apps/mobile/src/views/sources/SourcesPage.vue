@@ -1,116 +1,153 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <PortfolioSwitcher @switched="loadData" />
-        </ion-buttons>
-        <ion-title>{{ $t('tabs.sources') }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button :aria-label="$t('csv.title')" :title="$t('csv.title')" data-testid="open-csv-import" @click="csvWizardOpen = true">
-            <ion-icon :icon="documentAttachOutline" slot="icon-only" />
-          </ion-button>
-          <ion-button
-            v-if="hasSyncable"
-            data-testid="sync-all"
-            :disabled="sourcesStore.syncing.size > 0"
-            @click="syncAll"
-          >
-            <ion-icon :icon="syncOutline" slot="start" />
-            {{ $t('sources.syncAll') }}
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content :fullscreen="true">
-      <ion-text v-if="!auth.isPro" color="medium">
-        <p class="source-count" data-testid="source-count">
-          <ion-icon v-if="sourcesAtLimit" :icon="lockClosedOutline" />
-          {{ $t('sources.countLimit', { used: sourceTotal, limit: FREE_LIMITS.sources }) }}
-        </p>
-      </ion-text>
-      <LoadingSkeleton v-if="pageLoading && sourcesStore.sources.length === 0" />
-      <ErrorState v-else-if="pageError && sourcesStore.sources.length === 0" @retry="loadData" />
-      <ion-list v-else-if="sourcesStore.sources.length > 0" inset>
-        <ion-item
-          v-for="source in sourcesStore.sources"
-          :key="source.id"
-          :data-testid="`source-${source.label}`"
-        >
-          <ion-label>
-            <h3>{{ source.label }}</h3>
-            <p>
-              {{ providerLabel(source) }}
-              <template v-if="source.keyPreview"> · {{ $t('sources.keyPreview', { preview: source.keyPreview }) }}</template>
-              <template v-if="source.address"> · {{ shortAddress(source.address) }}</template>
-            </p>
-            <SyncStatusBadge :source="source" :syncing="sourcesStore.syncing.has(source.id)" />
-          </ion-label>
-          <ion-buttons slot="end">
-            <ion-button
-              v-if="isSyncable(source)"
-              :disabled="sourcesStore.syncing.has(source.id)"
-              :aria-label="$t('sources.syncOne')"
-              :title="$t('sources.syncOne')"
-              :data-testid="`source-sync-${source.label}`"
-              @click="sync(source)"
-            >
-              <ion-icon :icon="syncOutline" slot="icon-only" />
-            </ion-button>
-            <ion-button :aria-label="$t('sources.rename')" :title="$t('sources.rename')" :data-testid="`source-rename-${source.label}`" @click="promptRename(source)">
-              <ion-icon :icon="createOutline" slot="icon-only" />
-            </ion-button>
-            <ion-button
-              color="danger"
-              :aria-label="$t('common.delete')"
-              :title="$t('common.delete')"
-              :data-testid="`source-delete-${source.label}`"
-              @click="confirmDelete(source)"
-            >
-              <ion-icon :icon="trashOutline" slot="icon-only" />
-            </ion-button>
-          </ion-buttons>
-        </ion-item>
-      </ion-list>
-
-      <div v-else class="empty" data-testid="sources-empty">
-        <ion-icon :icon="linkOutline" class="empty-icon" />
-        <p>{{ $t('sources.empty') }}</p>
-        <ion-button fill="outline" data-testid="add-source-empty" @click="onAddSource">
-          {{ $t('sources.connectSource') }}
-        </ion-button>
-      </div>
-
-      <!-- History / transactions are empty until a source exists — hide the dead links -->
-      <template v-if="sourcesStore.sources.length > 0">
+    <AppTopBar :title="$t('tabs.sources')" :show-privacy="false" @switched="loadData">
+      <template #end>
         <ion-button
-          expand="block"
-          fill="clear"
-          size="small"
-          router-link="/tabs/sources/imports"
-          data-testid="open-import-history"
+          data-testid="add-source"
+          :aria-label="$t('ui.add.open')"
+          :title="$t('ui.add.open')"
+          @click="openAddSheet"
         >
-          {{ $t('sources.importHistory') }}
-        </ion-button>
-
-        <ion-button
-          expand="block"
-          fill="clear"
-          size="small"
-          router-link="/tabs/sources/transactions"
-          data-testid="open-transactions"
-        >
-          {{ $t('sources.transactions') }}
+          <ion-icon slot="icon-only" :icon="addOutline" aria-hidden="true" />
         </ion-button>
       </template>
+    </AppTopBar>
+    <ion-content>
+      <ion-refresher slot="fixed" @ionRefresh="onPullRefresh">
+        <ion-refresher-content />
+      </ion-refresher>
+      <div class="page">
+        <LoadingSkeleton v-if="pageLoading && sourcesStore.sources.length === 0" />
+        <ErrorState v-else-if="pageError && sourcesStore.sources.length === 0" @retry="loadData" />
+        <template v-else-if="sourcesStore.sources.length > 0">
+          <section aria-labelledby="sources-title">
+            <div class="section-head">
+              <h2 id="sources-title" class="section-title">{{ $t('ui.sources.connected') }}</h2>
+              <ion-button
+                v-if="hasSyncable"
+                size="small"
+                fill="outline"
+                data-testid="sync-all"
+                :disabled="sourcesStore.syncing.size > 0"
+                @click="syncAll"
+              >
+                <ion-icon slot="start" :icon="syncOutline" aria-hidden="true" />
+                {{ $t('ui.sources.syncAll') }}
+              </ion-button>
+            </div>
+            <div class="sheet">
+            <ul class="stmt">
+              <li v-for="source in sourcesStore.sources" :key="source.id" :data-testid="`source-${source.label}`" class="source">
+                <div class="source-top">
+                  <span class="stmt-main">
+                    <span class="stmt-label">{{ source.label }}</span>
+                    <span class="stmt-sub">
+                      {{ providerLabel(source) }}
+                      <template v-if="source.keyPreview"> · {{ $t('sources.keyPreview', { preview: source.keyPreview }) }}</template>
+                      <template v-if="source.address"> · <span class="fig">{{ shortAddress(source.address) }}</span></template>
+                    </span>
+                  </span>
+                  <span class="stmt-value fig">{{ formatCurrency(sourceValue(source.id), 'EUR') }}</span>
+                </div>
+                <div class="source-foot">
+                  <SyncStatusBadge :source="source" :syncing="sourcesStore.syncing.has(source.id)" />
+                  <span class="actions">
+                    <button
+                      v-if="isSyncable(source)"
+                      type="button"
+                      class="act"
+                      :disabled="sourcesStore.syncing.has(source.id)"
+                      :aria-label="`${$t('sources.syncOne')}: ${source.label}`"
+                      :data-testid="`source-sync-${source.label}`"
+                      @click="sync(source)"
+                    >
+                      <ion-icon :icon="syncOutline" aria-hidden="true" />
+                      <span>{{ $t('ui.sources.sync') }}</span>
+                    </button>
+                    <!-- Rare, destructive actions live one tap deeper -->
+                    <button
+                      type="button"
+                      class="act"
+                      :aria-label="`${$t('ui.sources.more')}: ${source.label}`"
+                      :data-testid="`source-more-${source.label}`"
+                      @click="openMore(source)"
+                    >
+                      <ion-icon :icon="ellipsisHorizontal" aria-hidden="true" />
+                      <span>{{ $t('ui.sources.more') }}</span>
+                    </button>
+                  </span>
+                </div>
+              </li>
+            </ul>
+            <div class="stmt-total sources-total">
+              <span>{{ $t('ui.overview.saldo') }}</span>
+              <span class="fig">{{ formatCurrency(sourcesSaldo, 'EUR') }}</span>
+            </div>
+            </div>
+            <p v-if="!auth.isPro" class="hint" data-testid="source-count">
+              <ion-icon v-if="sourcesAtLimit" :icon="lockClosedOutline" aria-hidden="true" />
+              {{ $t('sources.countLimit', { used: sourceTotal, limit: FREE_LIMITS.sources }) }}
+            </p>
+          </section>
 
-      <ion-fab slot="fixed" vertical="bottom" horizontal="end">
-        <ion-fab-button data-testid="add-source" @click="onAddSource">
-          <ion-icon :icon="addOutline" />
-        </ion-fab-button>
-      </ion-fab>
+        </template>
 
-      <AddSourceModal :is-open="modalOpen" @close="modalOpen = false" />
+        <section v-else class="empty-state" data-testid="sources-empty">
+          <h2>{{ $t('sources.empty') }}</h2>
+          <p>{{ $t('ui.empty.body') }}</p>
+          <AddOptions mode="emit" prefix="add-empty" @chosen="onChosen" />
+          <p v-if="!auth.isPro" class="hint" data-testid="source-count">
+            {{ $t('sources.countLimit', { used: sourceTotal, limit: FREE_LIMITS.sources }) }}
+          </p>
+        </section>
+
+        <!-- Imports and transactions: the paper trail behind the numbers. Always reachable:
+             manual transactions create their own source, so they must work with none. -->
+        <section v-if="!(pageLoading && sourcesStore.sources.length === 0)" class="section" aria-labelledby="data-title">
+          <div class="section-head">
+            <h2 id="data-title" class="section-title">{{ $t('ui.sources.data') }}</h2>
+          </div>
+          <ul class="stmt sheet">
+            <li>
+              <button type="button" class="stmt-row link-row" data-testid="open-csv-import" @click="openCsv">
+                <ion-icon :icon="documentTextOutline" aria-hidden="true" />
+                <span class="stmt-label">{{ $t('csv.title') }}</span>
+                <ion-icon class="chev" :icon="chevronForward" aria-hidden="true" />
+              </button>
+            </li>
+            <li>
+              <router-link class="stmt-row link-row" to="/tabs/sources/imports" data-testid="open-import-history">
+                <ion-icon :icon="timeOutline" aria-hidden="true" />
+                <span class="stmt-label">{{ $t('sources.importHistory') }}</span>
+                <ion-icon class="chev" :icon="chevronForward" aria-hidden="true" />
+              </router-link>
+            </li>
+            <li>
+              <router-link class="stmt-row link-row" to="/tabs/sources/transactions" data-testid="open-transactions">
+                <ion-icon :icon="swapHorizontalOutline" aria-hidden="true" />
+                <span class="stmt-label">{{ $t('sources.transactions') }}</span>
+                <ion-icon class="chev" :icon="chevronForward" aria-hidden="true" />
+              </router-link>
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <!-- The one add entry point: four ways in -->
+      <ion-modal
+        :is-open="addSheetOpen"
+        :initial-breakpoint="1"
+        :breakpoints="[0, 1]"
+        class="add-sheet"
+        @didDismiss="addSheetOpen = false"
+      >
+        <div class="sheet-body">
+          <h2 class="sheet-heading">{{ $t('ui.add.title') }}</h2>
+          <AddOptions mode="emit" prefix="add" @chosen="onChosen" />
+        </div>
+      </ion-modal>
+
+      <AddSourceModal :is-open="modalOpen" :initial-type="modalType" @close="modalOpen = false" />
       <CsvImportWizard :is-open="csvWizardOpen" @close="csvWizardOpen = false" @done="onImportDone" />
     </ion-content>
   </ion-page>
@@ -118,39 +155,36 @@
 
 <script setup lang="ts">
 import {
+  actionSheetController,
   alertController,
   toastController,
   IonButton,
-  IonButtons,
   IonContent,
-  IonFab,
-  IonFabButton,
-  IonHeader,
   IonIcon,
-  IonItem,
-  IonLabel,
-  IonList,
+  IonModal,
   IonPage,
-  IonText,
-  IonTitle,
-  IonToolbar,
+  IonRefresher,
+  IonRefresherContent,
   onIonViewWillEnter,
+  type RefresherCustomEvent,
 } from '@ionic/vue'
 import {
   addOutline,
-  createOutline,
-  documentAttachOutline,
-  linkOutline,
+  chevronForward,
+  documentTextOutline,
+  ellipsisHorizontal,
   lockClosedOutline,
+  swapHorizontalOutline,
   syncOutline,
-  trashOutline,
+  timeOutline,
 } from 'ionicons/icons'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { FREE_LIMITS, type SourceDto } from '@crypto-tracker/shared'
 import AddSourceModal from './AddSourceModal.vue'
 import CsvImportWizard from './csv/CsvImportWizard.vue'
-import PortfolioSwitcher from '../../components/PortfolioSwitcher.vue'
+import AppTopBar from '../../components/AppTopBar.vue'
+import AddOptions, { type AddKind } from '../../components/AddOptions.vue'
 import LoadingSkeleton from '../../components/LoadingSkeleton.vue'
 import ErrorState from '../../components/ErrorState.vue'
 import SyncStatusBadge from '../../components/SyncStatusBadge.vue'
@@ -159,6 +193,7 @@ import { usePortfolioStore } from '../../stores/portfolio.store'
 import { usePortfoliosStore } from '../../stores/portfolios.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { openPaywall } from '../../services/paywall'
+import { formatCurrency } from '../../services/format'
 import { t } from '../../i18n'
 
 const sourcesStore = useSourcesStore()
@@ -172,20 +207,78 @@ const sourceTotal = computed(() =>
   portfolios.portfolios.reduce((n, p) => n + (p.sourceCount ?? 0), 0),
 )
 const sourcesAtLimit = computed(() => !auth.isPro && sourceTotal.value >= FREE_LIMITS.sources)
-function onAddSource() {
+function onAddSource(kind: 'EXCHANGE' | 'WALLET' | 'MANUAL' = 'EXCHANGE') {
   // Pre-empt the server 402: don't let a Free user fill the whole connect form
   // (and create a real exchange API key) only to be rejected on save.
   if (sourcesAtLimit.value) {
     openPaywall('unlimitedSources')
     return
   }
+  modalType.value = kind
   modalOpen.value = true
+}
+
+function openAddSheet() {
+  addSheetOpen.value = true
+}
+
+function openCsv() {
+  csvWizardOpen.value = true
+}
+
+// The sheet closes first so the next modal never stacks on top of it
+async function onChosen(kind: AddKind) {
+  addSheetOpen.value = false
+  if (kind === 'exchange') onAddSource('EXCHANGE')
+  else if (kind === 'wallet') onAddSource('WALLET')
+  else if (kind === 'csv') openCsv()
+  else router.push('/tabs/holdings?add=1')
+}
+
+// Rename / delete behind one "more" sheet; testids ride on the sheet buttons
+async function openMore(source: SourceDto) {
+  const sheet = await actionSheetController.create({
+    header: source.label,
+    buttons: [
+      {
+        text: t('ui.sources.rename'),
+        htmlAttributes: { 'data-testid': `source-rename-${source.label}` },
+        handler: () => {
+          void promptRename(source)
+        },
+      },
+      {
+        text: t('common.delete'),
+        role: 'destructive',
+        htmlAttributes: { 'data-testid': `source-delete-${source.label}` },
+        handler: () => {
+          void confirmDelete(source)
+        },
+      },
+      { text: t('common.cancel'), role: 'cancel' },
+    ],
+  })
+  await sheet.present()
+}
+
+const sourcesSaldo = computed(() =>
+  sourcesStore.sources.reduce((sum, s) => sum + Number(sourceValue(s.id)), 0).toFixed(2),
+)
+
+// Value per source from its priced holdings (the same numbers as the overview)
+function sourceValue(sourceId: string): string {
+  return portfolio.holdings
+    .filter((h) => h.sourceId === sourceId && h.valueEur !== null)
+    .reduce((sum, h) => sum + Number(h.valueEur), 0)
+    .toFixed(2)
 }
 
 const route = useRoute()
 const router = useRouter()
 
 const modalOpen = ref(false)
+const modalType = ref<'EXCHANGE' | 'WALLET' | 'MANUAL'>('EXCHANGE')
+const addSheetOpen = ref(false)
 const csvWizardOpen = ref(false)
 const pageLoading = ref(false)
 const pageError = ref(false)
@@ -194,7 +287,7 @@ async function loadData() {
   pageLoading.value = true
   pageError.value = false
   try {
-    await Promise.all([sourcesStore.load(), portfolios.load()])
+    await Promise.all([sourcesStore.load(), portfolios.load(), portfolio.loadHoldings()])
   } catch {
     pageError.value = true
   } finally {
@@ -264,6 +357,11 @@ async function sync(source: SourceDto) {
   await Promise.all([portfolio.loadSummary(), portfolio.loadHoldings()])
 }
 
+async function onPullRefresh(event: RefresherCustomEvent) {
+  await loadData()
+  await event.target.complete()
+}
+
 async function syncAll() {
   await sourcesStore.syncAll()
   await Promise.all([portfolio.loadSummary(), portfolio.loadHoldings()])
@@ -320,21 +418,86 @@ onIonViewWillEnter(() => {
   loadData()
   // Onboarding entry points from the dashboard — route the add path through the
   // same quota guard so a Free user at the cap hits the paywall, not the form.
-  if (route.query.add === '1') onAddSource()
+  if (route.query.add === '1' || route.query.add === 'exchange') onAddSource('EXCHANGE')
+  if (route.query.add === 'wallet') onAddSource('WALLET')
   if (route.query.csv === '1') csvWizardOpen.value = true
   if (route.query.add || route.query.csv) router.replace({ query: {} })
 })
 </script>
 
 <style scoped>
-.empty {
-  text-align: center;
-  margin-top: 48px;
-  color: var(--ion-color-medium);
+.section-head {
+  align-items: center;
 }
-.empty-icon {
-  font-size: 48px;
-  color: var(--ion-color-medium);
-  margin-bottom: 8px;
+.source {
+  padding: var(--app-space-3) var(--app-space-4) var(--app-space-2);
+  border-top: 1px solid var(--app-rule);
+}
+.source:first-child {
+  border-top: 0;
+}
+.source-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--app-space-3);
+  align-items: baseline;
+}
+.source-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-1) var(--app-space-3);
+  margin-top: var(--app-space-2);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: calc(-1 * var(--app-space-2));
+}
+.act {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--app-touch);
+  padding: 0 var(--app-space-2);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--app-text-sm);
+  font-weight: 600;
+  color: var(--app-accent);
+  cursor: pointer;
+}
+.act:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.act--danger {
+  color: var(--app-loss);
+}
+.link-row {
+  grid-template-columns: 20px minmax(0, 1fr) 16px;
+}
+.link-row > ion-icon:first-child {
+  font-size: 1.125rem;
+  color: var(--app-ink-2);
+}
+.chev {
+  color: var(--app-ink-3);
+}
+.hint ion-icon {
+  vertical-align: -2px;
+}
+.add-sheet {
+  --height: auto;
+}
+.sheet-body {
+  padding: var(--app-space-5) var(--app-space-4) calc(var(--app-space-5) + env(safe-area-inset-bottom, 0px));
+}
+.sheet-heading {
+  margin: 0 0 var(--app-space-3);
+  font-size: var(--app-text-xl);
+  font-weight: 650;
 }
 </style>

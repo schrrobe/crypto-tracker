@@ -18,7 +18,7 @@ test('Wertverlauf-Chart: erscheint mit Beständen, Range-Wechsel, Delta-Prozent'
   await page.getByTestId('holding-save').click()
   await expect(page.getByTestId('holding-BTC')).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   const chart = page.getByTestId('portfolio-chart')
   await expect(chart).toBeVisible()
   await expect(chart.locator('svg.chart path')).toHaveCount(2) // area + line
@@ -52,7 +52,7 @@ test('Wertverlauf-Chart: 1J-Tipp (Free) öffnet Paywall ohne Range-Wechsel', asy
   await page.getByTestId('holding-save').click()
   await expect(page.getByTestId('holding-BTC')).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   const chart = page.getByTestId('portfolio-chart')
   await expect(chart).toBeVisible()
 

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { input, makePro, register, uniqueEmail } from './helpers'
+import { input, makePro, openSettings, register, uniqueEmail } from './helpers'
 
 // FAKE_PRICES=true: backfill daily prices are deterministic (80–100 % of the fake price)
 
@@ -50,11 +50,11 @@ test('manuelle Transaktionen: erfassen, Bestand abgeleitet, Steuerreport mit CSV
   await expect(page.getByTestId('tx-BTC-SELL')).toBeVisible()
 
   // derived holding: 1 BTC × 50.000 € fake price
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/50\.000,00\s€/u)
 
   // Tax report DE 2024
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await page.getByTestId('open-tax-report').click()
   await expect(page.getByTestId('tax-disclaimer')).toBeVisible()
 
@@ -78,13 +78,13 @@ test('manuelle Transaktionen: erfassen, Bestand abgeleitet, Steuerreport mit CSV
   const downloadPromise = page.waitForEvent('download')
   await page.getByTestId('tax-export-csv').click()
   const download = await downloadPromise
-  expect(download.suggestedFilename()).toBe('steuerreport-AT-2024.csv')
+  expect(download.suggestedFilename()).toBe('steuerreport-mein-portfolio-AT-2024.csv')
 
   // PDF export
   const pdfPromise = page.waitForEvent('download')
   await page.getByTestId('tax-export-pdf').click()
   const pdf = await pdfPromise
-  expect(pdf.suggestedFilename()).toBe('steuerreport-AT-2024.pdf')
+  expect(pdf.suggestedFilename()).toBe('steuerreport-mein-portfolio-AT-2024.pdf')
 })
 
 test('Transfer verknüpfen: Kostenbasis bleibt im DE-Report erhalten', async ({ page }) => {
@@ -131,7 +131,7 @@ test('Transfer verknüpfen: Kostenbasis bleibt im DE-Report erhalten', async ({ 
   await expect(page.getByTestId('tx-transfer-badge-BTC').first()).toBeVisible()
 
   // DE report 2024: basis 10.000 preserved, > 1 year → tax-free
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await page.getByTestId('open-tax-report').click()
   await page.getByTestId('tax-year').click()
   await page.locator('ion-popover ion-radio', { hasText: '2024' }).click()
@@ -167,7 +167,7 @@ test('Transaktion ohne Kurs: Backfill-Hinweis im Report, Bearbeiten/Löschen', a
     timestamp: '2024-11-01T12:00',
   })
 
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await page.getByTestId('open-tax-report').click()
   await page.getByTestId('tax-year').click()
   await page.locator('ion-popover ion-radio', { hasText: '2024' }).click()
@@ -184,6 +184,6 @@ test('Transaktion ohne Kurs: Backfill-Hinweis im Report, Bearbeiten/Löschen', a
   await expect(page.getByTestId('tx-SOL-SELL')).toContainText('5')
 
   await page.getByTestId('tx-delete-SOL').first().click()
-  await page.getByRole('button', { name: 'Löschen' }).click()
+  await page.locator('ion-alert').getByRole('button', { name: 'Löschen' }).click()
   await expect(page.getByTestId('tx-SOL-SELL')).toHaveCount(0)
 })

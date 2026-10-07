@@ -29,6 +29,11 @@ vi.mock('ionicons/icons', () => ({
 
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { id: 's1' } }) }))
 
+// The shared top bar pulls in stores and the portfolio switcher; render just its title
+vi.mock('../../components/AppTopBar.vue', () => ({
+  default: { props: ['title'], template: '<header class="app-top-bar">{{ title }}</header>' },
+}))
+
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   return { ...actual, useI18n: () => ({ t: (k: string) => k }) }

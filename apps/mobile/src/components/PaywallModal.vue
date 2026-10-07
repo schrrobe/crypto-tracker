@@ -12,12 +12,12 @@
       <p class="intro" data-testid="paywall-subtitle">{{ subtitle }}</p>
       <ion-list inset>
         <ion-item v-for="f in orderedFeatures" :key="f" :class="{ hit: f === paywallFeature }">
-          <ion-icon :icon="checkmarkCircle" color="success" slot="start" />
+          <ion-icon :icon="checkmarkCircle" color="primary" slot="start" aria-hidden="true" />
           <ion-label class="ion-text-wrap">{{ $t(`paywall.feature.${f}`) }}</ion-label>
         </ion-item>
       </ion-list>
 
-      <ion-text v-if="error" color="danger"><p class="error">{{ error }}</p></ion-text>
+      <p v-if="error" class="notice notice--error error" role="alert">{{ error }}</p>
 
       <ion-spinner v-if="!billing.configLoaded" name="crescent" data-testid="paywall-loading" />
       <template v-else-if="billing.enabled">
@@ -53,7 +53,6 @@ import {
   IonList,
   IonModal,
   IonSpinner,
-  IonText,
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
@@ -103,27 +102,35 @@ async function upgrade() {
 </script>
 
 <style scoped>
-.intro,
-.hint {
-  color: var(--ion-color-medium);
-  font-size: 0.9em;
+.intro {
+  margin: 0 0 var(--app-space-2);
+  font-size: var(--app-text-md);
+  color: var(--app-ink);
 }
 .hint {
+  color: var(--app-ink-2);
+  font-size: var(--app-text-sm);
   text-align: center;
-  margin-top: 12px;
+  margin-top: var(--app-space-3);
 }
 .price {
   text-align: center;
+  font-family: var(--app-font-figures);
+  font-stretch: var(--app-figures-stretch);
   font-weight: 600;
-  margin: 4px 0 8px;
+  font-size: var(--app-text-lg);
+  margin: var(--app-space-5) 0 var(--app-space-3);
 }
 .error {
-  margin: 8px 0;
-  font-size: 0.9em;
+  margin: var(--app-space-3) 0;
+}
+ion-list {
+  margin-left: 0;
+  margin-right: 0;
 }
 /* The feature the user just hit — drawn forward so the paywall answers "why am I here?" */
 .hit {
-  --background: var(--ion-color-success-tint, rgba(45, 211, 111, 0.12));
+  --background: var(--app-accent-soft);
   font-weight: 600;
 }
 </style>

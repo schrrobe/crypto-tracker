@@ -47,7 +47,7 @@ const pl: MessageSchema = {
     resetFailed: 'Nie udało się zmienić hasła',
   },
   tabs: {
-    dashboard: 'Pulpit',
+    dashboard: 'Przegląd',
     holdings: 'Aktywa',
     market: 'Rynek',
     sources: 'Źródła',

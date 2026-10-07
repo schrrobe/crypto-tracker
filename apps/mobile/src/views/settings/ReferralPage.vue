@@ -1,61 +1,47 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-back-button default-href="/tabs/settings" />
-        </ion-buttons>
-        <ion-title>{{ $t('referral.title') }}</ion-title>
-      </ion-toolbar>
-    </ion-header>
+    <AppTopBar :title="$t('referral.title')" back-href="/tabs/settings" :show-switcher="false" :show-profile="false" />
     <ion-content :fullscreen="true">
-      <!-- Value proposition -->
-      <ion-list inset v-if="r">
-        <ion-item lines="none">
-          <ion-label class="ion-text-wrap">
-            <h2 class="prop">{{ $t('referral.valueProp') }}</h2>
-            <p class="hint">{{ $t('referral.valuePropNote') }}</p>
-          </ion-label>
-        </ion-item>
-      </ion-list>
+      <!-- Value proposition: plain text on the page, not another card -->
+      <header v-if="r" class="intro">
+        <h2 class="prop">{{ $t('referral.valueProp') }}</h2>
+        <p>{{ $t('referral.valuePropNote') }}</p>
+      </header>
 
       <!-- Referral link -->
       <ion-list inset v-if="r">
         <ion-item>
           <ion-label class="ion-text-wrap">
             <p class="hint">{{ $t('referral.linkLabel') }}</p>
-            <h3 data-testid="referral-link">{{ r.link }}</h3>
+            <h3 class="fig link" data-testid="referral-link">{{ r.link }}</h3>
           </ion-label>
         </ion-item>
         <ion-item button data-testid="referral-share" @click="share">
           <ion-icon :icon="shareSocialOutline" slot="start" />
           <ion-label>{{ $t('referral.share') }}</ion-label>
         </ion-item>
-      </ion-list>
-
-      <!-- Earnings -->
-      <ion-list inset v-if="r">
+        <!-- Earnings: same statement as the link, one sheet -->
         <ion-item v-if="hasPending">
           <ion-label class="ion-text-wrap">
             {{ $t('referral.earningsPending') }}
             <p class="hint">{{ $t('referral.earningsPendingNote') }}</p>
           </ion-label>
-          <ion-note slot="end" data-testid="referral-pending">{{ earningsText(r.earnings, 'pendingCents') }}</ion-note>
+          <ion-note slot="end" class="fig" data-testid="referral-pending">{{ earningsText(r.earnings, 'pendingCents') }}</ion-note>
         </ion-item>
         <ion-item>
           <ion-label>{{ $t('referral.earningsOwed') }}</ion-label>
-          <ion-note slot="end" data-testid="referral-owed">{{ earningsText(r.earnings, 'owedCents') }}</ion-note>
+          <ion-note slot="end" class="fig" data-testid="referral-owed">{{ earningsText(r.earnings, 'owedCents') }}</ion-note>
         </ion-item>
         <ion-item v-if="hasPaid">
           <ion-label>{{ $t('referral.earningsPaid') }}</ion-label>
-          <ion-note slot="end">{{ earningsText(r.earnings, 'paidCents') }}</ion-note>
+          <ion-note slot="end" class="fig">{{ earningsText(r.earnings, 'paidCents') }}</ion-note>
         </ion-item>
       </ion-list>
 
       <!-- Invited accounts -->
       <ion-list inset v-if="r">
         <ion-list-header>{{ $t('referral.invited') }} ({{ r.invitedCount }})</ion-list-header>
-        <ion-item v-if="r.invited.length === 0">
+        <ion-item v-if="r.invited.length === 0" lines="none">
           <ion-label class="hint">{{ $t('referral.invitedEmpty') }}</ion-label>
         </ion-item>
         <ion-item v-for="(inv, i) in r.invited" :key="i">
@@ -105,7 +91,7 @@
           <ion-item>
             <ion-input v-model="bic" :label="$t('referral.bic')" label-placement="floating" autocapitalize="characters" />
           </ion-item>
-          <ion-text v-if="error" color="danger"><p class="error">{{ error }}</p></ion-text>
+          <p v-if="error" class="notice notice--error error" role="alert">{{ error }}</p>
           <ion-button
             expand="block"
             class="ion-margin"
@@ -123,13 +109,11 @@
 </template>
 
 <script setup lang="ts">
+import AppTopBar from '../../components/AppTopBar.vue'
 import {
-  IonBackButton,
   IonBadge,
   IonButton,
-  IonButtons,
   IonContent,
-  IonHeader,
   IonIcon,
   IonInput,
   IonItem,
@@ -139,9 +123,6 @@ import {
   IonNote,
   IonPage,
   IonSpinner,
-  IonText,
-  IonTitle,
-  IonToolbar,
   toastController,
 } from '@ionic/vue'
 import { shareSocialOutline } from 'ionicons/icons'
@@ -151,7 +132,7 @@ import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useReferralStore } from '../../stores/referral.store'
 import { apiErrorMessage } from '../../services/errors'
-import { t } from '../../i18n'
+import { intlLocale, t } from '../../i18n'
 
 const store = useReferralStore()
 const { referral: r, bank } = storeToRefs(store)
@@ -180,17 +161,18 @@ onMounted(async () => {
   ])
 })
 
+// Integer cents → localized currency (e.g. "10,00 €" in de)
 function money(cents: number, currency: string): string {
-  return `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`
+  return new Intl.NumberFormat(intlLocale(), { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100)
 }
 
-// Earnings are per-currency; join into one label ("10.00 EUR · 2.00 USD").
+// Earnings are per-currency; join into one label ("10,00 € · 2,00 $").
 function earningsText(
   list: { currency: string; pendingCents: number; owedCents: number; paidCents: number }[],
   field: 'pendingCents' | 'owedCents' | 'paidCents',
 ): string {
   const nonZero = list.filter((e) => e[field] > 0)
-  if (!nonZero.length) return '0.00'
+  if (!nonZero.length) return money(0, 'eur')
   return nonZero.map((e) => money(e[field], e.currency)).join(' · ')
 }
 
@@ -223,6 +205,24 @@ async function saveBank() {
 </script>
 
 <style scoped>
+.intro {
+  padding: var(--app-space-5) var(--app-space-4) var(--app-space-1);
+}
+.intro .prop {
+  margin: 0;
+  font-size: var(--app-text-xl);
+  font-weight: 650;
+  line-height: 1.3;
+}
+.intro p {
+  margin: var(--app-space-2) 0 0;
+  color: var(--app-ink-2);
+}
+.link {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: var(--app-text-sm);
+}
 .hint {
   color: var(--ion-color-medium);
   font-size: 0.85em;
