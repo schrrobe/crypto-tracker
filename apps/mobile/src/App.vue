@@ -19,6 +19,7 @@ import PaywallModal from './components/PaywallModal.vue'
 import UpdateGateModal from './components/UpdateGateModal.vue'
 import AnnouncementBanner from './components/AnnouncementBanner.vue'
 import { checkClientVersion } from './services/app-update'
+import { installOverlayAriaGuard } from './services/overlay-a11y'
 import { useAuthStore } from './stores/auth.store'
 import { useAnnouncementsStore } from './stores/announcements.store'
 
@@ -56,6 +57,7 @@ watch(
 
 onMounted(() => {
   applyStoredTheme()
+  installOverlayAriaGuard()
   void initNative(router)
   // Native-only force-update check; fails open on any error (see app-update.ts)
   void checkClientVersion()
@@ -88,7 +90,8 @@ onBeforeUnmount(() => {
 <style>
 /* Push the routed content (and modals) below the fixed announcement stack so it
    never covers the Ionic toolbar. Height is published by AnnouncementBanner.vue. */
-ion-router-outlet {
+/* Only the root outlet: the nested tab outlet would otherwise add the offset twice */
+ion-app > ion-router-outlet {
   top: var(--announcement-offset, 0px);
 }
 </style>

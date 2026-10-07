@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { input, register, uniqueEmail } from './helpers'
+import { input, register, uniqueEmail, visibleControl } from './helpers'
 
 // FAKE_PRICES=true in the E2E API server: BTC = 50.000 EUR / 55.000 USD, SOL = 100 EUR
 
@@ -25,26 +25,35 @@ test('manueller Bestand: anlegen, bewerten, bearbeiten, löschen', async ({ page
   await expect(btcItem).toContainText('25.000,00')
 
   // Dashboard: 0,5 × 50.000 € = 25.000 €, toggle → 27.500 $
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/25\.000,00\s€/u)
   await page.getByTestId('total-value-card').click()
   await expect(page.getByTestId('total-value')).toHaveText(/27\.500,00\s\$/u)
   await page.getByTestId('total-value-card').click()
 
-  // Change quantity to 1 → 50.000 €
+  // Change quantity to 1 → 50.000 € (edits live in the asset detail, per source line)
   await page.getByRole('tab', { name: 'Bestände' }).click()
+  await btcItem.click()
   await page.getByTestId('holding-edit-BTC').click()
   await input(page, 'holding-quantity').fill('1')
   await page.getByTestId('holding-save').click()
+  await expect(page.getByTestId('asset-total-value')).toContainText('50.000,00')
+  // The statement records the edit as a movement with the running balance
+  await expect(page.locator('[data-testid="movement-BTC"]:visible').first()).toContainText('Quellenbestand: 1')
+  await page.getByRole('tab', { name: 'Bestände' }).click()
+  // wait for the pop transition back to the list before switching tabs again
+  await expect(btcItem).toBeVisible()
   await expect(btcItem).toContainText('50.000,00')
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
+  await expect(page.getByTestId('total-value')).toBeVisible()
   await expect(page.getByTestId('total-value')).toHaveText(/50\.000,00\s€/u)
 
-  // Delete → empty state
+  // Delete → back on the empty holdings list
   await page.getByRole('tab', { name: 'Bestände' }).click()
+  await btcItem.click()
   await page.getByTestId('holding-delete-BTC').click()
-  await page.getByRole('button', { name: 'Löschen' }).click()
+  await page.locator('ion-alert').getByRole('button', { name: 'Löschen' }).click()
   await expect(page.getByTestId('holdings-empty')).toBeVisible()
 })
 
@@ -58,15 +67,15 @@ test('Privatsphäre-Modus blendet Beträge aus und wieder ein', async ({ page })
   await input(page, 'holding-quantity').fill('1')
   await page.getByTestId('holding-save').click()
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/50\.000,00\s€/u)
 
   // hide → mask
-  await page.locator('[data-testid="toggle-balances"]:visible').click()
+  await (await visibleControl(page, 'toggle-balances')).click()
   await expect(page.getByTestId('total-value')).toContainText('••••')
 
   // show again → amount back
-  await page.locator('[data-testid="toggle-balances"]:visible').click()
+  await (await visibleControl(page, 'toggle-balances')).click()
   await expect(page.getByTestId('total-value')).toHaveText(/50\.000,00\s€/u)
 })
 
@@ -95,6 +104,7 @@ test('Konten-Aufteilung: Earn/Margin-Gruppen, negative Margin, Futures-Positione
   // Binance fake delivers multi-account: SPOT BTC/ETH, EARN BTC, MARGIN -300 USDT + 2 futures
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('add-source').click()
+  await page.getByTestId('add-connect').click()
   await page.getByTestId('exchange-provider').click()
   await page.getByRole('radio', { name: 'Binance' }).click()
   await input(page, 'source-label').fill('Binance Test')
@@ -123,7 +133,7 @@ test('Konten-Aufteilung: Earn/Margin-Gruppen, negative Margin, Futures-Positione
   await expect(page.getByTestId('futures-pnl-BTC')).toBeVisible()
 
   // Dashboard: account breakdown card + futures uPnL row
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('account-breakdown-card')).toBeVisible()
   await expect(page.getByTestId('breakdown-MARGIN')).toContainText('-270,00')
   await expect(page.getByTestId('breakdown-futures-upnl')).toBeVisible()
@@ -145,9 +155,11 @@ test('Top-Positionen zeigen mehrere Assets nach Wert sortiert', async ({ page })
     await expect(page.getByTestId(`holding-${symbol}`)).toBeVisible()
   }
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/51\.000,00\s€/u)
 
-  const items = page.locator('ion-list ion-item')
-  await expect(items.first()).toContainText('BTC') // largest position first
+  // Holdings list is sorted by value: the largest position comes first
+  await page.getByRole('tab', { name: 'Bestände' }).click()
+  const rows = page.getByTestId('holdings-group-SPOT').locator('a.stmt-row')
+  await expect(rows.first()).toContainText('BTC')
 })

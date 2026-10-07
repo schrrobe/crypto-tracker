@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { expect, request as playwrightRequest, test } from '@playwright/test'
 import { PASSWORD, register, uniqueEmail } from './helpers'
-import { API_PORT, E2E_DATABASE_URL } from '../config'
+import { API_ENV, API_PORT, E2E_DATABASE_URL } from '../config'
 
 const API = `http://localhost:${API_PORT}/api/v1`
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url))
@@ -17,7 +17,7 @@ async function seedActiveAnnouncement(message: string, opts: { public?: boolean 
   const { accessToken } = await reg.json()
 
   execSync(`pnpm --filter @crypto-tracker/api admin:grant ${adminEmail}`, {
-    env: { ...process.env, DATABASE_URL: E2E_DATABASE_URL },
+    env: { ...process.env, ...API_ENV, DATABASE_URL: E2E_DATABASE_URL },
     cwd: REPO_ROOT,
     stdio: 'ignore',
   })

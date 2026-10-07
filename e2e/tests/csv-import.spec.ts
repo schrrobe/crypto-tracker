@@ -42,7 +42,7 @@ test('CSV-Import: Upload, Mapping-Vorschlag, Fehlerzeilen, Bestände', async ({ 
   await expect(page.getByTestId('source-Mein CSV-Import')).toContainText('CSV')
 
   // 0,25 × 50.000 + 1,5 × 2.000 + 10 × 100 = 16.500 € (FOO has no price)
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/16\.500,00\s€/u)
 
   await page.getByRole('tab', { name: 'Bestände' }).click()
@@ -66,13 +66,13 @@ test('Import-Historie zeigt den Import und löscht ihn samt Quelle', async ({ pa
   await expect(entry).toContainText('1 Fehler')
 
   await page.getByTestId('import-delete-bestand.csv').click()
-  await page.getByRole('button', { name: 'Löschen' }).click()
+  await page.locator('ion-alert').getByRole('button', { name: 'Löschen' }).click()
   await expect(page.getByTestId('imports-empty')).toBeVisible()
 
   // Source and holdings are gone along with the import
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await expect(page.getByTestId('sources-empty')).toBeVisible()
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/0,00\s€/u)
 })
 
@@ -82,6 +82,7 @@ test('aktive Doppel-Erkennung: Börsen-Auswahl warnt bei vorhandener API-Quelle'
   // Connect Kraken via API (default provider in the connect modal)
   await page.getByRole('tab', { name: 'Quellen' }).click()
   await page.getByTestId('add-source').click()
+  await page.getByTestId('add-connect').click()
   await input(page, 'source-label').fill('Kraken API')
   await input(page, 'source-api-key').fill('valid-key-1234')
   await input(page, 'source-api-secret').fill('valid-secret')

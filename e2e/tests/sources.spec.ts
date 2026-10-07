@@ -7,7 +7,9 @@ import { input, register, uniqueEmail } from './helpers'
 
 async function openSourceModal(page: import('@playwright/test').Page) {
   await page.getByRole('tab', { name: 'Quellen' }).click()
+  // One add entry point: the sheet offers the four ways in
   await page.getByTestId('add-source').click()
+  await page.getByTestId('add-connect').click()
 }
 
 test('Exchange verbinden, synchronisieren, Bestände erscheinen', async ({ page }) => {
@@ -28,7 +30,7 @@ test('Exchange verbinden, synchronisieren, Bestände erscheinen', async ({ page 
   await expect(item).toContainText('gerade eben')
 
   // 0,1 BTC × 50.000 + 2 ETH × 2.000 = 9.000 €
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/9\.000,00\s€/u)
 
   await page.getByRole('tab', { name: 'Bestände' }).click()
@@ -84,7 +86,7 @@ test('Bitcoin-Wallet verbinden und über "Alle" synchronisieren', async ({ page 
   await expect(item).toContainText('gerade eben')
 
   // 0,05 BTC × 50.000 = 2.500 €
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/2\.500,00\s€/u)
 })
 
@@ -99,10 +101,11 @@ test('Quelle löschen entfernt auch ihre Bestände', async ({ page }) => {
   await page.getByTestId('source-sync-Temporär').click()
   await expect(page.getByTestId('source-Temporär')).toContainText('gerade eben')
 
+  await page.getByTestId('source-more-Temporär').click()
   await page.getByTestId('source-delete-Temporär').click()
-  await page.getByRole('button', { name: 'Löschen' }).click()
+  await page.locator('ion-alert').getByRole('button', { name: 'Löschen' }).click()
   await expect(page.getByTestId('sources-empty')).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/0,00\s€/u)
 })

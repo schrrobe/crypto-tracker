@@ -1,12 +1,9 @@
 <template>
   <ion-page>
-    <ion-content :fullscreen="true" class="ion-padding">
-      <div class="auth-wrap">
-        <h1>{{ $t('auth.appTitle') }}</h1>
-        <p class="subtitle">{{ $t('auth.loginSubtitle') }}</p>
-
+    <ion-content>
+      <AuthLayout :title="$t('auth.loginSubtitle')">
         <form @submit.prevent="submit">
-          <ion-list inset>
+          <ion-list inset class="auth-fields">
             <ion-item>
               <ion-input
                 v-model="email"
@@ -31,9 +28,7 @@
             </ion-item>
           </ion-list>
 
-          <ion-text v-if="error" color="danger">
-            <p class="error" data-testid="login-error">{{ error }}</p>
-          </ion-text>
+          <p v-if="error" class="notice notice--error" role="alert" data-testid="login-error">{{ error }}</p>
 
           <ion-button expand="block" type="submit" :disabled="loading" data-testid="login-submit">
             <ion-spinner v-if="loading" name="crescent" />
@@ -41,19 +36,17 @@
           </ion-button>
         </form>
 
-        <ion-button expand="block" fill="clear" router-link="/forgot-password" data-testid="goto-forgot">
-          {{ $t('auth.forgotPassword') }}
-        </ion-button>
-
-        <ion-button expand="block" fill="clear" router-link="/register" data-testid="goto-register">
-          {{ $t('auth.noAccount') }}
-        </ion-button>
-      </div>
+        <nav class="auth-links">
+          <router-link to="/forgot-password" data-testid="goto-forgot">{{ $t('auth.forgotPassword') }}</router-link>
+          <router-link to="/register" data-testid="goto-register">{{ $t('auth.noAccount') }}</router-link>
+        </nav>
+      </AuthLayout>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
+import AuthLayout from '../../components/AuthLayout.vue'
 import {
   IonButton,
   IonContent,
@@ -62,7 +55,6 @@ import {
   IonList,
   IonPage,
   IonSpinner,
-  IonText,
 } from '@ionic/vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -94,23 +86,3 @@ async function submit() {
   }
 }
 </script>
-
-<style scoped>
-.auth-wrap {
-  max-width: 420px;
-  margin: 12vh auto 0;
-}
-h1 {
-  text-align: center;
-  font-weight: 700;
-}
-.subtitle {
-  text-align: center;
-  color: var(--ion-color-medium);
-  margin-bottom: 24px;
-}
-.error {
-  margin: 8px 16px;
-  font-size: 0.9em;
-}
-</style>

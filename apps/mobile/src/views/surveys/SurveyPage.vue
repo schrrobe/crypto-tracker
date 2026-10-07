@@ -1,13 +1,6 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-back-button default-href="/tabs/dashboard" />
-        </ion-buttons>
-        <ion-title>{{ survey?.title ?? $t('surveys.title') }}</ion-title>
-      </ion-toolbar>
-    </ion-header>
+    <AppTopBar :title="survey?.title ?? $t('surveys.title')" back-href="/tabs/dashboard" :show-switcher="false" :show-profile="false" :show-privacy="false" />
 
     <ion-content :fullscreen="true">
       <div v-if="loadError" class="ion-padding ion-text-center" data-testid="survey-error">
@@ -124,16 +117,12 @@
 </template>
 
 <script setup lang="ts">
+import AppTopBar from '../../components/AppTopBar.vue'
 import { computed, reactive, ref } from 'vue'
 import { onIonViewWillEnter } from '@ionic/vue'
 import { useI18n } from 'vue-i18n'
 import {
   IonPage,
-  IonHeader,
-  IonToolbar,
-  IonButtons,
-  IonBackButton,
-  IonTitle,
   IonContent,
   IonList,
   IonItem,

@@ -36,7 +36,7 @@ test('PnL-Card: Free gesperrt → Paywall, Pro zeigt echten Gewinn', async ({ pa
   await expect(page.getByTestId('tx-BTC-BUY')).toBeVisible()
 
   // Free: card with lock → click opens the paywall
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await page.getByTestId('pnl-card').click()
   await expect(page.getByTestId('paywall-upgrade')).toBeVisible()
   await page.getByTestId('paywall-close').click()
@@ -44,7 +44,7 @@ test('PnL-Card: Free gesperrt → Paywall, Pro zeigt echten Gewinn', async ({ pa
 
   // Pro via dev toggle → PnL total shows the real gain (1 BTC: 50.000 − 20.000)
   await makePro(page)
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('pnl-total')).toBeVisible()
   await expect(page.getByTestId('pnl-total')).toContainText('30.000')
 })

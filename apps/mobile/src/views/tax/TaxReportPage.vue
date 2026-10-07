@@ -1,27 +1,27 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-back-button default-href="/tabs/settings" />
-        </ion-buttons>
-        <ion-title>{{ $t('tax.title') }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button
-            v-if="report && report.disposals.length > 0"
-            data-testid="tax-export-csv"
-            @click="exportCsv"
-          >
-            <ion-icon :icon="downloadOutline" slot="start" />
-            {{ $t('tax.exportCsv') }}
-          </ion-button>
-          <ion-button v-if="report" data-testid="tax-export-pdf" @click="exportPdf">
-            <ion-icon :icon="documentOutline" slot="start" />
-            {{ $t('tax.exportPdf') }}
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
+    <AppTopBar :title="$t('tax.title')" back-href="/tabs/settings" :show-switcher="false" :show-profile="false">
+      <template #end>
+        <ion-button
+          v-if="report && report.disposals.length > 0"
+          data-testid="tax-export-csv"
+          :aria-label="$t('tax.exportCsv')"
+          :title="$t('tax.exportCsv')"
+          @click="exportCsv"
+        >
+          <ion-icon slot="icon-only" :icon="downloadOutline" aria-hidden="true" />
+        </ion-button>
+        <ion-button
+          v-if="report"
+          data-testid="tax-export-pdf"
+          :aria-label="$t('tax.exportPdf')"
+          :title="$t('tax.exportPdf')"
+          @click="exportPdf"
+        >
+          <ion-icon slot="icon-only" :icon="documentOutline" aria-hidden="true" />
+        </ion-button>
+      </template>
+    </AppTopBar>
     <ion-content :fullscreen="true">
       <PortfolioSwitcher variant="banner" @switched="loadData" />
       <ion-list inset>
@@ -50,12 +50,14 @@
         </ion-item>
       </ion-list>
 
-      <ion-card color="warning" class="disclaimer">
-        <ion-card-header>
-          <ion-card-title>{{ $t('tax.disclaimerTitle') }}</ion-card-title>
-        </ion-card-header>
-        <ion-card-content data-testid="tax-disclaimer">{{ $t('tax.disclaimer') }}</ion-card-content>
-      </ion-card>
+      <!-- "No tax advice" stays first; the long assumptions text is one tap away -->
+      <details class="notice disclaimer" data-testid="tax-disclaimer">
+        <summary>
+          <strong>{{ $t('tax.disclaimerTitle') }}</strong>
+          <span class="disclaimer-more">{{ $t('ui.tax.details') }}</span>
+        </summary>
+        <p>{{ $t('tax.disclaimer') }}</p>
+      </details>
 
       <ion-item v-if="store.backfilling" lines="none" data-testid="tax-backfilling">
         <ion-spinner slot="start" name="dots" />
@@ -70,42 +72,42 @@
           <ion-card-content>
             <div class="total-row">
               <span>{{ $t('tax.totalGain') }}</span>
-              <strong data-testid="tax-total-gain">{{ money(report.totals.totalGainEur) }}</strong>
+              <strong class="fig" data-testid="tax-total-gain">{{ money(report.totals.totalGainEur) }}</strong>
             </div>
             <div class="total-row">
               <span>{{ $t('tax.taxFreeGain') }}</span>
-              <span>{{ money(report.totals.taxFreeGainEur) }}</span>
+              <span class="fig">{{ money(report.totals.taxFreeGainEur) }}</span>
             </div>
             <div class="total-row">
               <span>{{ $t('tax.taxableGain') }}</span>
-              <span>{{ money(report.totals.taxableGainEur) }}</span>
+              <span class="fig">{{ money(report.totals.taxableGainEur) }}</span>
             </div>
             <div v-if="report.totals.thresholdEur" class="total-row threshold">
-              <span>{{ $t('tax.threshold') }} ({{ money(report.totals.thresholdEur) }})</span>
+              <span>{{ $t('tax.threshold') }} (<span class="fig">{{ money(report.totals.thresholdEur) }}</span>)</span>
               <span>{{
                 report.totals.thresholdApplied ? $t('tax.thresholdApplied') : $t('tax.thresholdNotApplied')
               }}</span>
             </div>
             <div class="total-row main">
               <span>{{ $t('tax.taxableAfterThreshold') }}</span>
-              <strong data-testid="tax-taxable-final">{{ money(report.totals.taxableAfterThresholdEur) }}</strong>
+              <strong class="fig" data-testid="tax-taxable-final">{{ money(report.totals.taxableAfterThresholdEur) }}</strong>
             </div>
             <div v-if="report.totals.atNeuvermoegenGainEur !== undefined" class="total-row">
               <span>{{ $t('tax.neuvermoegenGain') }}</span>
-              <span data-testid="tax-neuvermoegen">{{ money(report.totals.atNeuvermoegenGainEur) }}</span>
+              <span class="fig" data-testid="tax-neuvermoegen">{{ money(report.totals.atNeuvermoegenGainEur) }}</span>
             </div>
             <div v-if="report.totals.atNeuvermoegenTaxEur !== undefined" class="total-row threshold">
               <span>{{ $t('tax.neuvermoegenTax') }}</span>
-              <span data-testid="tax-neuvermoegen-tax">{{ money(report.totals.atNeuvermoegenTaxEur) }}</span>
+              <span class="fig" data-testid="tax-neuvermoegen-tax">{{ money(report.totals.atNeuvermoegenTaxEur) }}</span>
             </div>
             <template v-if="report.totals.stakingIncomeEur !== undefined">
               <div class="total-row">
                 <span>{{ $t('tax.stakingIncome') }}</span>
-                <span data-testid="tax-staking-income">{{ money(report.totals.stakingIncomeEur) }}</span>
+                <span class="fig" data-testid="tax-staking-income">{{ money(report.totals.stakingIncomeEur) }}</span>
               </div>
               <div v-if="report.totals.stakingThresholdEur" class="total-row threshold">
-                <span>{{ $t('tax.stakingThreshold') }} ({{ money(report.totals.stakingThresholdEur) }})</span>
-                <span>{{ $t('tax.stakingTaxable') }}: {{ money(report.totals.stakingTaxableEur ?? '0') }}</span>
+                <span>{{ $t('tax.stakingThreshold') }} (<span class="fig">{{ money(report.totals.stakingThresholdEur) }}</span>)</span>
+                <span>{{ $t('tax.stakingTaxable') }}: <span class="fig">{{ money(report.totals.stakingTaxableEur ?? '0') }}</span></span>
               </div>
             </template>
           </ion-card-content>
@@ -162,8 +164,8 @@
                 <template v-if="d.sourceLabel"> · {{ d.sourceLabel }}</template>
               </p>
               <p>
-                {{ money(d.costBasisEur) }} → {{ money(d.proceedsEur) }} ·
-                <strong>{{ money(d.gainEur) }}</strong>
+                <span class="fig">{{ money(d.costBasisEur) }}</span> → <span class="fig">{{ money(d.proceedsEur) }}</span> ·
+                <strong class="fig">{{ money(d.gainEur) }}</strong>
               </p>
             </ion-label>
           </ion-item>
@@ -181,17 +183,15 @@
 </template>
 
 <script setup lang="ts">
+import AppTopBar from '../../components/AppTopBar.vue'
 import {
-  IonBackButton,
   IonBadge,
   IonButton,
-  IonButtons,
   IonCard,
   IonCardContent,
   IonCardHeader,
   IonCardTitle,
   IonContent,
-  IonHeader,
   IonIcon,
   IonInfiniteScroll,
   IonInfiniteScrollContent,
@@ -203,8 +203,6 @@ import {
   IonSelect,
   IonSelectOption,
   IonSpinner,
-  IonTitle,
-  IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
 import type { InfiniteScrollCustomEvent } from '@ionic/vue'
@@ -371,12 +369,10 @@ onIonViewWillEnter(() => {
   font-size: 1em;
 }
 .total-row {
-  display: flex;
-  justify-content: space-between;
   padding: 2px 0;
 }
 .total-row.main {
-  border-top: 1px solid var(--ion-color-medium);
+  border-top: 1px solid var(--app-rule-control);
   margin-top: 6px;
   padding-top: 6px;
 }
@@ -391,5 +387,46 @@ onIonViewWillEnter(() => {
   text-align: center;
   margin-top: 32px;
   color: var(--ion-color-medium);
+}
+.disclaimer {
+  display: block;
+  margin: var(--app-space-4) var(--app-space-4) 0;
+}
+.disclaimer summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--app-space-3);
+  min-height: var(--app-touch);
+  cursor: pointer;
+  list-style: none;
+}
+.disclaimer summary::-webkit-details-marker {
+  display: none;
+}
+.disclaimer-more {
+  color: var(--app-accent);
+  font-weight: 600;
+}
+.disclaimer p {
+  margin: var(--app-space-2) 0 var(--app-space-1);
+}
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--app-space-3);
+}
+.total-row > :last-child {
+  text-align: right;
+}
+/* Text-only note rows (thresholds): label above value instead of two ragged columns */
+.total-row.threshold {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+.total-row.threshold > :last-child {
+  text-align: left;
 }
 </style>

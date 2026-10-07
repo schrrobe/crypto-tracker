@@ -1,195 +1,203 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <PortfolioSwitcher @switched="portfolios.load" />
-        </ion-buttons>
-        <ion-title>{{ $t('tabs.settings') }}</ion-title>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content :fullscreen="true">
-      <ion-list inset>
-        <ion-item>
-          <ion-select
-            :label="$t('settings.appearance')"
-            interface="popover"
-            :value="theme"
-            @ionChange="onThemeChange($event.detail.value)"
-          >
-            <ion-select-option value="system">{{ $t('settings.system') }}</ion-select-option>
-            <ion-select-option value="light">{{ $t('settings.light') }}</ion-select-option>
-            <ion-select-option value="dark">{{ $t('settings.dark') }}</ion-select-option>
-          </ion-select>
-        </ion-item>
-        <ion-item>
-          <ion-select
-            :label="$t('settings.baseCurrency')"
-            interface="popover"
-            :value="auth.user?.baseCurrency ?? 'EUR'"
-            data-testid="currency-select"
-            @ionChange="onCurrencyChange($event.detail.value)"
-          >
-            <ion-select-option value="EUR">EUR</ion-select-option>
-            <ion-select-option value="USD">USD</ion-select-option>
-          </ion-select>
-        </ion-item>
-        <ion-item>
-          <ion-select
-            :label="$t('settings.language')"
-            interface="popover"
-            :value="locale"
-            data-testid="language-select"
-            @ionChange="onLocaleChange($event.detail.value)"
-          >
-            <ion-select-option v-for="l in SUPPORTED_LOCALES" :key="l.code" :value="l.code">
-              {{ l.name }}
-            </ion-select-option>
-          </ion-select>
-        </ion-item>
-      </ion-list>
-
-      <ion-list inset>
-        <ion-item button data-testid="open-tax-report" @click="openTaxReport">
-          <ion-label>{{ $t('tax.settingsEntry') }}</ion-label>
-          <ion-icon v-if="!auth.isPro" :icon="lockClosedOutline" slot="end" color="medium" />
-          <ion-badge v-else slot="end" color="success">Pro</ion-badge>
-        </ion-item>
-        <ion-item button data-testid="open-referral" @click="openReferral">
-          <ion-label>{{ $t('referral.settingsEntry') }}</ion-label>
-          <ion-icon :icon="giftOutline" slot="end" color="medium" />
-        </ion-item>
-      </ion-list>
-
-      <!-- Subscription / plan -->
-      <ion-list inset>
-        <ion-item>
-          <ion-label>
-            <p>{{ $t('paywall.planLabel') }}</p>
-            <h3 data-testid="settings-plan">
-              <ion-badge :color="auth.isPro ? 'success' : 'medium'">
+    <AppTopBar
+      :title="$t('ui.settings.title')"
+      back-href="/tabs/dashboard"
+      :show-switcher="false"
+      :show-privacy="false"
+      :show-profile="false"
+    />
+    <ion-content>
+      <div class="page">
+        <!-- Who is signed in, and on which plan -->
+        <section class="account sheet" aria-labelledby="account-title">
+          <span class="avatar" aria-hidden="true">{{ (auth.user?.email?.[0] ?? '·').toUpperCase() }}</span>
+          <div class="account-text">
+            <h2 id="account-title" class="sr-only">{{ $t('ui.settings.account') }}</h2>
+            <p class="email" data-testid="settings-email">{{ auth.user?.email }}</p>
+            <p class="plan">
+              {{ $t('paywall.planLabel') }}:
+              <span class="tag" :class="{ 'tag--pro': auth.isPro }" data-testid="settings-plan">
                 {{ auth.isPro ? $t('paywall.planPro') : $t('paywall.planFree') }}
-              </ion-badge>
-            </h3>
-          </ion-label>
-          <ion-button
-            v-if="!auth.isPro"
-            slot="end"
-            data-testid="settings-upgrade"
-            @click="openPaywall()"
-          >
+              </span>
+            </p>
+          </div>
+          <ion-button v-if="!auth.isPro" size="small" data-testid="settings-upgrade" @click="openPaywall()">
             {{ $t('paywall.upgrade') }}
           </ion-button>
-          <ion-button
-            v-else
-            slot="end"
-            fill="outline"
-            data-testid="settings-manage-plan"
-            @click="managePlan"
-          >
+          <ion-button v-else size="small" fill="outline" data-testid="settings-manage-plan" @click="managePlan">
             {{ $t('paywall.manage') }}
           </ion-button>
-        </ion-item>
-        <!-- Automatic sync (Pro) — Free: the whole row opens the paywall, not a
-             tiny lock icon; the toggle only exists (and is actionable) for Pro. -->
-        <ion-item
-          :button="!auth.isPro"
-          :detail="false"
-          data-testid="auto-sync-row"
-          @click="!auth.isPro && openPaywall('autoSync')"
-        >
-          <ion-label class="ion-text-wrap">
-            {{ $t('settings.autoSync') }}
-            <p data-testid="auto-sync-helper">{{ $t('settings.autoSyncHelper') }}</p>
-          </ion-label>
-          <ion-toggle
-            v-if="auth.isPro"
-            slot="end"
-            :checked="auth.user?.autoSyncEnabled ?? false"
-            :disabled="autoSyncSaving"
-            data-testid="auto-sync-toggle"
-            @ionChange="onAutoSync($event.detail.checked)"
-          />
-          <ion-icon
-            v-else
-            :icon="lockClosedOutline"
-            slot="end"
-            color="medium"
-            data-testid="auto-sync-lock"
-          />
-        </ion-item>
-        <ion-text v-if="autoSyncError" color="danger">
-          <p class="portfolio-error" data-testid="auto-sync-error">{{ autoSyncError }}</p>
-        </ion-text>
-        <!-- Dev toggle (local only) for testing the gating without Stripe. Server
-             also enforces APP_ENV===local, so this is inert in any real build —
-             styled as an unmistakable dev-only control regardless. -->
-        <ion-item v-if="isDev" class="dev-only" lines="full">
-          <ion-label color="warning">⚠ DEV ONLY · Plan</ion-label>
-          <ion-segment
-            slot="end"
-            :value="auth.isPro ? 'PRO' : 'FREE'"
-            data-testid="dev-plan-toggle"
-            @ionChange="onDevPlan($event.detail.value as 'FREE' | 'PRO')"
-          >
-            <ion-segment-button value="FREE"><ion-label>Free</ion-label></ion-segment-button>
-            <ion-segment-button value="PRO"><ion-label>Pro</ion-label></ion-segment-button>
-          </ion-segment>
-        </ion-item>
-      </ion-list>
+        </section>
 
-      <!-- Portfolio management: separate tax subjects (own, parents, …) -->
-      <ion-list inset>
-        <ion-list-header>
-          <ion-label>{{ $t('portfolios.title') }}</ion-label>
-        </ion-list-header>
-        <ion-item v-for="p in portfolios.portfolios" :key="p.id" :data-testid="`portfolio-${p.label}`">
-          <ion-label>
-            <h3>
-              {{ p.label }}
-              <ion-badge v-if="p.isDefault" color="medium">{{ $t('portfolios.default') }}</ion-badge>
-            </h3>
-            <p>{{ $t('portfolios.sourceCount', { n: p.sourceCount }) }}</p>
-          </ion-label>
-          <ion-buttons slot="end">
-            <ion-button :data-testid="`portfolio-rename-${p.label}`" @click="promptRenamePortfolio(p)">
-              <ion-icon :icon="createOutline" slot="icon-only" />
-            </ion-button>
-            <ion-button
-              color="danger"
-              :data-testid="`portfolio-delete-${p.label}`"
-              @click="deletePortfolio(p)"
+        <!-- Sync -->
+        <section class="section" aria-labelledby="plan-title">
+          <h2 id="plan-title" class="section-title group-title">{{ $t('ui.settings.plan') }}</h2>
+          <ion-list inset class="group">
+            <!-- Free: the whole row opens the paywall; the toggle only exists for Pro -->
+            <ion-item
+              :button="!auth.isPro"
+              :detail="false"
+              data-testid="auto-sync-row"
+              @click="!auth.isPro && openPaywall('autoSync')"
             >
-              <ion-icon :icon="trashOutline" slot="icon-only" />
-            </ion-button>
-          </ion-buttons>
-        </ion-item>
-        <ion-item button :detail="false" data-testid="portfolio-create" @click="onCreatePortfolio">
-          <ion-label color="primary">{{ $t('portfolios.create') }}</ion-label>
-          <ion-note v-if="!auth.isPro" slot="end" data-testid="portfolio-count">
-            {{ portfolios.portfolios.length }}/{{ FREE_LIMITS.portfolios }}
-          </ion-note>
-          <ion-icon v-if="portfolioAtLimit" :icon="lockClosedOutline" slot="end" color="medium" />
-        </ion-item>
-      </ion-list>
-      <ion-text v-if="portfolioError" color="danger">
-        <p class="portfolio-error" data-testid="portfolio-error">{{ portfolioError }}</p>
-      </ion-text>
+              <ion-label class="ion-text-wrap">
+                {{ $t('settings.autoSync') }}
+                <p data-testid="auto-sync-helper">{{ $t('settings.autoSyncHelper') }}</p>
+              </ion-label>
+              <ion-toggle
+                v-if="auth.isPro"
+                slot="end"
+                :checked="auth.user?.autoSyncEnabled ?? false"
+                :disabled="autoSyncSaving"
+                :aria-label="$t('settings.autoSync')"
+                data-testid="auto-sync-toggle"
+                @ionChange="onAutoSync($event.detail.checked)"
+              />
+              <span v-else slot="end" class="tag" data-testid="auto-sync-lock">
+                <ion-icon :icon="lockClosedOutline" aria-hidden="true" /> Pro
+              </span>
+            </ion-item>
+            <!-- Dev toggle (local only): the server also enforces APP_ENV===local -->
+            <ion-item v-if="isDev" class="dev-only" lines="none">
+              <ion-label color="warning">DEV ONLY · Plan</ion-label>
+              <ion-segment
+                slot="end"
+                :value="auth.isPro ? 'PRO' : 'FREE'"
+                data-testid="dev-plan-toggle"
+                @ionChange="onDevPlan($event.detail.value as 'FREE' | 'PRO')"
+              >
+                <ion-segment-button value="FREE"><ion-label>Free</ion-label></ion-segment-button>
+                <ion-segment-button value="PRO"><ion-label>Pro</ion-label></ion-segment-button>
+              </ion-segment>
+            </ion-item>
+          </ion-list>
+          <p v-if="autoSyncError" class="notice notice--error inline-error" role="alert" data-testid="auto-sync-error">
+            {{ autoSyncError }}
+          </p>
+        </section>
 
-      <ion-list inset>
-        <ion-item>
-          <ion-label>
-            <p>{{ $t('settings.signedInAs') }}</p>
-            <h3 data-testid="settings-email">{{ auth.user?.email }}</h3>
-          </ion-label>
-        </ion-item>
-        <ion-item button :detail="false" data-testid="logout-button" @click="logout">
-          <ion-label color="danger">{{ $t('settings.logout') }}</ion-label>
-        </ion-item>
-        <ion-item button :detail="false" data-testid="delete-account-button" @click="confirmDeleteAccount">
-          <ion-label color="danger">{{ $t('settings.deleteAccount') }}</ion-label>
-        </ion-item>
-      </ion-list>
+        <!-- Appearance -->
+        <section class="section" aria-labelledby="appearance-title">
+          <h2 id="appearance-title" class="section-title group-title">{{ $t('ui.settings.appearance') }}</h2>
+          <ion-list inset class="group">
+            <ion-item>
+              <ion-select
+                :label="$t('settings.appearance')"
+                interface="popover"
+                :value="theme"
+                @ionChange="onThemeChange($event.detail.value)"
+              >
+                <ion-select-option value="system">{{ $t('settings.system') }}</ion-select-option>
+                <ion-select-option value="light">{{ $t('settings.light') }}</ion-select-option>
+                <ion-select-option value="dark">{{ $t('settings.dark') }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-select
+                :label="$t('settings.baseCurrency')"
+                interface="popover"
+                :value="auth.user?.baseCurrency ?? 'EUR'"
+                data-testid="currency-select"
+                @ionChange="onCurrencyChange($event.detail.value)"
+              >
+                <ion-select-option value="EUR">EUR</ion-select-option>
+                <ion-select-option value="USD">USD</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-select
+                :label="$t('settings.language')"
+                interface="popover"
+                :value="locale"
+                data-testid="language-select"
+                @ionChange="onLocaleChange($event.detail.value)"
+              >
+                <ion-select-option v-for="l in SUPPORTED_LOCALES" :key="l.code" :value="l.code">
+                  {{ l.name }}
+                </ion-select-option>
+              </ion-select>
+            </ion-item>
+          </ion-list>
+        </section>
+
+        <!-- Data & taxes -->
+        <section class="section" aria-labelledby="data-title">
+          <h2 id="data-title" class="section-title group-title">{{ $t('ui.settings.data') }}</h2>
+          <ion-list inset class="group">
+            <ion-item button data-testid="open-tax-report" @click="openTaxReport">
+              <ion-icon slot="start" :icon="documentTextOutline" aria-hidden="true" />
+              <ion-label>{{ $t('tax.settingsEntry') }}</ion-label>
+              <span v-if="!auth.isPro" slot="end" class="tag">
+                <ion-icon :icon="lockClosedOutline" aria-hidden="true" /> Pro
+              </span>
+            </ion-item>
+            <ion-item button data-testid="open-referral" @click="openReferral">
+              <ion-icon slot="start" :icon="giftOutline" aria-hidden="true" />
+              <ion-label>{{ $t('referral.settingsEntry') }}</ion-label>
+            </ion-item>
+          </ion-list>
+        </section>
+
+        <!-- Tax entities: separate portfolios (own, parents, …) -->
+        <section class="section" aria-labelledby="entities-title">
+          <h2 id="entities-title" class="section-title group-title">{{ $t('portfolios.title') }}</h2>
+          <ion-list inset class="group">
+            <ion-item v-for="p in portfolios.portfolios" :key="p.id" :data-testid="`portfolio-${p.label}`">
+              <ion-label>
+                <h3>
+                  {{ p.label }}
+                  <span v-if="p.isDefault" class="tag">{{ $t('portfolios.default') }}</span>
+                </h3>
+                <p>{{ $t('portfolios.sourceCount', { n: p.sourceCount }) }}</p>
+              </ion-label>
+              <ion-buttons slot="end">
+                <ion-button
+                  :aria-label="`${$t('ui.sources.rename')}: ${p.label}`"
+                  :data-testid="`portfolio-rename-${p.label}`"
+                  @click="promptRenamePortfolio(p)"
+                >
+                  <ion-icon :icon="createOutline" slot="icon-only" aria-hidden="true" />
+                </ion-button>
+                <ion-button
+                  color="danger"
+                  :aria-label="`${$t('common.delete')}: ${p.label}`"
+                  :data-testid="`portfolio-delete-${p.label}`"
+                  @click="deletePortfolio(p)"
+                >
+                  <ion-icon :icon="trashOutline" slot="icon-only" aria-hidden="true" />
+                </ion-button>
+              </ion-buttons>
+            </ion-item>
+            <ion-item button :detail="false" data-testid="portfolio-create" @click="onCreatePortfolio">
+              <ion-icon slot="start" :icon="addOutline" color="primary" aria-hidden="true" />
+              <ion-label color="primary">{{ $t('portfolios.create') }}</ion-label>
+              <ion-note v-if="!auth.isPro" slot="end" class="fig" data-testid="portfolio-count">
+                {{ portfolios.portfolios.length }}/{{ FREE_LIMITS.portfolios }}
+              </ion-note>
+              <ion-icon v-if="portfolioAtLimit" :icon="lockClosedOutline" slot="end" aria-hidden="true" />
+            </ion-item>
+          </ion-list>
+          <p v-if="portfolioError" class="notice notice--error inline-error" role="alert" data-testid="portfolio-error">
+            {{ portfolioError }}
+          </p>
+        </section>
+
+        <!-- Session and account -->
+        <section class="section" aria-labelledby="session-title">
+          <h2 id="session-title" class="section-title group-title">{{ $t('ui.settings.account') }}</h2>
+          <ion-list inset class="group">
+            <ion-item button :detail="false" data-testid="logout-button" @click="logout">
+              <ion-icon slot="start" :icon="logOutOutline" aria-hidden="true" />
+              <ion-label>{{ $t('settings.logout') }}</ion-label>
+            </ion-item>
+            <ion-item button :detail="false" data-testid="delete-account-button" @click="confirmDeleteAccount">
+              <ion-icon slot="start" :icon="trashOutline" color="danger" aria-hidden="true" />
+              <ion-label color="danger">{{ $t('settings.deleteAccount') }}</ion-label>
+            </ion-item>
+          </ion-list>
+        </section>
+      </div>
     </ion-content>
   </ion-page>
 </template>
@@ -197,32 +205,34 @@
 <script setup lang="ts">
 import {
   alertController,
-  IonBadge,
   IonButton,
   IonButtons,
   IonContent,
-  IonHeader,
   IonIcon,
   IonItem,
   IonLabel,
   IonList,
-  IonListHeader,
   IonNote,
   IonPage,
   IonSegment,
   IonSegmentButton,
   IonSelect,
   IonSelectOption,
-  IonText,
-  IonTitle,
   IonToggle,
-  IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import PortfolioSwitcher from '../components/PortfolioSwitcher.vue'
+import AppTopBar from '../components/AppTopBar.vue'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createOutline, giftOutline, lockClosedOutline, trashOutline } from 'ionicons/icons'
+import {
+  addOutline,
+  createOutline,
+  documentTextOutline,
+  giftOutline,
+  lockClosedOutline,
+  logOutOutline,
+  trashOutline,
+} from 'ionicons/icons'
 import { FREE_LIMITS, type PortfolioDto } from '@crypto-tracker/shared'
 import {
   getThemePreference,
@@ -424,3 +434,64 @@ async function deletePortfolio(p: PortfolioDto) {
   await alert.present()
 }
 </script>
+
+<style scoped>
+.account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-3);
+  padding: var(--app-space-4);
+}
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--app-ink);
+  color: var(--app-ground);
+  font-weight: 700;
+  font-size: var(--app-text-lg);
+}
+.account-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.account ion-button {
+  margin-left: auto;
+}
+.email {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.plan {
+  margin: 2px 0 0;
+  font-size: var(--app-text-sm);
+  color: var(--app-ink-2);
+}
+.tag--pro {
+  border-color: var(--app-accent);
+  color: var(--app-accent);
+}
+.group-title {
+  margin: 0 0 var(--app-space-2);
+}
+.group {
+  margin: 0;
+  border: 1px solid var(--app-rule);
+  border-radius: var(--app-radius);
+  --ion-item-background: var(--app-sheet);
+}
+.tag ion-icon {
+  vertical-align: -1px;
+}
+.inline-error {
+  margin-top: var(--app-space-3);
+}
+.dev-only ion-segment {
+  max-width: 180px;
+}
+</style>

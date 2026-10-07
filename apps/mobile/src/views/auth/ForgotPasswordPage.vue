@@ -1,13 +1,10 @@
 <template>
   <ion-page>
-    <ion-content :fullscreen="true" class="ion-padding">
-      <div class="auth-wrap">
-        <h1>{{ $t('auth.appTitle') }}</h1>
-        <p class="subtitle">{{ $t('auth.forgotSubtitle') }}</p>
-
+    <ion-content>
+      <AuthLayout :title="$t('auth.forgotSubtitle')">
         <template v-if="!sent">
           <form @submit.prevent="submit">
-            <ion-list inset>
+            <ion-list inset class="auth-fields">
               <ion-item>
                 <ion-input
                   v-model="email"
@@ -21,9 +18,7 @@
               </ion-item>
             </ion-list>
 
-            <ion-text v-if="error" color="danger">
-              <p class="error" data-testid="forgot-error">{{ error }}</p>
-            </ion-text>
+            <p v-if="error" class="notice notice--error" role="alert" data-testid="forgot-error">{{ error }}</p>
 
             <ion-button expand="block" type="submit" :disabled="loading" data-testid="forgot-submit">
               <ion-spinner v-if="loading" name="crescent" />
@@ -32,19 +27,18 @@
           </form>
         </template>
 
-        <ion-text v-else color="medium">
-          <p class="info" data-testid="forgot-sent">{{ $t('auth.resetLinkSent') }}</p>
-        </ion-text>
+        <p v-else class="notice notice--info" role="status" data-testid="forgot-sent">{{ $t('auth.resetLinkSent') }}</p>
 
-        <ion-button expand="block" fill="clear" router-link="/login" data-testid="goto-login">
-          {{ $t('auth.backToLogin') }}
-        </ion-button>
-      </div>
+        <nav class="auth-links">
+          <router-link to="/login" data-testid="goto-login">{{ $t('auth.backToLogin') }}</router-link>
+        </nav>
+      </AuthLayout>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
+import AuthLayout from '../../components/AuthLayout.vue'
 import {
   IonButton,
   IonContent,
@@ -53,7 +47,6 @@ import {
   IonList,
   IonPage,
   IonSpinner,
-  IonText,
 } from '@ionic/vue'
 import { ref } from 'vue'
 import { useAuthStore } from '../../stores/auth.store'
@@ -80,27 +73,3 @@ async function submit() {
   }
 }
 </script>
-
-<style scoped>
-.auth-wrap {
-  max-width: 420px;
-  margin: 12vh auto 0;
-}
-h1 {
-  text-align: center;
-  font-weight: 700;
-}
-.subtitle {
-  text-align: center;
-  color: var(--ion-color-medium);
-  margin-bottom: 24px;
-}
-.error,
-.info {
-  margin: 8px 16px;
-  font-size: 0.9em;
-}
-.info {
-  text-align: center;
-}
-</style>

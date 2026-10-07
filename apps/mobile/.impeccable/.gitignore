@@ -1,0 +1,6 @@
+# Generated during design runs: review captures, decision-page logs, hook cache
+review/
+questions/
+mocks/
+hook.cache.json
+config.local.json

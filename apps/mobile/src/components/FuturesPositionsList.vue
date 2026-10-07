@@ -11,12 +11,8 @@
       <ion-label>
         <h3>
           {{ p.assetSymbol }}
-          <ion-badge
-            :color="p.side === 'LONG' ? 'success' : 'danger'"
-            :data-testid="`futures-side-${p.assetSymbol}`"
-          >
-            {{ $t(`futures.side.${p.side}`) }}
-          </ion-badge>
+          <!-- Direction is not a gain/loss: neutral tag, not green/red -->
+          <span class="tag" :data-testid="`futures-side-${p.assetSymbol}`">{{ $t(`futures.side.${p.side}`) }}</span>
           <span v-if="p.leverage" class="lev">{{ $t('futures.leverage', { x: p.leverage }) }}</span>
         </h3>
         <p>
@@ -27,13 +23,13 @@
         </p>
       </ion-label>
       <ion-note slot="end" class="end">
-        <span class="notional">{{ formatCurrency(p.valueEur, 'EUR') }}</span>
+        <span class="notional fig">{{ formatCurrency(p.valueEur, 'EUR') }}</span>
         <span
-          class="upnl"
+          class="upnl fig"
           :class="{ negative: isNegative(p.unrealizedPnlEur), positive: isPositive(p.unrealizedPnlEur) }"
           :data-testid="`futures-pnl-${p.assetSymbol}`"
         >
-          {{ formatCurrency(p.unrealizedPnlEur, 'EUR') }}
+          {{ signed(p.unrealizedPnlEur) }}
         </span>
       </ion-note>
     </ion-item>
@@ -41,12 +37,19 @@
 </template>
 
 <script setup lang="ts">
-import { IonBadge, IonItem, IonLabel, IonList, IonListHeader, IonNote } from '@ionic/vue'
+import { IonItem, IonLabel, IonList, IonListHeader, IonNote } from '@ionic/vue'
 import { usePortfolioStore } from '../stores/portfolio.store'
 import { formatCurrency, formatCurrencyRaw, formatQuantity } from '../services/format'
 import { balancesHidden } from '../services/privacy'
 
 const portfolio = usePortfolioStore()
+
+// P/L always carries its sign, so colour is never the only signal
+function signed(value: string | null): string {
+  const formatted = formatCurrency(value, 'EUR')
+  if (balancesHidden.value || value === null) return formatted
+  return Number(value) > 0 ? `+${formatted}` : formatted.replace('-', '−')
+}
 
 // uPnL green/red — no color when the privacy mask is on (don't let the sign leak)
 function isNegative(value: string | null): boolean {
@@ -69,9 +72,9 @@ function isPositive(value: string | null): boolean {
   align-items: flex-end;
 }
 .upnl.negative {
-  color: var(--app-color-loss, #dc2626);
+  color: var(--app-loss);
 }
 .upnl.positive {
-  color: var(--app-color-gain, #16a34a);
+  color: var(--app-gain);
 }
 </style>

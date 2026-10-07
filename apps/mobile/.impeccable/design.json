@@ -1,0 +1,479 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-07T09:14:40+00:00",
+  "title": "Design System: Crypto Tracker",
+  "extensions": {
+    "colorMeta": {
+      "bank-stamp-blue": {
+        "role": "primary",
+        "displayName": "Bank-Stamp Blue",
+        "canonical": "#2546a8",
+        "tonalRamp": [
+          "#0f1d47",
+          "#172c6b",
+          "#203d94",
+          "#2546a8",
+          "#3b59b1",
+          "#6f86cc",
+          "#b3c1ea",
+          "#e3e9f8"
+        ]
+      },
+      "night-stamp-blue": {
+        "role": "primary",
+        "displayName": "Night Stamp Blue",
+        "canonical": "#9db2ff",
+        "tonalRamp": [
+          "#1f2944",
+          "#2f3f6e",
+          "#4a5ea3",
+          "#6f86d6",
+          "#8a9de0",
+          "#9db2ff",
+          "#c4d1ff",
+          "#e6ecff"
+        ]
+      },
+      "booked-gain": {
+        "role": "secondary",
+        "displayName": "Booked Gain",
+        "canonical": "#17663f",
+        "tonalRamp": [
+          "#0a2e1c",
+          "#0f4329",
+          "#145a37",
+          "#17663f",
+          "#2e7552",
+          "#5a9b78",
+          "#a6cdb6",
+          "#e1f0e7"
+        ]
+      },
+      "booked-loss": {
+        "role": "secondary",
+        "displayName": "Booked Loss",
+        "canonical": "#b42318",
+        "tonalRamp": [
+          "#4a0e0a",
+          "#6e150e",
+          "#9e1f15",
+          "#b42318",
+          "#bc392f",
+          "#d77168",
+          "#efb8b2",
+          "#f8e4e1"
+        ]
+      },
+      "caution-ochre": {
+        "role": "secondary",
+        "displayName": "Caution Ochre",
+        "canonical": "#7a5100",
+        "tonalRamp": [
+          "#2e1f00",
+          "#4a3200",
+          "#6b4700",
+          "#7a5100",
+          "#87621a",
+          "#b08b45",
+          "#dcc28e",
+          "#f6ecd6"
+        ]
+      },
+      "highlighter": {
+        "role": "secondary",
+        "displayName": "Highlighter",
+        "canonical": "#fff1b0",
+        "tonalRamp": [
+          "#3b3518",
+          "#5e5420",
+          "#86782a",
+          "#b0a038",
+          "#d8c64e",
+          "#f2df72",
+          "#fff1b0",
+          "#fff9de"
+        ]
+      },
+      "series-2-petrol": {
+        "role": "tertiary",
+        "displayName": "Petrol Ink",
+        "canonical": "#1c6e73",
+        "tonalRamp": [
+          "#0a2a2c",
+          "#114346",
+          "#185b5f",
+          "#1c6e73",
+          "#3a8a8f",
+          "#6cadb1",
+          "#a9d2d4",
+          "#e2f1f2"
+        ]
+      },
+      "series-3-ochre": {
+        "role": "tertiary",
+        "displayName": "Ochre Ink",
+        "canonical": "#a0701a",
+        "tonalRamp": [
+          "#3a280a",
+          "#5a3f10",
+          "#7d5815",
+          "#a0701a",
+          "#b98a38",
+          "#d0aa66",
+          "#e6d0a6",
+          "#f7eedd"
+        ]
+      },
+      "series-4-aubergine": {
+        "role": "tertiary",
+        "displayName": "Aubergine Ink",
+        "canonical": "#7a3b69",
+        "tonalRamp": [
+          "#2d1527",
+          "#46213d",
+          "#602d53",
+          "#7a3b69",
+          "#955a85",
+          "#b689a9",
+          "#d7bcd0",
+          "#f2e7ef"
+        ]
+      },
+      "series-5-slate": {
+        "role": "tertiary",
+        "displayName": "Slate Ink",
+        "canonical": "#4f5d8a",
+        "tonalRamp": [
+          "#1c2133",
+          "#2b3350",
+          "#3d4870",
+          "#4f5d8a",
+          "#6c79a2",
+          "#97a1c0",
+          "#c6cbdd",
+          "#eceef5"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Statement Ink",
+        "canonical": "#14201b",
+        "tonalRamp": [
+          "#14201b",
+          "#2c3833",
+          "#46564e",
+          "#5a6a62",
+          "#7f8d86",
+          "#aab6b0",
+          "#c9d3cd",
+          "#eef2ef"
+        ]
+      },
+      "statement-ground": {
+        "role": "neutral",
+        "displayName": "Statement Paper",
+        "canonical": "#eef2ef",
+        "tonalRamp": [
+          "#14201b",
+          "#2c3833",
+          "#46564e",
+          "#6b7a73",
+          "#9aa8a1",
+          "#c9d3cd",
+          "#dde3df",
+          "#eef2ef"
+        ]
+      },
+      "statement-sheet": {
+        "role": "neutral",
+        "displayName": "Sheet White",
+        "canonical": "#f9fbf9",
+        "tonalRamp": [
+          "#14201b",
+          "#2c3833",
+          "#46564e",
+          "#6b7a73",
+          "#9aa8a1",
+          "#d3dad6",
+          "#eef2ef",
+          "#f9fbf9"
+        ]
+      },
+      "hairline-rule": {
+        "role": "neutral",
+        "displayName": "Hairline Rule",
+        "canonical": "#c9d3cd",
+        "tonalRamp": [
+          "#14201b",
+          "#2c3833",
+          "#46564e",
+          "#6b7a73",
+          "#9aa8a1",
+          "#c9d3cd",
+          "#dde3df",
+          "#eef2ef"
+        ]
+      },
+      "control-rule": {
+        "role": "neutral",
+        "displayName": "Control Rule",
+        "canonical": "#7f8d86",
+        "tonalRamp": [
+          "#14201b",
+          "#2c3833",
+          "#46564e",
+          "#66756e",
+          "#7f8d86",
+          "#9aa8a1",
+          "#c9d3cd",
+          "#eef2ef"
+        ]
+      },
+      "night-ground": {
+        "role": "neutral",
+        "displayName": "Night Statement Ground",
+        "canonical": "#0e1513",
+        "tonalRamp": [
+          "#0e1513",
+          "#151e1a",
+          "#19221e",
+          "#1d2723",
+          "#222d28",
+          "#2c3833",
+          "#55635c",
+          "#8fa098"
+        ]
+      },
+      "night-sheet": {
+        "role": "neutral",
+        "displayName": "Night Statement Sheet",
+        "canonical": "#151e1a",
+        "tonalRamp": [
+          "#0e1513",
+          "#151e1a",
+          "#19221e",
+          "#1d2723",
+          "#222d28",
+          "#2c3833",
+          "#55635c",
+          "#8fa098"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "saldo": {
+        "displayName": "Saldo",
+        "purpose": "The portfolio total on the overview only; figure face, font-stretch 80%."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Empty-state and modal-sheet headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Toolbar and card titles."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "Section heads above statement sheets."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running text."
+      },
+      "row-label": {
+        "displayName": "Row Label",
+        "purpose": "Statement-row primary label."
+      },
+      "secondary": {
+        "displayName": "Secondary",
+        "purpose": "Row sub-lines, notices, change line."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Tags, marks, day headings, tab labels, hints, chart axis."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Every amount, quantity, percentage and date column (Martian Mono, font-stretch 80%, tabular slashed-zero numerals)."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "ease-house",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Single easing for row state transitions and the fresh-line highlight."
+      },
+      {
+        "name": "row-state",
+        "value": "180ms",
+        "purpose": "Opacity/background transitions on statement rows (focus, dim, press)."
+      },
+      {
+        "name": "fresh-line-highlight",
+        "value": "1600ms ease-house, 200ms delay, highlighter to transparent",
+        "purpose": "The one authored moment: a newly booked line. Reduced motion: static highlighter background."
+      },
+      {
+        "name": "busy-pulse",
+        "value": "1.2s ease-in-out infinite, opacity to 0.25",
+        "purpose": "Dot of a busy sync mark."
+      },
+      {
+        "name": "page-transition",
+        "value": "Ionic mdTransitionAnimation (iOS-mode controls)",
+        "purpose": "Short push/pop; disabled entirely (animated: false) under prefers-reduced-motion."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation/transition-duration 0.01ms !important",
+        "purpose": "Global collapse under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "page-max",
+        "value": "640px"
+      },
+      {
+        "name": "auth-max",
+        "value": "420px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Statement with Summenstrich",
+      "kind": "card",
+      "refersTo": "statement-total",
+      "description": "Positions per source on a sheet, summing over a double rule to the bold Saldo row; tapping a row focuses it and dims the rest.",
+      "html": "<ul class=\"ds-sheet\"><li><button class=\"ds-row is-focused\"><span><span class=\"ds-label\">Kraken</span><span class=\"ds-mark ok\">Synchronisiert</span></span><span class=\"ds-value ds-fig\">12.480,20 €</span></button></li><li><button class=\"ds-row is-dimmed\"><span><span class=\"ds-label\">Bitcoin-Wallet</span><span class=\"ds-mark\">vor 2 Std.</span></span><span class=\"ds-value ds-fig\">8.115,00 €</span></button></li><li class=\"ds-total\"><span>Saldo</span><span class=\"ds-fig\">20.595,20 €</span></li></ul>",
+      "css": ":host{--app-ground:#eef2ef;--app-sheet:#f9fbf9;--app-ink:#14201b;--app-ink-rgb:20,32,27;--app-ink-2:#46564e;--app-ink-3:#5a6a62;--app-rule:#c9d3cd;--app-rule-control:#7f8d86;--app-accent:#2546a8;--app-accent-on:#fff;--app-accent-soft:#e3e9f8;--app-gain:#17663f;--app-loss:#b42318;--app-warn:#7a5100;--app-warn-soft:#f6ecd6;--app-loss-soft:#f8e4e1;--app-highlight:#fff1b0;--app-font-ui:'Golos Text Variable',system-ui,sans-serif;--app-font-figures:'Martian Mono Variable',ui-monospace,monospace;--app-ease:cubic-bezier(0.16,1,0.3,1)} .ds-fig{font-family:var(--app-font-figures);font-stretch:80%;font-variant-numeric:tabular-nums slashed-zero;letter-spacing:-0.01em;white-space:nowrap} .ds-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;min-height:56px;padding:8px 16px;border-top:1px solid var(--app-rule);font-family:var(--app-font-ui);color:var(--app-ink);background:none;width:100%;text-align:left;border-left:0;border-right:0;border-bottom:0;font-size:1rem;transition:background-color 180ms var(--app-ease),opacity 180ms var(--app-ease)} .ds-row:first-child{border-top:0} .ds-label{display:block;font-weight:550} .ds-sub{display:block;margin-top:2px;font-size:.875rem;color:var(--app-ink-2)} .ds-value{text-align:right} .ds-sheet{background:var(--app-sheet);border:1px solid var(--app-rule);border-radius:10px;list-style:none;margin:0;padding:0;font-family:var(--app-font-ui);color:var(--app-ink)} .ds-row{cursor:pointer} .ds-row:active{background:rgba(var(--app-ink-rgb),.05)} .ds-row:focus-visible{outline:2px solid var(--app-accent);outline-offset:-2px} .ds-row.is-focused{background:var(--app-accent-soft)} .ds-row.is-dimmed{opacity:.42} .ds-total{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;padding:12px 16px;border-top:3px double var(--app-ink);font-weight:700} .ds-total .ds-fig{font-weight:650;font-size:1.125rem} .ds-mark{display:inline-flex;align-items:center;gap:4px;font-size:.75rem;font-weight:600;color:var(--app-ink-2)} .ds-mark::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor} .ds-mark.ok{color:var(--app-gain)}"
+    },
+    {
+      "name": "Booking List",
+      "kind": "custom",
+      "refersTo": "statement-day",
+      "description": "Day-grouped booking lines; quantity deltas signed but uncoloured; a fresh line gets a highlighter pass.",
+      "html": "<ol class=\"ds-sheet\"><li class=\"ds-day\">Heute</li><li class=\"ds-row ds-fresh\"><span><span class=\"ds-label\">BTC · Kraken</span><span class=\"ds-sub\">Zugang · Sync</span></span><span class=\"ds-value\"><span class=\"ds-fig\">+0,0500 BTC</span><span class=\"ds-sub ds-fig\">3.120,00 €</span></span></li><li class=\"ds-day\">Gestern</li><li class=\"ds-row\"><span><span class=\"ds-label\">SOL · Solana-Wallet</span><span class=\"ds-sub\">Abgang · Sync</span></span><span class=\"ds-value\"><span class=\"ds-fig\">−12,00 SOL</span><span class=\"ds-sub ds-fig\">1.704,00 €</span></span></li></ol>",
+      "css": ":host{--app-ground:#eef2ef;--app-sheet:#f9fbf9;--app-ink:#14201b;--app-ink-rgb:20,32,27;--app-ink-2:#46564e;--app-ink-3:#5a6a62;--app-rule:#c9d3cd;--app-rule-control:#7f8d86;--app-accent:#2546a8;--app-accent-on:#fff;--app-accent-soft:#e3e9f8;--app-gain:#17663f;--app-loss:#b42318;--app-warn:#7a5100;--app-warn-soft:#f6ecd6;--app-loss-soft:#f8e4e1;--app-highlight:#fff1b0;--app-font-ui:'Golos Text Variable',system-ui,sans-serif;--app-font-figures:'Martian Mono Variable',ui-monospace,monospace;--app-ease:cubic-bezier(0.16,1,0.3,1)} .ds-fig{font-family:var(--app-font-figures);font-stretch:80%;font-variant-numeric:tabular-nums slashed-zero;letter-spacing:-0.01em;white-space:nowrap} .ds-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;min-height:56px;padding:8px 16px;border-top:1px solid var(--app-rule);font-family:var(--app-font-ui);color:var(--app-ink);background:none;width:100%;text-align:left;border-left:0;border-right:0;border-bottom:0;font-size:1rem;transition:background-color 180ms var(--app-ease),opacity 180ms var(--app-ease)} .ds-row:first-child{border-top:0} .ds-label{display:block;font-weight:550} .ds-sub{display:block;margin-top:2px;font-size:.875rem;color:var(--app-ink-2)} .ds-value{text-align:right} .ds-sheet{background:var(--app-sheet);border:1px solid var(--app-rule);border-radius:10px;list-style:none;margin:0;padding:0;font-family:var(--app-font-ui);color:var(--app-ink)} .ds-day{padding:12px 16px 4px;font-size:.75rem;font-weight:650;letter-spacing:.02em;color:var(--app-ink-2);border-top:1px solid var(--app-rule)} .ds-day:first-child{border-top:0} .ds-value .ds-sub{font-size:.75rem} @keyframes ds-hl{from{background-color:var(--app-highlight)}to{background-color:transparent}} .ds-fresh{animation:ds-hl 1600ms var(--app-ease) 200ms both} @media (prefers-reduced-motion:reduce){.ds-fresh{animation:none;background-color:var(--app-highlight)}}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Bank-stamp blue action, 6px radius, 44px min height, sentence case, no shadow.",
+      "html": "<button class=\"ds-btn\">Quelle hinzufügen</button>",
+      "css": ":host{--app-ground:#eef2ef;--app-sheet:#f9fbf9;--app-ink:#14201b;--app-ink-rgb:20,32,27;--app-ink-2:#46564e;--app-ink-3:#5a6a62;--app-rule:#c9d3cd;--app-rule-control:#7f8d86;--app-accent:#2546a8;--app-accent-on:#fff;--app-accent-soft:#e3e9f8;--app-gain:#17663f;--app-loss:#b42318;--app-warn:#7a5100;--app-warn-soft:#f6ecd6;--app-loss-soft:#f8e4e1;--app-highlight:#fff1b0;--app-font-ui:'Golos Text Variable',system-ui,sans-serif;--app-font-figures:'Martian Mono Variable',ui-monospace,monospace;--app-ease:cubic-bezier(0.16,1,0.3,1)} .ds-btn{font-family:var(--app-font-ui);font-weight:600;font-size:1rem;background:var(--app-accent);color:var(--app-accent-on);border:0;border-radius:6px;min-height:44px;padding:0 18px;cursor:pointer} .ds-btn:hover{background:#203d94} .ds-btn:active{background:#203d94} .ds-btn:focus-visible{outline:2px solid var(--app-accent);outline-offset:2px}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Secondary action such as Retry: blue text and border, transparent ground.",
+      "html": "<button class=\"ds-btn-outline\">Erneut versuchen</button>",
+      "css": ":host{--app-ground:#eef2ef;--app-sheet:#f9fbf9;--app-ink:#14201b;--app-ink-rgb:20,32,27;--app-ink-2:#46564e;--app-ink-3:#5a6a62;--app-rule:#c9d3cd;--app-rule-control:#7f8d86;--app-accent:#2546a8;--app-accent-on:#fff;--app-accent-soft:#e3e9f8;--app-gain:#17663f;--app-loss:#b42318;--app-warn:#7a5100;--app-warn-soft:#f6ecd6;--app-loss-soft:#f8e4e1;--app-highlight:#fff1b0;--app-font-ui:'Golos Text Variable',system-ui,sans-serif;--app-font-figures:'Martian Mono Variable',ui-monospace,monospace;--app-ease:cubic-bezier(0.16,1,0.3,1)} .ds-btn-outline{font-family:var(--app-font-ui);font-weight:600;font-size:.875rem;background:transparent;color:var(--app-accent);border:1px solid var(--app-accent);border-radius:6px;min-height:44px;padding:0 14px;cursor:pointer} .ds-btn-outline:hover{background:var(--app-accent-soft)} .ds-btn-outline:focus-visible{outline:2px solid var(--app-accent);outline-offset:2px}"
+    },
+    {
+      "name": "Tag",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "Outline label for account type, origin or plan.",
+      "html": "<span class=\"ds-tag\">Earn</span> <span class=\"ds-tag\">CSV-Import</span>",
+      "css": ":host{--app-ground:#eef2ef;--app-sheet:#f9fbf9;--app-ink:#14201b;--app-ink-rgb:20,32,27;--app-ink-2:#46564e;--app-ink-3:#5a6a62;--app-rule:#c9d3cd;--app-rule-control:#7f8d86;--app-accent:#2546a8;--app-accent-on:#fff;--app-accent-soft:#e3e9f8;--app-gain:#17663f;--app-loss:#b42318;--app-warn:#7a5100;--app-warn-soft:#f6ecd6;--app-loss-soft:#f8e4e1;--app-highlight:#fff1b0;--app-font-ui:'Golos Text Variable',system-ui,sans-serif;--app-font-figures:'Martian Mono Variable',ui-monospace,monospace;--app-ease:cubic-bezier(0.16,1,0.3,1)} .ds-tag{display:inline-block;padding:1px 6px;border:1px solid var(--app-rule-control);border-radius:4px;font-family:var(--app-font-ui);font-size:.75rem;font-weight:600;color:var(--app-ink-2);line-height:1.5}"
+    },
+    {
+      "name": "Notice",
+      "kind": "card",
+      "refersTo": "notice-warn",
+      "description": "Inline tinted notice with icon; warn default, error and info variants; no side stripes.",
+      "html": "<div class=\"ds-notice\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v5M12 16.5v.5\"/></svg><p>Zwei Assets haben keinen Kurs und fehlen im Saldo.</p></div><div class=\"ds-notice ds-notice--error\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v5M12 16.5v.5\"/></svg><p>Laden fehlgeschlagen.</p></div>",
+      "css": ":host{--app-ground:#eef2ef;--app-sheet:#f9fbf9;--app-ink:#14201b;--app-ink-rgb:20,32,27;--app-ink-2:#46564e;--app-ink-3:#5a6a62;--app-rule:#c9d3cd;--app-rule-control:#7f8d86;--app-accent:#2546a8;--app-accent-on:#fff;--app-accent-soft:#e3e9f8;--app-gain:#17663f;--app-loss:#b42318;--app-warn:#7a5100;--app-warn-soft:#f6ecd6;--app-loss-soft:#f8e4e1;--app-highlight:#fff1b0;--app-font-ui:'Golos Text Variable',system-ui,sans-serif;--app-font-figures:'Martian Mono Variable',ui-monospace,monospace;--app-ease:cubic-bezier(0.16,1,0.3,1)} .ds-notice{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:10px;background:var(--app-warn-soft);color:var(--app-ink);font-family:var(--app-font-ui);font-size:.875rem;margin-bottom:8px} .ds-notice svg{flex:none;color:var(--app-warn)} .ds-notice p{margin:0} .ds-notice--error{background:var(--app-loss-soft)} .ds-notice--error svg{color:var(--app-loss)}"
+    },
+    {
+      "name": "Change Line",
+      "kind": "custom",
+      "refersTo": "figure",
+      "description": "Headline value change: arrow, sr-only word, signed amount and percent in figures, range note in ink-secondary.",
+      "html": "<p class=\"ds-change gain\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" aria-hidden=\"true\"><path d=\"M12 19V5M5 12l7-7 7 7\"/></svg><span class=\"ds-fig\">+412,30 €</span><span class=\"ds-fig\">(+2,0 %)</span><span class=\"since\">seit 24 Std.</span></p><p class=\"ds-change loss\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12l7 7 7-7\"/></svg><span class=\"ds-fig\">−88,10 €</span><span class=\"ds-fig\">(−0,4 %)</span><span class=\"since\">seit 7 Tagen</span></p>",
+      "css": ":host{--app-ground:#eef2ef;--app-sheet:#f9fbf9;--app-ink:#14201b;--app-ink-rgb:20,32,27;--app-ink-2:#46564e;--app-ink-3:#5a6a62;--app-rule:#c9d3cd;--app-rule-control:#7f8d86;--app-accent:#2546a8;--app-accent-on:#fff;--app-accent-soft:#e3e9f8;--app-gain:#17663f;--app-loss:#b42318;--app-warn:#7a5100;--app-warn-soft:#f6ecd6;--app-loss-soft:#f8e4e1;--app-highlight:#fff1b0;--app-font-ui:'Golos Text Variable',system-ui,sans-serif;--app-font-figures:'Martian Mono Variable',ui-monospace,monospace;--app-ease:cubic-bezier(0.16,1,0.3,1)} .ds-fig{font-family:var(--app-font-figures);font-stretch:80%;font-variant-numeric:tabular-nums slashed-zero;letter-spacing:-0.01em;white-space:nowrap} .ds-change{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin:0 0 8px;font-family:var(--app-font-ui);font-size:.875rem;font-weight:600} .ds-change.gain{color:var(--app-gain)} .ds-change.loss{color:var(--app-loss)} .ds-change .since{color:var(--app-ink-2);font-weight:500}"
+    },
+    {
+      "name": "Tab Bar",
+      "kind": "nav",
+      "refersTo": "tab-bar",
+      "description": "Four bottom tabs on the sheet; selected in bank-stamp blue; labels wrap.",
+      "html": "<nav class=\"ds-tabs\"><a class=\"on\" href=\"#\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><rect x=\"5\" y=\"3\" width=\"14\" height=\"18\" rx=\"2\"/><path d=\"M9 8h6M9 12h6M9 16h4\"/></svg>Übersicht</a><a href=\"#\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M12 3 3 8l9 5 9-5-9-5zM3 13l9 5 9-5\"/></svg>Bestände</a><a href=\"#\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><circle cx=\"6\" cy=\"6\" r=\"2\"/><circle cx=\"6\" cy=\"18\" r=\"2\"/><circle cx=\"18\" cy=\"8\" r=\"2\"/><path d=\"M6 8v8M18 10c0 4-6 3-12 6\"/></svg>Quellen</a><a href=\"#\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M3 12h4l3-7 4 14 3-7h4\"/></svg>Markt</a></nav>",
+      "css": ":host{--app-ground:#eef2ef;--app-sheet:#f9fbf9;--app-ink:#14201b;--app-ink-rgb:20,32,27;--app-ink-2:#46564e;--app-ink-3:#5a6a62;--app-rule:#c9d3cd;--app-rule-control:#7f8d86;--app-accent:#2546a8;--app-accent-on:#fff;--app-accent-soft:#e3e9f8;--app-gain:#17663f;--app-loss:#b42318;--app-warn:#7a5100;--app-warn-soft:#f6ecd6;--app-loss-soft:#f8e4e1;--app-highlight:#fff1b0;--app-font-ui:'Golos Text Variable',system-ui,sans-serif;--app-font-figures:'Martian Mono Variable',ui-monospace,monospace;--app-ease:cubic-bezier(0.16,1,0.3,1)} .ds-tabs{display:grid;grid-template-columns:repeat(4,1fr);height:56px;background:var(--app-sheet);border-top:1px solid var(--app-rule);font-family:var(--app-font-ui)} .ds-tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--app-ink-2);text-decoration:none;font-size:.75rem;font-weight:600;line-height:1.15;text-align:center;min-height:44px} .ds-tabs a.on{color:var(--app-accent)} .ds-tabs a:hover{color:var(--app-ink)} .ds-tabs a.on:hover{color:var(--app-accent)} .ds-tabs a:focus-visible{outline:2px solid var(--app-accent);outline-offset:-2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Kontoauszug",
+    "overview": "The app reads like a bank statement. Positions per source are listed as hairline rows on a paper sheet and add up visibly over a double rule (the Summenstrich) to a bold total, the Saldo; booked movements follow as day-grouped lines with a running balance. The same statement grammar repeats everywhere a number has an origin: the overview's positions, an asset's per-source lines summing to its total quantity, the movements list. Provenance is a visual habit, not a feature screen.\n\nThe world is cool statement paper (light) and a night statement (dark), both first-class. Ink does almost all the work; one bank-stamp blue marks what can be acted on, selected or focused, and nothing else. Every amount, quantity and date sits in a condensed monospace figure face, right-aligned, so columns line up the way they do on a printed Auszug. Density is that of a statement: generous row height (56px) for touch, little decoration, no cards stacked inside cards, no shadows on content.\n\nIt deliberately refuses the category default: navy card stacks (total card, donut card, chart card), neon trading-terminal energy, and alarm-coloured P/L. Gains and losses are information, carried by sign and arrow first and colour second.",
+    "keyCharacteristics": [
+      "Statement sheets with hairline rows; totals over a 3px double rule.",
+      "Martian Mono at 80% width for every figure; Golos Text for every word.",
+      "One accent (bank-stamp blue) for action, selection and focus only.",
+      "Gain/loss always signed; quantity deltas never coloured.",
+      "Flat: depth comes from ground-vs-sheet tone and hairlines, not shadows.",
+      "One authored motion moment: the highlighter pass over a freshly booked line."
+    ],
+    "rules": [
+      {
+        "name": "The Sign-First Rule",
+        "body": "Every gain/loss figure carries an explicit sign (+ or the true minus −) and, on headline changes, an up/down arrow plus screen-reader word; colour is the third signal, never the only one. Changes under 0.05% render flat in ink-secondary, never as a green \"+0.0 %\".",
+        "section": "colors"
+      },
+      {
+        "name": "The Uncoloured Quantity Rule",
+        "body": "Quantity deltas in booking lines (+0.5 BTC, −120 SOL) are signed but stay ink. A transfer in is not a gain; only value changes get gain/loss colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Stamp Rule",
+        "body": "Bank-stamp blue means \"you can act here, or this is selected/focused\". It is never a background panel, a decorative stroke, or a chart line.",
+        "section": "colors"
+      },
+      {
+        "name": "The Print Ink Rule",
+        "body": "Data series use print inks (blue, petrol, ochre, aubergine, slate); never green or red, so allocation never reads as performance.",
+        "section": "colors"
+      },
+      {
+        "name": "The Figures Rule",
+        "body": "Every amount, quantity, percentage and date column is set in the figure face: Martian Mono, 80% width, tabular and slashed-zero numerals, -0.01em, no wrapping, right-aligned in the value column. Words are never set in the figure face.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "Buttons, tabs, segments, list headers and card subtitles are sentence case with no added tracking; Ionic's uppercase defaults are switched off.",
+        "section": "typography"
+      },
+      {
+        "name": "The Paper-On-Desk Rule",
+        "body": "A sheet is distinguished from the ground by tone and a hairline border, nothing else. If something needs to feel \"above\", it is a modal.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do build every list of money or quantities as a statement: sheet, hairline rows, right-aligned figures, and a Summenstrich total when the rows sum.",
+      "Do set every figure in Martian Mono at 80% width with tabular, slashed-zero numerals; set every word in Golos Text.",
+      "Do sign every gain/loss (+ / −) and add an arrow and sr-only word on headline changes; render sub-0.05% moves as flat ink-secondary.",
+      "Do keep quantity deltas uncoloured; colour only value changes.",
+      "Do reserve bank-stamp blue for action, selection and focus; use the print-ink series for data.",
+      "Do keep every interactive target at 44px or more and let labels wrap in all six locales.",
+      "Do separate surfaces with tone and 1px hairlines; use modals for anything layered.",
+      "Do put \"add\" actions in the empty state and the Quellen header, never as floating chrome on the overview."
+    ],
+    "donts": [
+      "Don't build navy card stacks (total card, donut card, chart card) or cards inside cards.",
+      "Don't add trading-terminal energy: neon, glowing charts, tickers, or red/green alarm panels.",
+      "Don't use colour as the only gain/loss signal, or green/red in allocation series.",
+      "Don't put shadows on content surfaces, headers, buttons or cards.",
+      "Don't add coloured side-border stripes to notices or rows.",
+      "Don't use uppercase, tracked-out labels or small caps above titles; labels are sentence case.",
+      "Don't add motion beyond the fresh-line highlight, the busy-mark pulse and the short page transition."
+    ]
+  }
+}

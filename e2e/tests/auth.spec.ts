@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { input, PASSWORD, register, uniqueEmail } from './helpers'
+import { input, openSettings, PASSWORD, register, uniqueEmail } from './helpers'
 
 test('leitet ohne Anmeldung auf /login um', async ({ page }) => {
   await page.goto('/tabs/dashboard')
@@ -11,7 +11,7 @@ test('Registrierung führt direkt ins Dashboard', async ({ page }) => {
   await register(page, email)
 
   await expect(page).toHaveURL(/\/tabs\/dashboard/)
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await expect(page.getByTestId('settings-email')).toHaveText(email)
 })
 
@@ -26,7 +26,7 @@ test('Registrierung mit zu kurzem Passwort zeigt Fehler', async ({ page }) => {
 test('Login mit falschem Passwort zeigt generischen Fehler', async ({ page }) => {
   const email = uniqueEmail('wrongpw')
   await register(page, email)
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await page.getByTestId('logout-button').click()
   await page.waitForURL('**/login')
 
@@ -40,7 +40,7 @@ test('Logout und erneuter Login funktionieren', async ({ page }) => {
   const email = uniqueEmail('relogin')
   await register(page, email)
 
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await page.getByTestId('logout-button').click()
   await page.waitForURL('**/login')
 
@@ -58,7 +58,7 @@ test('Logout und erneuter Login funktionieren', async ({ page }) => {
 test('Passwort vergessen: Anfrage zeigt neutrale Bestätigung', async ({ page }) => {
   const email = uniqueEmail('forgot')
   await register(page, email)
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await page.getByTestId('logout-button').click()
   await page.waitForURL('**/login')
 
@@ -86,7 +86,7 @@ test('Konto löschen: entfernt Konto, Login danach unmöglich', async ({ page })
   const email = uniqueEmail('delete')
   await register(page, email)
 
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await page.getByTestId('delete-account-button').click()
   // Confirmation dialog → click the destructive button in the alert
   await page.locator('ion-alert').getByRole('button', { name: 'Konto löschen' }).click()
@@ -105,6 +105,6 @@ test('Session überlebt einen Seiten-Reload', async ({ page }) => {
 
   await page.reload()
   await expect(page).toHaveURL(/\/tabs\/dashboard/)
-  await page.getByRole('tab', { name: 'Einstellungen' }).click()
+  await openSettings(page)
   await expect(page.getByTestId('settings-email')).toHaveText(email)
 })

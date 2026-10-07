@@ -5,6 +5,12 @@ import fr from './locales/fr'
 import pl from './locales/pl'
 import cs from './locales/cs'
 import ru from './locales/ru'
+import uiDe from './ui/de'
+import uiEn from './ui/en'
+import uiFr from './ui/fr'
+import uiPl from './ui/pl'
+import uiCs from './ui/cs'
+import uiRu from './ui/ru'
 import { getStored, setStored } from '../services/storage'
 
 export const SUPPORTED_LOCALES = [
@@ -36,7 +42,14 @@ export const i18n = createI18n({
   globalInjection: true,
   locale: detectLocale(),
   fallbackLocale: 'en',
-  messages: { de, en, fr, pl, cs, ru },
+  messages: {
+    de: { ...de, ui: uiDe },
+    en: { ...en, ui: uiEn },
+    fr: { ...fr, ui: uiFr },
+    pl: { ...pl, ui: uiPl },
+    cs: { ...cs, ui: uiCs },
+    ru: { ...ru, ui: uiRu },
+  },
 })
 
 // For use outside of <script setup> (alerts, services)

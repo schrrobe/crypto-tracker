@@ -11,8 +11,14 @@
       </ion-toolbar>
     </ion-header>
     <ion-content class="ion-padding">
+      <!-- What this path needs and what it can never do -->
+      <p class="notice notice--info trust" data-testid="source-trust-note">
+        <ion-icon :icon="shieldCheckmarkOutline" aria-hidden="true" />
+        <span>{{ $t(`ui.add.${typeKey}.body`) }}</span>
+      </p>
+
       <!-- Step 1: Type -->
-      <ion-segment :value="type" @ionChange="type = $event.detail.value as SourceKind">
+      <ion-segment :value="type" :aria-label="$t('ui.add.title')" @ionChange="type = $event.detail.value as SourceKind">
         <ion-segment-button value="EXCHANGE" data-testid="source-type-exchange">
           <ion-label>{{ $t('sources.typeExchange') }}</ion-label>
         </ion-segment-button>
@@ -149,16 +155,18 @@
       </ion-text>
 
       <!-- Coverage/double-counting note + optionally an exchange-specific staking note -->
-      <ion-text v-if="type === 'EXCHANGE'" color="warning">
-        <p class="hint" data-testid="coverage-hint">⚠ {{ $t('sources.coverageHint') }}</p>
-        <p v-if="stakingNoteKey" class="hint" data-testid="staking-note">
-          {{ $t(stakingNoteKey) }}
-        </p>
-      </ion-text>
+      <div v-if="type === 'EXCHANGE'" class="notice coverage" role="note">
+        <ion-icon :icon="alertCircleOutline" aria-hidden="true" />
+        <div>
+          <p data-testid="coverage-hint">{{ $t('sources.coverageHint') }}</p>
+          <p v-if="stakingNoteKey" class="staking" data-testid="staking-note">{{ $t(stakingNoteKey) }}</p>
+        </div>
+      </div>
 
-      <ion-text v-if="error" color="danger">
-        <p class="error" data-testid="source-error">{{ error }}</p>
-      </ion-text>
+      <p v-if="error" class="notice notice--error form-error" role="alert" data-testid="source-error">
+        <ion-icon :icon="closeCircleOutline" aria-hidden="true" />
+        <span>{{ error }}</span>
+      </p>
 
       <ion-button
         expand="block"
@@ -182,6 +190,7 @@ import {
   IonButtons,
   IonContent,
   IonHeader,
+  IonIcon,
   IonInput,
   IonItem,
   IonLabel,
@@ -198,6 +207,7 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
+import { alertCircleOutline, closeCircleOutline, shieldCheckmarkOutline } from 'ionicons/icons'
 import { computed, ref, watch } from 'vue'
 import {
   EXCHANGE_PROVIDERS,
@@ -229,12 +239,22 @@ const GUIDE_URLS: Record<string, string> = {
 }
 
 
-const props = defineProps<{ isOpen: boolean }>()
+const props = withDefaults(defineProps<{ isOpen: boolean; initialType?: SourceKind }>(), {
+  initialType: 'EXCHANGE',
+})
 const emit = defineEmits<{ close: []; created: [] }>()
 
 const sourcesStore = useSourcesStore()
 
-const type = ref<SourceKind>('EXCHANGE')
+const type = ref<SourceKind>(props.initialType)
+const typeKey = computed(() => ({ EXCHANGE: 'exchange', WALLET: 'wallet', MANUAL: 'manual' })[type.value])
+// Each entry point (exchange / wallet / manual) opens on its own path
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (open) type.value = props.initialType
+  },
+)
 const exchangeProvider = ref<(typeof EXCHANGE_PROVIDERS)[number]>('KRAKEN')
 const walletProvider = ref<(typeof WALLET_PROVIDERS)[number]>('BITCOIN')
 const label = ref('')
@@ -345,10 +365,37 @@ async function save() {
 </script>
 
 <style scoped>
-.hint,
-.error {
+.hint {
   margin: 8px 16px;
-  font-size: 0.9em;
+  font-size: var(--app-text-sm);
+}
+.trust {
+  margin: 0 0 var(--app-space-4);
+}
+.trust ion-icon,
+.coverage ion-icon,
+.form-error ion-icon {
+  flex: none;
+  font-size: 1.125rem;
+  margin-top: 1px;
+}
+.trust ion-icon {
+  color: var(--app-accent);
+}
+.coverage {
+  margin: var(--app-space-4) 0;
+}
+.coverage ion-icon {
+  color: var(--app-warn);
+}
+.coverage .staking {
+  margin-top: var(--app-space-2);
+}
+.form-error {
+  margin: var(--app-space-4) 0;
+}
+.form-error ion-icon {
+  color: var(--app-loss);
 }
 .guide {
   padding: 0 16px 12px;

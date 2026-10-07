@@ -1,14 +1,21 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-back-button default-href="/tabs/sources" />
-        </ion-buttons>
-        <ion-title>{{ $t('transactions.title') }}</ion-title>
-      </ion-toolbar>
-    </ion-header>
+    <AppTopBar :title="$t('transactions.title')" back-href="/tabs/sources" :show-switcher="false" :show-profile="false">
+      <template #end>
+        <ion-button
+          data-testid="add-transaction"
+          :aria-label="$t('transactions.addTitle')"
+          :title="$t('transactions.addTitle')"
+          @click="openCreate"
+        >
+          <ion-icon slot="icon-only" :icon="addOutline" aria-hidden="true" />
+        </ion-button>
+      </template>
+    </AppTopBar>
     <ion-content :fullscreen="true">
+      <!-- Stable wrapper: Ionic moves presented inline modals to the app root, so the
+           modals below must never be the insertion anchor for the v-if chain -->
+      <div class="tx-body">
       <PortfolioSwitcher variant="banner" @switched="onPortfolioSwitched" />
       <ion-chip v-if="filterLabel" data-testid="tx-source-filter" @click="clearFilter">
         {{ $t('transactions.filteredBySource', { source: filterLabel }) }}
@@ -44,55 +51,61 @@
               </ion-badge>
             </h3>
             <p>
-              {{ formatQuantity(tx.quantity) }}
-              <template v-if="tx.pricePerUnit"> · {{ tx.pricePerUnit }} {{ tx.currency ?? '' }}</template>
-              · {{ formatDate(tx.timestamp) }}
+              <span class="fig">{{ formatQuantity(tx.quantity) }} {{ tx.asset.symbol }}</span>
+              <template v-if="tx.pricePerUnit"> · <span class="fig">{{ tx.pricePerUnit }} {{ tx.currency ?? '' }}</span></template>
+              · <span class="fig">{{ formatDate(tx.timestamp) }}</span>
             </p>
             <p>{{ tx.sourceLabel }}</p>
           </ion-label>
           <ion-buttons slot="end">
             <ion-button
               v-if="isLinkable(tx)"
+              :aria-label="`${$t('ui.tx.link')}: ${tx.asset.symbol}`"
               :data-testid="`tx-link-${tx.asset.symbol}`"
               @click="openLink(tx)"
             >
-              <ion-icon :icon="gitMergeOutline" slot="icon-only" />
+              <ion-icon :icon="gitMergeOutline" slot="icon-only" aria-hidden="true" />
             </ion-button>
             <ion-button
               v-if="tx.transferLink"
+              :aria-label="`${$t('ui.tx.unlink')}: ${tx.asset.symbol}`"
               :data-testid="`tx-unlink-${tx.asset.symbol}`"
               @click="confirmUnlink(tx)"
             >
-              <ion-icon :icon="unlinkOutline" slot="icon-only" />
+              <ion-icon :icon="unlinkOutline" slot="icon-only" aria-hidden="true" />
             </ion-button>
             <ion-button
               v-if="isSwapLinkable(tx)"
+              :aria-label="`${$t('ui.tx.swap')}: ${tx.asset.symbol}`"
               :data-testid="`tx-swap-link-${tx.asset.symbol}`"
               @click="openSwap(tx)"
             >
-              <ion-icon :icon="swapHorizontalOutline" slot="icon-only" />
+              <ion-icon :icon="swapHorizontalOutline" slot="icon-only" aria-hidden="true" />
             </ion-button>
             <ion-button
               v-if="tx.swapLink"
+              :aria-label="`${$t('ui.tx.unlinkSwap')}: ${tx.asset.symbol}`"
               :data-testid="`tx-swap-unlink-${tx.asset.symbol}`"
               @click="confirmUnlinkSwap(tx)"
             >
-              <ion-icon :icon="unlinkOutline" slot="icon-only" />
+              <ion-icon :icon="unlinkOutline" slot="icon-only" aria-hidden="true" />
             </ion-button>
             <ion-button
               v-if="tx.editable"
+              :aria-label="`${$t('common.edit')}: ${tx.asset.symbol}`"
               :data-testid="`tx-edit-${tx.asset.symbol}`"
               @click="openEdit(tx)"
             >
-              <ion-icon :icon="createOutline" slot="icon-only" />
+              <ion-icon :icon="createOutline" slot="icon-only" aria-hidden="true" />
             </ion-button>
             <ion-button
               v-if="tx.editable"
               color="danger"
+              :aria-label="`${$t('common.delete')}: ${tx.asset.symbol}`"
               :data-testid="`tx-delete-${tx.asset.symbol}`"
               @click="confirmDelete(tx)"
             >
-              <ion-icon :icon="trashOutline" slot="icon-only" />
+              <ion-icon :icon="trashOutline" slot="icon-only" aria-hidden="true" />
             </ion-button>
           </ion-buttons>
         </ion-item>
@@ -104,12 +117,7 @@
           {{ $t('transactions.addTitle') }}
         </ion-button>
       </div>
-
-      <ion-fab slot="fixed" vertical="bottom" horizontal="end">
-        <ion-fab-button data-testid="add-transaction" @click="openCreate">
-          <ion-icon :icon="addOutline" />
-        </ion-fab-button>
-      </ion-fab>
+      </div>
 
       <TransactionFormModal
         :is-open="modalOpen"
@@ -134,24 +142,19 @@
 </template>
 
 <script setup lang="ts">
+import AppTopBar from '../../components/AppTopBar.vue'
 import {
   alertController,
-  IonBackButton,
   IonBadge,
   IonButton,
   IonButtons,
   IonChip,
   IonContent,
-  IonFab,
-  IonFabButton,
-  IonHeader,
   IonIcon,
   IonItem,
   IonLabel,
   IonList,
   IonPage,
-  IonTitle,
-  IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
 import {

@@ -47,7 +47,7 @@ const fr: MessageSchema = {
     resetFailed: "Le mot de passe n'a pas pu être modifié",
   },
   tabs: {
-    dashboard: 'Tableau de bord',
+    dashboard: 'Aperçu',
     holdings: 'Avoirs',
     market: 'Marché',
     sources: 'Sources',

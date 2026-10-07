@@ -13,7 +13,7 @@
       :role="style(a).role"
       data-testid="announcement"
     >
-      <span class="icon" aria-hidden="true">{{ style(a).icon }}</span>
+      <ion-icon class="icon" :icon="a.level === 'ERROR' ? alertCircle : informationCircle" aria-hidden="true" />
       <span class="label">{{ $t(style(a).labelKey) }}</span>
       <span class="msg">{{ message(a) }}</span>
       <button
@@ -23,7 +23,7 @@
         data-testid="announcement-dismiss"
         @click="store.dismiss(a)"
       >
-        <span aria-hidden="true">✕</span>
+        <ion-icon :icon="close" aria-hidden="true" />
       </button>
     </div>
   </div>
@@ -31,6 +31,8 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
+import { IonIcon } from '@ionic/vue'
+import { alertCircle, close, informationCircle } from 'ionicons/icons'
 import {
   ANNOUNCEMENT_LEVEL_STYLE,
   resolveAnnouncementMessage,
@@ -99,22 +101,20 @@ onBeforeUnmount(() => {
   line-height: 1.3;
 }
 .announcement.is-error {
-  background: #c0392b;
-  color: #fff;
+  background: var(--app-loss);
+  color: var(--app-sheet);
 }
 .announcement.is-info {
-  background: #2d6cdf;
-  color: #fff;
+  background: var(--app-ink);
+  color: var(--app-ground);
 }
 .icon {
-  font-size: 16px;
+  font-size: 18px;
   flex: none;
 }
 .label {
   font-weight: 700;
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: var(--app-text-xs);
   flex: none;
 }
 .msg {
@@ -136,7 +136,7 @@ onBeforeUnmount(() => {
   background: none;
   border: none;
   color: inherit;
-  font-size: 16px;
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
 }

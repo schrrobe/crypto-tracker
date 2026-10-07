@@ -1,13 +1,6 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-back-button default-href="/tabs/sources" text="" />
-        </ion-buttons>
-        <ion-title>{{ $t('imports.title') }}</ion-title>
-      </ion-toolbar>
-    </ion-header>
+    <AppTopBar :title="$t('imports.title')" back-href="/tabs/sources" :show-switcher="false" :show-profile="false" :show-privacy="false" />
     <ion-content :fullscreen="true">
       <PortfolioSwitcher variant="banner" @switched="loadData" />
       <LoadingSkeleton v-if="pageLoading && importsStore.imports.length === 0" />
@@ -56,21 +49,18 @@
 </template>
 
 <script setup lang="ts">
+import AppTopBar from '../../../components/AppTopBar.vue'
 import {
   alertController,
-  IonBackButton,
   IonBadge,
   IonButton,
   IonButtons,
   IonContent,
-  IonHeader,
   IonIcon,
   IonItem,
   IonLabel,
   IonList,
   IonPage,
-  IonTitle,
-  IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
 import { listOutline, trashOutline } from 'ionicons/icons'

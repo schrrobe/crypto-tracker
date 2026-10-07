@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { input, register, uniqueEmail } from './helpers'
+import { grantAdmin, input, register, uniqueEmail } from './helpers'
 
 // Fake prices: BTC 50.000 € · SOL 100 € · fookoin 2 €
 
@@ -40,7 +40,7 @@ test('CSV-Transaktions-Import: Typen/Daten validiert, Netto-Bestände berechnet'
   await page.getByRole('tab', { name: 'Bestände' }).click()
   await expect(page.getByTestId('holding-BTC')).toContainText('0,6 BTC')
   await expect(page.getByTestId('holding-SOL')).toContainText('10 SOL')
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/31\.000,00\s€/u)
 })
 
@@ -61,7 +61,7 @@ test('Allocation-Donut zeigt Anteile der Top-Positionen', async ({ page }) => {
     await expect(page.getByTestId(`holding-${symbol}`)).toBeVisible()
   }
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  // Allocation lives on the holdings tab, above the per-account statements
   const donut = page.getByTestId('allocation-donut')
   await expect(donut).toBeVisible()
   // de-DE: decimal comma
@@ -70,7 +70,10 @@ test('Allocation-Donut zeigt Anteile der Top-Positionen', async ({ page }) => {
 })
 
 test('manuelles Preis-Mapping über die CoinGecko-Suche', async ({ page }) => {
-  await register(page, uniqueEmail('mapping'))
+  // Global asset mapping is admin-only (#18)
+  const email = uniqueEmail('mapping')
+  await register(page, email)
+  await grantAdmin(page, email)
 
   // Asset mappings are global and the E2E DB persists across runs —
   // hence a run-unique symbol (the echo fake returns a unique ID for it)
@@ -91,13 +94,14 @@ test('manuelles Preis-Mapping über die CoinGecko-Suche', async ({ page }) => {
   await page.getByTestId('toggle-unpriced').click()
   await expect(page.getByTestId(`holding-${symbol}`)).toBeVisible()
 
-  // Mapping: search is pre-filled with the symbol → pick the echo match
+  // Mapping (asset detail): search is pre-filled with the symbol → pick the echo match
+  await page.getByTestId(`holding-${symbol}`).click()
   await page.getByTestId(`holding-map-${symbol}`).click()
   await page.getByTestId(`coingecko-option-${symbol.toLowerCase()}-coin`).click()
   await page.getByTestId('mapping-save').click()
 
   // Now priced with the fake default 1 €: 5 × 1 € = 5 €
-  await expect(page.getByTestId(`holding-${symbol}`)).toContainText('5,00')
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await expect(page.getByTestId('asset-total-value')).toContainText('5,00')
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
   await expect(page.getByTestId('total-value')).toHaveText(/5,00\s€/u)
 })

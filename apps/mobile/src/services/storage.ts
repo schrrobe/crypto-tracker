@@ -19,6 +19,7 @@ export type StorageKey =
   | 'language'
   | 'theme-preference'
   | 'balances-hidden'
+  | 'movements-seen-at'
   | 'dismissed-announcements'
 
 const ALL_KEYS: StorageKey[] = [
@@ -28,6 +29,7 @@ const ALL_KEYS: StorageKey[] = [
   'language',
   'theme-preference',
   'balances-hidden',
+  'movements-seen-at',
   'dismissed-announcements',
 ]
 
